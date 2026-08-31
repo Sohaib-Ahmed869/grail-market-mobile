@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type Vi
 import { Txt } from "./Text";
 import { colors, radius, space, type } from "../theme";
 
-type Kind = "primary" | "secondary" | "ghost";
+type Kind = "primary" | "secondary" | "ghost" | "accent" | "ghostLight";
 
 export function Button({
   label, onPress, kind = "primary", disabled, loading, icon, style, full = true,
@@ -31,6 +31,8 @@ export function Button({
         kind === "primary" && s.primary,
         kind === "secondary" && s.secondary,
         kind === "ghost" && s.ghost,
+        kind === "accent" && s.accent,
+        kind === "ghostLight" && s.ghost,
         pressed && !off && s.pressed,
         off && s.off,
         style,
@@ -43,7 +45,12 @@ export function Button({
           {icon}
           <Txt
             variant="button"
-            color={kind === "primary" ? colors.onPrimary : colors.ink}
+            color={
+              kind === "primary" ? colors.onPrimary
+              : kind === "accent" ? colors.onAccent
+              : kind === "ghostLight" ? colors.onDark
+              : colors.ink
+            }
             style={icon ? { marginLeft: space.sm } : undefined}
           >
             {label}
@@ -63,6 +70,9 @@ const s = StyleSheet.create({
   primary: { backgroundColor: colors.ink },
   secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.lineStrong },
   ghost: { backgroundColor: "transparent" },
+  // gold is the loudest thing on the page, so it carries navy text: white on
+  // gold falls under 3:1 and stops being readable in sunlight
+  accent: { backgroundColor: colors.accent },
   pressed: { opacity: 0.86, transform: [{ scale: 0.994 }] },
   off: { opacity: 0.45 },
 });
