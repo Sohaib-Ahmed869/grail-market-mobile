@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
@@ -8,6 +8,7 @@ import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Note } from "../components/Note";
 import { colors, radius, space } from "../theme";
+import { isClean, validateSignUp, type SignUpForm } from "../lib/validate";
 
 /** Create account.
  *
@@ -17,16 +18,35 @@ import { colors, radius, space } from "../theme";
  *  someone after they have photographed a licence. */
 export default function SignUp() {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "" });
-  const set = (k: keyof typeof form) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const ready = form.name.trim().length > 1 && form.email.includes("@") && form.phone.length >= 8 && form.password.length >= 8;
+  const [form, setForm] = useState<SignUpForm>({
+    name: "", email: "", phone: "", password: "", confirm: "",
+  });
+  // A field is only marked wrong once the user has left it. Validating while
+  // someone is still typing tells them their email is invalid at "a@", which
+  // is true and useless, and it trains people to ignore the red.
+  const [touched, setTouched] = useState<Partial<Record<keyof SignUpForm, boolean>>>({});
+
+  const errors = useMemo(() => validateSignUp(form), [form]);
+  const ready = isClean(errors);
+  const set = (k: keyof SignUpForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const blur = (k: keyof SignUpForm) => () => setTouched((t) => ({ ...t, [k]: true }));
+  const err = (k: keyof SignUpForm) => (touched[k] ? errors[k] ?? undefined : undefined);
+
+  const submit = () => {
+    if (!ready) {
+      // show everything that is wrong at once rather than one field at a time
+      setTouched({ name: true, email: true, phone: true, password: true, confirm: true });
+      return;
+    }
+    router.push("/sms");
+  };
 
   return (
     <Screen
       back
       footer={
         <>
-          <Button label="Continue" disabled={!ready} onPress={() => router.push("/sms")} />
+          <Button label="Continue" onPress={submit} />
           <Txt variant="bodySmall" color={colors.inkFaint} center style={{ paddingHorizontal: space.md }}>
             By continuing you agree to the Terms and the Marketplace Conduct Rules.
           </Txt>
@@ -53,22 +73,34 @@ export default function SignUp() {
         <View style={s.form}>
           <Field
             label="Full name — as it appears on your ID"
-            value={form.name} onChangeText={set("name")}
+            value={form.name} onChangeText={set("name")} onBlur={blur("name")}
+            error={err("name")}
             autoCapitalize="words" autoComplete="name" textContentType="name"
             placeholder="Alex Barakat"
           />
           <Field
-            label="Email" value={form.email} onChangeText={set("email")}
+            label="Email" value={form.email} onChangeText={set("email")} onBlur={blur("email")}
+            error={err("email")}
             keyboardType="email-address" autoCapitalize="none" autoComplete="email"
-            placeholder="alex@example.com.au"
+            textContentType="emailAddress" placeholder="alex@example.com.au"
           />
           <Field
-            label="Mobile number" value={form.phone} onChangeText={set("phone")}
-            keyboardType="phone-pad" autoComplete="tel" placeholder="0412 884 019"
+            label="Mobile number" value={form.phone} onChangeText={set("phone")} onBlur={blur("phone")}
+            error={err("phone")}
+            keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"
+            placeholder="0412 884 019"
           />
           <Field
-            label="Password" value={form.password} onChangeText={set("password")}
-            secure autoComplete="new-password" placeholder="At least 8 characters"
+            label="Password" value={form.password} onChangeText={set("password")} onBlur={blur("password")}
+            error={err("password")} hint="At least 10 characters."
+            secure autoComplete="new-password" textContentType="newPassword"
+            placeholder="At least 10 characters"
+          />
+          <Field
+            label="Confirm password" value={form.confirm} onChangeText={set("confirm")} onBlur={blur("confirm")}
+            error={err("confirm")}
+            secure autoComplete="new-password" textContentType="newPassword"
+            placeholder="Type it again"
           />
         </View>
 
