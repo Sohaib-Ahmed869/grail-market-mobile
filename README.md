@@ -79,6 +79,11 @@ swapping to Twilio Verify later is one file.
 npx expo run:ios      # or run:android
 ```
 
+Config lives in `app.config.ts`, not `app.json`, so the Firebase pieces are
+only added when the two files below actually exist. Without them the app runs
+normally and phone verification reports itself unavailable — nothing fails to
+build over a file the repo deliberately does not ship.
+
 ### What has to exist before it works
 
 1. A Firebase project with **Phone** enabled under Authentication → Sign-in method.
