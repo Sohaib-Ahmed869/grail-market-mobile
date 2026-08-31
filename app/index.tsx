@@ -1,67 +1,136 @@
-import { useEffect, useRef } from "react";
-import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
+import { useEffect } from "react";
+import { StyleSheet, View, useWindowDimensions } from "react-native";
+import Animated, {
+  Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming,
+  type SharedValue,
+} from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { AppIcon, Lockup } from "../components/Brand";
+import { Bloom } from "../components/Bloom";
+import { GlassCard } from "../components/GlassCard";
+import { Mark, Lockup } from "../components/Brand";
+import { Txt } from "../components/Text";
 import { colors, space } from "../theme";
 
-const HOLD_MS = 1500;
-// react-native-web has no native animation driver.
-const NATIVE = Platform.OS !== "web";
+// The beats, in milliseconds from the top. Kept in one place because the
+// sequence is the design here — read down the list and you have the animation.
+const T = {
+  card: 0,        // the glass fades and settles
+  reveal: 340,    // the mark is wiped in behind it
+  lift: 1120,     // the card rises, making room
+  word: 1240,     // wordmark and line follow it up
+  leave: 2500,    // on to the welcome screen
+};
+const MARK = 76;
 
 /** Splash.
  *
- *  The second one the user sees. The first is drawn by the OS from app.json
- *  before any JavaScript exists; it shows the same mark on the same navy, so
- *  the handover is invisible and the app appears to hold a single screen while
- *  it starts rather than flashing twice.
+ *  Four beats, borrowed from the Lovi shot: glass settles, mark reveals
+ *  inside it, card lifts, wordmark rises underneath. The reference draws its
+ *  logo as a line; ours is a filled mark, so the equivalent is a wipe with a
+ *  lit edge riding the boundary — the same read of something being drawn
+ *  rather than switched on.
  *
- *  Nothing here fades in from nothing. The mark is at full opacity on the
- *  first frame and the animation only settles it — a brand screen that depends
- *  on an animation completing in order to show the brand has a failure mode
- *  where the user stares at an empty navy rectangle, and that is a poor trade
- *  for a fade nobody asked for. Motion is polish, never the thing carrying
- *  visibility. */
+ *  The OS paints its own splash from app.json before any of this exists, so
+ *  the first frame here has to match it: same navy, same mark, same size. */
 export default function Splash() {
   const router = useRouter();
-  const settle = useRef(new Animated.Value(0)).current;
+  const { width, height } = useWindowDimensions();
+
+  const card = useSharedValue(0);
+  const wipe = useSharedValue(0);
+  const lift = useSharedValue(0);
+  const word = useSharedValue(0);
 
   useEffect(() => {
-    Animated.timing(settle, {
-      toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE,
-    }).start();
-    const t = setTimeout(() => router.replace("/welcome"), HOLD_MS);
+    const ease = Easing.bezier(0.22, 1, 0.36, 1);
+    card.value = withDelay(T.card, withTiming(1, { duration: 560, easing: ease }));
+    wipe.value = withDelay(T.reveal, withTiming(1, { duration: 720, easing: Easing.inOut(Easing.cubic) }));
+    lift.value = withDelay(T.lift, withTiming(1, { duration: 620, easing: ease }));
+    word.value = withDelay(T.word, withTiming(1, { duration: 560, easing: ease }));
+    const t = setTimeout(() => router.replace("/welcome"), T.leave);
     return () => clearTimeout(t);
-  }, [settle, router]);
+  }, [card, wipe, lift, word, router]);
 
-  const rise = settle.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
-  const grow = settle.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] });
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: card.value,
+    transform: [
+      { scale: interpolate(card.value, [0, 1], [0.86, 1]) },
+      { translateY: interpolate(lift.value, [0, 1], [0, -26]) },
+    ],
+  }));
+
+  // The mark never moves and is never scaled — a logo that stretches during
+  // its own reveal is the tell of a cheap one. Instead a clip grows upward
+  // from the baseline while the artwork stays pinned to the bottom, so the G
+  // is uncovered in place, the way ink arrives on paper.
+  const clipStyle = useAnimatedStyle(() => ({ height: wipe.value * MARK }));
+  const edgeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(wipe.value, [0, 0.06, 0.88, 1], [0, 1, 1, 0]),
+    transform: [{ translateY: interpolate(wipe.value, [0, 1], [MARK, 0]) }],
+  }));
+
+  const wordStyle = useAnimatedStyle(() => ({
+    opacity: word.value,
+    transform: [{ translateY: interpolate(word.value, [0, 1], [18, 0]) }],
+  }));
 
   return (
     <View style={s.root}>
-      {/* the navy is not flat: a slow lift behind the mark, dark at the edges */}
       <LinearGradient
-        colors={["#22303E", colors.dark, "#131D27"]}
-        locations={[0, 0.5, 1]}
+        colors={["#26364A", colors.dark, "#101922"]}
+        locations={[0, 0.55, 1]}
         style={StyleSheet.absoluteFill}
       />
+      {/* a warm bloom where the glass sits, so the gold has somewhere to come
+          from and the navy is not a flat sheet */}
+      <View style={[s.bloom, { width: width * 1.9, height: width * 1.9, top: height * 0.14 }]}>
+        <Bloom size={width * 1.9} color={colors.accent} opacity={0.30} />
+      </View>
+
       <View style={s.center}>
-        <Animated.View style={{ transform: [{ translateY: rise }, { scale: grow }] }}>
-          <AppIcon size={116} />
+        <Animated.View style={cardStyle}>
+          <GlassCard size={148}>
+            <View style={s.markWindow}>
+              <Animated.View style={[s.clip, clipStyle]}>
+                <View style={s.markHold}>
+                  <Mark size={MARK} onDark />
+                </View>
+              </Animated.View>
+              {/* a lit edge rides the boundary of the reveal */}
+              <Animated.View style={[s.edge, edgeStyle]} />
+            </View>
+          </GlassCard>
         </Animated.View>
-        <Animated.View style={[s.word, { transform: [{ translateY: rise }] }]}>
-          <Lockup width={188} onDark />
+
+        <Animated.View style={[s.word, wordStyle]}>
+          <Lockup width={182} onDark />
+          <Txt variant="bodySmall" color={colors.onDarkMuted} center style={s.tag}>
+            Premium collectibles. Trusted transactions.
+          </Txt>
         </Animated.View>
       </View>
-      <View style={s.rule} />
+
+      <Animated.View style={[s.rule, wordStyle]} />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.dark },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -space.xxxl },
-  word: { marginTop: space.xxl },
+  root: { flex: 1, width: "100%", backgroundColor: colors.dark, overflow: "hidden" },
+  bloom: { position: "absolute", alignSelf: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  markWindow: { width: MARK, height: MARK, overflow: "hidden", justifyContent: "flex-end" },
+  clip: { width: MARK, overflow: "hidden", justifyContent: "flex-end" },
+  markHold: { height: MARK, justifyContent: "flex-end" },
+  edge: {
+    position: "absolute", left: -6, right: -6, height: 2, borderRadius: 1,
+    backgroundColor: colors.accent,
+    shadowColor: colors.accent, shadowOpacity: 0.9, shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  word: { marginTop: space.xxl + space.sm, alignItems: "center" },
+  tag: { marginTop: space.md, letterSpacing: 0.2 },
   rule: {
     position: "absolute", bottom: 26, alignSelf: "center",
     width: 104, height: 4, borderRadius: 2, backgroundColor: colors.accent,

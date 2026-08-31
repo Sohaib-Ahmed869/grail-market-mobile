@@ -1,12 +1,17 @@
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import MarkSvg from "../assets/brand/mark.svg";
+import MarkWhiteSvg from "../assets/brand/mark-white.svg";
 import LockupDark from "../assets/brand/wordmark-dark.svg";
 import LockupLight from "../assets/brand/wordmark.svg";
 import { colors, radius, shadow } from "../theme";
 
-/** The G on its own, as vector. */
-export function Mark({ size = 40 }: { size?: number }) {
-  return <MarkSvg width={size} height={size} />;
+/** The G on its own, as vector.
+ *
+ *  `onDark` picks the white-G counterpart. The brand pack ships the mark only
+ *  in its light-ground form — navy G, gold cards — which vanishes on navy. */
+export function Mark({ size = 40, onDark = false }: { size?: number; onDark?: boolean }) {
+  const Svg = onDark ? MarkWhiteSvg : MarkSvg;
+  return <Svg width={size} height={size} />;
 }
 
 /** Mark + "GrailMarket". `onDark` picks the variant drawn for a dark ground. */
