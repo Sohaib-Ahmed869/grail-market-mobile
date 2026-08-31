@@ -1,70 +1,69 @@
 import { useEffect, useRef } from "react";
-import { Animated, Easing, StyleSheet, View, useWindowDimensions } from "react-native";
+import { Animated, Easing, Platform, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { BrandMark } from "../components/BrandMark";
-import { Wordmark } from "../components/Wordmark";
+import { useRouter } from "expo-router";
+import { AppIcon, Lockup } from "../components/Brand";
 import { colors, space } from "../theme";
+
+const HOLD_MS = 1500;
+// react-native-web has no native animation driver.
+const NATIVE = Platform.OS !== "web";
 
 /** Splash.
  *
- *  This is the second splash the user sees. The first is the native one the
- *  OS draws from app.json before any JavaScript exists; it shows the same mark
- *  on the same navy, so the handover is invisible and the app appears to hold
- *  one screen while it starts. */
+ *  The second one the user sees. The first is drawn by the OS from app.json
+ *  before any JavaScript exists; it shows the same mark on the same navy, so
+ *  the handover is invisible and the app appears to hold a single screen while
+ *  it starts rather than flashing twice.
+ *
+ *  Nothing here fades in from nothing. The mark is at full opacity on the
+ *  first frame and the animation only settles it — a brand screen that depends
+ *  on an animation completing in order to show the brand has a failure mode
+ *  where the user stares at an empty navy rectangle, and that is a poor trade
+ *  for a fade nobody asked for. Motion is polish, never the thing carrying
+ *  visibility. */
 export default function Splash() {
-  const { height } = useWindowDimensions();
-  const fade = useRef(new Animated.Value(0)).current;
-  const rise = useRef(new Animated.Value(14)).current;
+  const router = useRouter();
+  const settle = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fade, {
-        toValue: 1, duration: 520, easing: Easing.out(Easing.quad), useNativeDriver: true,
-      }),
-      Animated.timing(rise, {
-        toValue: 0, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: true,
-      }),
-    ]).start();
-  }, [fade, rise]);
+    Animated.timing(settle, {
+      toValue: 1, duration: 620, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE,
+    }).start();
+    const t = setTimeout(() => router.replace("/welcome"), HOLD_MS);
+    return () => clearTimeout(t);
+  }, [settle, router]);
+
+  const rise = settle.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
+  const grow = settle.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] });
 
   return (
     <View style={s.root}>
-      {/* barely there: a lift behind the mark so the navy is not flat */}
+      {/* the navy is not flat: a slow lift behind the mark, dark at the edges */}
       <LinearGradient
-        colors={["#16263A", colors.background, "#0B1521"]}
-        locations={[0, 0.52, 1]}
+        colors={["#22303E", colors.dark, "#131D27"]}
+        locations={[0, 0.5, 1]}
         style={StyleSheet.absoluteFill}
       />
-      <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
-        <Animated.View
-          style={[
-            s.center,
-            { opacity: fade, transform: [{ translateY: rise }], marginTop: -height * 0.06 },
-          ]}
-        >
-          <BrandMark size={132} />
-          <Wordmark size={26} style={s.word} />
+      <View style={s.center}>
+        <Animated.View style={{ transform: [{ translateY: rise }, { scale: grow }] }}>
+          <AppIcon size={116} />
         </Animated.View>
-
-        {/* the gold rule the design puts at the foot of the screen */}
-        <Animated.View style={[s.rule, { opacity: fade }]} />
-      </SafeAreaView>
+        <Animated.View style={[s.word, { transform: [{ translateY: rise }] }]}>
+          <Lockup width={188} onDark />
+        </Animated.View>
+      </View>
+      <View style={s.rule} />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
-  safe: { flex: 1, alignItems: "center", justifyContent: "center" },
-  center: { alignItems: "center" },
-  word: { marginTop: space.xl },
+  root: { flex: 1, backgroundColor: colors.dark },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", marginTop: -space.xxxl },
+  word: { marginTop: space.xxl },
   rule: {
-    position: "absolute",
-    bottom: space.md,
-    width: 118,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
+    position: "absolute", bottom: 26, alignSelf: "center",
+    width: 104, height: 4, borderRadius: 2, backgroundColor: colors.accent,
   },
 });

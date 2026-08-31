@@ -4,13 +4,10 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import {
-  Poppins_600SemiBold,
-  Poppins_700Bold,
-} from "@expo-google-fonts/poppins";
-import {
   Inter_400Regular,
   Inter_500Medium,
   Inter_600SemiBold,
+  Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import { colors } from "../theme";
 
@@ -21,11 +18,10 @@ SplashScreen.setOptions({ duration: 300, fade: true });
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_700Bold,
     Inter_400Regular,
     Inter_500Medium,
     Inter_600SemiBold,
+    Inter_700Bold,
   });
 
   // A font that will not load must not cost the user the app. We show the UI
@@ -44,11 +40,11 @@ export default function RootLayout() {
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.background },
+          contentStyle: { backgroundColor: colors.surface },
           animation: "fade",
         }}
       >
-        <Stack.Screen name="index" />
+        <Stack.Screen name="index" options={{ animation: "none" }} />
       </Stack>
     </>
   );

@@ -1,46 +1,46 @@
-// The palette, taken from the GrailMarket brand sheet.
-//
-// Two colour directions exist in the supplied assets and they do not agree:
-// this one (Navy + Gold), which the brand sheet, the app icon, the splash
-// screen and all 44 wireframe screens use, and "Harbour" (a pale marine
-// ground, #EDF3F8 / #1E5A7C), which is direction 2 of 5 and still marked "for
-// review". Navy is what every finished artefact actually shows, so it is what
-// is built here.
-//
-// If Harbour wins, this file is the only thing that changes — nothing else
-// names a hex value.
+// GrailMarket_Brand_Assets_v1/brand_tokens.json is the source of truth. It
+// supersedes the earlier brand sheet, which had slightly different values
+// (#0F1B2A / #C8A868) and named Poppins — the approved pack is Inter.
 export const palette = {
-  navy: "#0F1B2A",
-  gold: "#C8A868",
+  navy: "#1A2632",
+  gold: "#A88D60",
   white: "#FFFFFF",
   lightGray: "#F2F4F7",
 } as const;
 
+// The app runs light. Navy is the ink and the action; only the splash and the
+// hero band are dark. Gold is an accent — it marks the one thing on a screen
+// worth the eye, and stops meaning anything if it marks four.
 export const colors = {
-  // surfaces
-  background: palette.navy,
-  surface: "#162436",
-  surfaceRaised: "#1A2A3D",
-  border: "#24374D",
+  ground: palette.lightGray,       // behind everything
+  surface: palette.white,          // cards, sheets, fields
+  surfaceSunk: "#F7F9FB",          // wells inside a surface
 
-  // text
-  text: palette.white,
-  textMuted: "#93A3B5",
-  textFaint: "#5E7189",
-  onGold: palette.navy,
+  ink: palette.navy,               // headings, primary text
+  inkMuted: "#5A6875",             // body and secondary
+  inkFaint: "#8D99A6",             // captions, placeholders
+  line: "#E3E8ED",                 // hairlines and field borders
+  lineStrong: "#D2DAE2",
 
-  // brand
   accent: palette.gold,
-  accentMuted: "#8C7444",
+  accentWash: "#FBF7F0",           // the cream panel behind a gold moment
+  accentLine: "#EADFCB",
 
-  // meaning. A price that falls is information, not a fault, so "down" is
-  // closer to brick than to alarm red.
+  // dark surfaces: splash, hero bands, primary buttons
+  dark: palette.navy,
+  darkRaised: "#22303E",
+  onDark: palette.white,
+  onDarkMuted: "#9FB0C0",
+
+  // meaning. A falling price is information, not a fault, so it reads closer
+  // to brick than to alarm.
   up: "#2C7A5B",
+  upWash: "#EAF5F0",
   down: "#AE4A40",
+  downWash: "#FBEEED",
+  info: "#2F5D8A",
+  infoWash: "#EEF4FA",
 
-  // the light surfaces, for screens that invert
-  ground: palette.lightGray,
-  onGround: palette.navy,
+  onAccent: palette.navy,
+  onPrimary: palette.white,
 } as const;
-
-export type ColorName = keyof typeof colors;

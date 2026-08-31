@@ -7,12 +7,12 @@
     "scheme": "grailmarket",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0F1B2A",
+    "backgroundColor": "#1A2632",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F1B2A"
+      "backgroundColor": "#1A2632"
     },
     "ios": {
       "supportsTablet": true,
@@ -21,7 +21,7 @@
     "android": {
       "package": "au.com.grailmarket.app",
       "adaptiveIcon": {
-        "backgroundColor": "#0F1B2A",
+        "backgroundColor": "#1A2632",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -36,7 +36,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/splash-icon.png",
-          "backgroundColor": "#0F1B2A",
+          "backgroundColor": "#1A2632",
           "imageWidth": 220,
           "resizeMode": "contain"
         }
