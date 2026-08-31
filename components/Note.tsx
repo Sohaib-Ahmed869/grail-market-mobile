@@ -3,7 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { Txt } from "./Text";
 import { colors, radius, space } from "../theme";
 
-type Tone = "info" | "accent" | "good";
+type Tone = "info" | "accent" | "good" | "bad";
 
 /** A quiet aside. Used where the app owes the user a reason — why a name has
  *  to match a document, what a level does and does not open. */
@@ -14,8 +14,14 @@ export function Note({
   tone?: Tone;
   icon?: keyof typeof Feather.glyphMap;
 }) {
-  const fg = tone === "accent" ? colors.accent : tone === "good" ? colors.up : colors.info;
-  const bg = tone === "accent" ? colors.accentWash : tone === "good" ? colors.upWash : colors.infoWash;
+  const fg = tone === "accent" ? colors.accent
+    : tone === "good" ? colors.up
+    : tone === "bad" ? colors.down
+    : colors.info;
+  const bg = tone === "accent" ? colors.accentWash
+    : tone === "good" ? colors.upWash
+    : tone === "bad" ? colors.downWash
+    : colors.infoWash;
   return (
     <View style={[s.wrap, { backgroundColor: bg }]}>
       <Feather name={icon} size={15} color={fg} style={s.icon} />

@@ -4,8 +4,11 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Screen } from "../components/Screen";
+import { confirmCode, sendCode } from "../lib/phoneauth";
+import { clearPending, getPending, setPending } from "../lib/signupsession";
 import { Txt } from "../components/Text";
 import { Note } from "../components/Note";
+import { Steps } from "../components/Steps";
 import { colors, radius, space, type } from "../theme";
 
 const LENGTH = 6;
@@ -25,6 +28,10 @@ export default function SmsCode() {
   const router = useRouter();
   const [code, setCode] = useState("");
   const [left, setLeft] = useState(RESEND_SECONDS);
+  const [checking, setChecking] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const pending = getPending();
+  const shown = pending?.phone ?? "your mobile";
 
   useEffect(() => {
     if (left <= 0) return;
@@ -32,15 +39,48 @@ export default function SmsCode() {
     return () => clearTimeout(t);
   }, [left]);
 
+  // Six digits is the whole input, so there is nothing for a Verify button to
+  // add — check as soon as the last one lands.
   useEffect(() => {
-    if (code.length === LENGTH) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      const t = setTimeout(() => router.push("/ladder"), 260);
-      return () => clearTimeout(t);
-    }
-  }, [code, router]);
+    if (code.length !== LENGTH || checking) return;
+    let alive = true;
+    (async () => {
+      setChecking(true);
+      setFailure(null);
+      if (!pending) {
+        // deep-linked here, or the app restarted mid-flow
+        setChecking(false);
+        setFailure("That code request has gone. Send a new one.");
+        return;
+      }
+      const r = await confirmCode(pending.session, code);
+      if (!alive) return;
+      setChecking(false);
+      if (r.ok) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+        clearPending();
+        router.replace("/ladder");
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
+        setFailure(r.message);
+        setCode("");   // a wrong code clears, so the next attempt starts clean
+      }
+    })();
+    return () => { alive = false; };
+  }, [code, checking, pending, router]);
+
+  const resend = async () => {
+    if (!pending) return;
+    setFailure(null);
+    setCode("");
+    const r = await sendCode(pending.phone);
+    if (!r.ok) { setFailure(r.message); return; }
+    setPending(pending.phone, r.session);
+    setLeft(RESEND_SECONDS);
+  };
 
   const press = (k: string) => {
+    if (checking) return;
     Haptics.selectionAsync().catch(() => {});
     if (k === "del") setCode((c) => c.slice(0, -1));
     else if (k) setCode((c) => (c.length < LENGTH ? c + k : c));
@@ -53,10 +93,11 @@ export default function SmsCode() {
 
   return (
     <Screen back scroll={false}>
-      <Txt variant="display">Enter your code</Txt>
+      <Steps step={2} label="Confirm your number" />
+      <Txt variant="display" style={{ marginTop: space.lg }}>Enter your code</Txt>
       <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
         We sent a six digit code to{" "}
-        <Txt variant="body" color={colors.ink} style={{ fontWeight: "600" }}>0412 884 019</Txt>.
+        <Txt variant="body" color={colors.ink} style={{ fontWeight: "600" }}>{shown}</Txt>.
       </Txt>
 
       <View style={s.cells}>
@@ -77,7 +118,7 @@ export default function SmsCode() {
             Didn&rsquo;t arrive? Resend in {timer}
           </Txt>
         ) : (
-          <Pressable onPress={() => setLeft(RESEND_SECONDS)} hitSlop={10} accessibilityRole="button">
+          <Pressable onPress={resend} hitSlop={10} accessibilityRole="button">
             <Txt variant="bodySmall" color={colors.ink} style={{ textDecorationLine: "underline" }}>
               Send it again
             </Txt>
@@ -111,10 +152,14 @@ export default function SmsCode() {
         )}
       </View>
 
-      <Note icon="info">
-        This is level one. It proves the number is yours and lets you save a collection —
-        not buy or sell.
-      </Note>
+      {failure ? (
+        <Note tone="bad" icon="alert-circle">{failure}</Note>
+      ) : (
+        <Note icon="info">
+          This is level one. It proves the number is yours and lets you save a collection —
+          not buy or sell.
+        </Note>
+      )}
     </Screen>
   );
 }

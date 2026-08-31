@@ -7,8 +7,11 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { Note } from "../components/Note";
+import { Steps } from "../components/Steps";
 import { colors, radius, space } from "../theme";
-import { isClean, validateSignUp, type SignUpForm } from "../lib/validate";
+import { isClean, passwordStrength, validateSignUp, type SignUpForm } from "../lib/validate";
+import { sendCode } from "../lib/phoneauth";
+import { setPending } from "../lib/signupsession";
 
 /** Create account.
  *
@@ -32,12 +35,24 @@ export default function SignUp() {
   const blur = (k: keyof SignUpForm) => () => setTouched((t) => ({ ...t, [k]: true }));
   const err = (k: keyof SignUpForm) => (touched[k] ? errors[k] ?? undefined : undefined);
 
-  const submit = () => {
+  const [sending, setSending] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const submit = async () => {
     if (!ready) {
       // show everything that is wrong at once rather than one field at a time
       setTouched({ name: true, email: true, phone: true, password: true, confirm: true });
       return;
     }
+    setFailure(null);
+    setSending(true);
+    // The text goes out from here, not from the code screen. Landing on a
+    // screen that says "we sent a code" before anything has been sent is how
+    // people end up waiting for a message that was never going to arrive.
+    const r = await sendCode(form.phone);
+    setSending(false);
+    if (!r.ok) { setFailure(r.message); return; }
+    setPending(form.phone, r.session);
     router.push("/sms");
   };
 
@@ -46,7 +61,7 @@ export default function SignUp() {
       back
       footer={
         <>
-          <Button label="Continue" onPress={submit} />
+          <Button label="Continue" onPress={submit} loading={sending} />
           <Txt variant="bodySmall" color={colors.inkFaint} center style={{ paddingHorizontal: space.md }}>
             By continuing you agree to the Terms and the Marketplace Conduct Rules.
           </Txt>
@@ -54,7 +69,8 @@ export default function SignUp() {
       }
     >
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <Txt variant="display">Create your account</Txt>
+        <Steps step={1} label="Your details" />
+        <Txt variant="display" style={{ marginTop: space.lg }}>Create your account</Txt>
         <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
           Two minutes now. You&rsquo;ll verify your ID before you buy or sell.
         </Txt>
@@ -75,34 +91,45 @@ export default function SignUp() {
             label="Full name — as it appears on your ID"
             value={form.name} onChangeText={set("name")} onBlur={blur("name")}
             error={err("name")}
+            icon="user"
             autoCapitalize="words" autoComplete="name" textContentType="name"
             placeholder="Alex Barakat"
           />
           <Field
             label="Email" value={form.email} onChangeText={set("email")} onBlur={blur("email")}
             error={err("email")}
+            icon="mail"
             keyboardType="email-address" autoCapitalize="none" autoComplete="email"
             textContentType="emailAddress" placeholder="alex@example.com.au"
           />
           <Field
             label="Mobile number" value={form.phone} onChangeText={set("phone")} onBlur={blur("phone")}
             error={err("phone")}
+            icon="smartphone"
             keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"
             placeholder="0412 884 019"
           />
           <Field
             label="Password" value={form.password} onChangeText={set("password")} onBlur={blur("password")}
-            error={err("password")} hint="At least 10 characters."
+            error={err("password")} hint="Length beats symbols. Three words is plenty."
+            icon="lock" strength={passwordStrength(form.password)}
             secure autoComplete="new-password" textContentType="newPassword"
             placeholder="At least 10 characters"
           />
           <Field
             label="Confirm password" value={form.confirm} onChangeText={set("confirm")} onBlur={blur("confirm")}
             error={err("confirm")}
+            icon="check-circle"
             secure autoComplete="new-password" textContentType="newPassword"
             placeholder="Type it again"
           />
         </View>
+
+        {failure && (
+          <View style={{ marginTop: space.lg }}>
+            <Note tone="bad" icon="alert-circle">{failure}</Note>
+          </View>
+        )}
 
         <View style={{ marginTop: space.lg }}>
           <Note>

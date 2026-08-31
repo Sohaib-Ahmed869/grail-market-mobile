@@ -65,3 +65,37 @@ direction 2 of 5, marked *for review*). Navy is built. If Harbour wins,
 The wordmark is set as text in Poppins SemiBold — the brand sheet's own logo
 face — rather than shipped as an image. The supplied artwork is JPEG on a light
 ground, and keying it to transparency left halos on every stroke.
+
+## Phone verification (Firebase)
+
+The SMS code is Firebase Phone Auth, behind `lib/phoneauth.ts`. Screens only
+see `sendCode` / `confirmCode` and a handful of plain-English errors, so
+swapping to Twilio Verify later is one file.
+
+**It cannot run in Expo Go** — the native module does not exist there, and
+`sendCode` returns `unavailable` rather than crashing. You need a dev build:
+
+```
+npx expo run:ios      # or run:android
+```
+
+### What has to exist before it works
+
+1. A Firebase project with **Phone** enabled under Authentication → Sign-in method.
+2. `GoogleService-Info.plist` (iOS) and `google-services.json` (Android) in the
+   repo root. Both are already referenced from `app.json`. **Neither is in git** —
+   see `.gitignore`.
+3. **Android:** the SHA-1 of every signing key registered in Firebase — your
+   debug keystore *and* the Play App Signing key. Miss the second and it works
+   in development and fails in production.
+4. **iOS:** an APNs key uploaded to Firebase. Without it, verification falls
+   back to a reCAPTCHA web view instead of a silent push, which works but is
+   an extra screen the user did not ask for.
+5. Add test numbers under Authentication → Phone numbers for testing, so
+   development does not burn real messages.
+
+### Before launch
+
+Australia's **SMS Sender ID Register** became mandatory on 1 July 2026.
+Unregistered alphanumeric sender IDs are delivered labelled `Unverified`.
+Register through an ACMA-approved provider, or accept a plain long number.

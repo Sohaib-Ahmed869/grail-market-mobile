@@ -16,7 +16,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "au.com.grailmarket.app"
+      "bundleIdentifier": "au.com.grailmarket.app",
+      "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
       "package": "au.com.grailmarket.app",
@@ -26,9 +27,12 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "googleServicesFile": "./google-services.json"
     },
-    "web": { "favicon": "./assets/favicon.png" },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
     "plugins": [
       "expo-router",
       "expo-font",
@@ -39,6 +43,16 @@
           "backgroundColor": "#1A2632",
           "imageWidth": 220,
           "resizeMode": "contain"
+        }
+      ],
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
         }
       ]
     ]

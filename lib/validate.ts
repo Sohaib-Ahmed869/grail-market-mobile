@@ -86,3 +86,15 @@ export function validateSignUp(f: SignUpForm) {
 
 export const isClean = (e: Record<string, string | null>) =>
   Object.values(e).every((v) => v == null);
+
+/** How solid a password is, in three steps rather than a percentage.
+ *
+ *  0 nothing usable · 1 too short or guessable · 2 acceptable · 3 comfortable.
+ *  Length does nearly all the work, because it is the only property that
+ *  reliably costs an attacker anything. */
+export function passwordStrength(v: string): number {
+  if (!v) return 0;
+  if (passwordError(v)) return 1;
+  const variety = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(v)).length;
+  return v.length >= 16 || (v.length >= 12 && variety >= 3) ? 3 : 2;
+}
