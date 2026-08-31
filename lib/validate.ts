@@ -1,3 +1,5 @@
+import { parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
+
 /** Field validation for the signup form.
  *
  *  Kept out of the screen so the rules can be read in one place and tested
@@ -7,16 +9,24 @@
  *  each place.
  */
 
-/** Australian mobile numbers: 04xx xxx xxx locally, +61 4xx xxx xxx in
- *  international form. Landlines cannot receive the SMS code, so they are
- *  rejected here rather than at the gateway, where it costs a message. */
-export function normalisePhone(raw: string): string | null {
-  const d = raw.replace(/[^\d+]/g, "");
-  const m =
-    /^\+?61(4\d{8})$/.exec(d) ??      // +61 4xx xxx xxx
-    /^0(4\d{8})$/.exec(d) ??          // 04xx xxx xxx
-    /^(4\d{8})$/.exec(d);             // 4xx xxx xxx
-  return m ? `+61${m[1]}` : null;
+/** A phone number in E.164, or null.
+ *
+ *  libphonenumber rather than a regex. The rules are not guessable — Australia
+ *  alone has mobile ranges that a plain "starts with 04" test gets wrong, and
+ *  every country the picker offers has its own. This is the same dataset the
+ *  carriers use, and the metadata bundle is the "min" one, which carries
+ *  validation without the formatting tables we do not need.
+ *
+ *  Landlines are rejected. They cannot receive the SMS code, and finding that
+ *  out here is free where finding out at the gateway costs a message. */
+export function normalisePhone(raw: string, country: CountryCode = "AU"): string | null {
+  const p = parsePhoneNumberFromString(raw ?? "", country);
+  if (!p || !p.isValid()) return null;
+  const type = p.getType();
+  // Some ranges are genuinely ambiguous between mobile and landline, and
+  // rejecting those would block real numbers, so unknown is allowed through.
+  if (type === "FIXED_LINE") return null;
+  return p.number;
 }
 
 export function nameError(v: string): string | null {
@@ -40,9 +50,17 @@ export function emailError(v: string): string | null {
   return null;
 }
 
-export function phoneError(v: string): string | null {
+export function phoneError(v: string, country: CountryCode = "AU"): string | null {
   if (!v.trim()) return "Enter your mobile number.";
-  if (!normalisePhone(v)) return "Enter an Australian mobile, like 0412 884 019.";
+  const p = parsePhoneNumberFromString(v, country);
+  if (p?.isValid() && p.getType() === "FIXED_LINE") {
+    return "That is a landline. Enter a mobile so the code can reach you.";
+  }
+  if (!normalisePhone(v, country)) {
+    return country === "AU"
+      ? "Enter an Australian mobile, like 0412 884 019."
+      : "That mobile number does not look right.";
+  }
   return null;
 }
 
@@ -72,13 +90,14 @@ const COMMON = new Set([
 
 export type SignUpForm = {
   name: string; email: string; phone: string; password: string; confirm: string;
+  country: CountryCode;
 };
 
 export function validateSignUp(f: SignUpForm) {
   return {
     name: nameError(f.name),
     email: emailError(f.email),
-    phone: phoneError(f.phone),
+    phone: phoneError(f.phone, f.country),
     password: passwordError(f.password),
     confirm: confirmError(f.password, f.confirm),
   };

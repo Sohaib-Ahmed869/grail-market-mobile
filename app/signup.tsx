@@ -6,11 +6,13 @@ import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
+import { PhoneField } from "../components/PhoneField";
 import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
 import { colors, radius, space } from "../theme";
 import { isClean, passwordStrength, validateSignUp, type SignUpForm } from "../lib/validate";
 import { sendCode } from "../lib/phoneauth";
+import { DEFAULT_COUNTRY } from "../lib/countries";
 import { setPending } from "../lib/signupsession";
 
 /** Create account.
@@ -23,6 +25,7 @@ export default function SignUp() {
   const router = useRouter();
   const [form, setForm] = useState<SignUpForm>({
     name: "", email: "", phone: "", password: "", confirm: "",
+    country: DEFAULT_COUNTRY,
   });
   // A field is only marked wrong once the user has left it. Validating while
   // someone is still typing tells them their email is invalid at "a@", which
@@ -36,10 +39,11 @@ export default function SignUp() {
   // red. Tabbing through an empty form used to light every field at once,
   // which is the fastest way to teach someone that the red means nothing.
   // Submit still marks everything — that is the moment it IS a mistake.
-  const blur = (k: keyof SignUpForm) => () => {
-    if (form[k].trim()) setTouched((t) => ({ ...t, [k]: true }));
+  const blur = (k: ErrKey) => () => {
+    if (String(form[k]).trim()) setTouched((t) => ({ ...t, [k]: true }));
   };
-  const err = (k: keyof SignUpForm) => (touched[k] ? errors[k] ?? undefined : undefined);
+  type ErrKey = keyof ReturnType<typeof validateSignUp>;
+  const err = (k: ErrKey) => (touched[k] ? errors[k] ?? undefined : undefined);
 
   const [sending, setSending] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -55,7 +59,7 @@ export default function SignUp() {
     // The text goes out from here, not from the code screen. Landing on a
     // screen that says "we sent a code" before anything has been sent is how
     // people end up waiting for a message that was never going to arrive.
-    const r = await sendCode(form.phone);
+    const r = await sendCode(form.phone, form.country);
     setSending(false);
     if (!r.ok) { setFailure(r.message); return; }
     setPending(form.phone, r.session);
@@ -108,12 +112,14 @@ export default function SignUp() {
             keyboardType="email-address" autoCapitalize="none" autoComplete="email"
             textContentType="emailAddress" placeholder="alex@example.com.au"
           />
-          <Field
-            label="Mobile number" value={form.phone} onChangeText={set("phone")} onBlur={blur("phone")}
+          <PhoneField
+            label="Mobile number"
+            value={form.phone}
+            country={form.country}
+            onChangeText={set("phone")}
+            onChangeCountry={(c) => setForm((f) => ({ ...f, country: c }))}
+            onBlur={blur("phone")}
             error={err("phone")}
-            icon="smartphone"
-            keyboardType="phone-pad" autoComplete="tel" textContentType="telephoneNumber"
-            placeholder="0412 884 019"
           />
           <Field
             label="Password" value={form.password} onChangeText={set("password")} onBlur={blur("password")}

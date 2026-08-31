@@ -1,3 +1,4 @@
+import type { CountryCode } from "libphonenumber-js/min";
 import { normalisePhone } from "./validate";
 
 /** Phone verification, behind one interface.
@@ -60,8 +61,8 @@ async function firebaseAuth() {
 }
 
 /** Ask Firebase to text a code. `phone` may be in any shape a person types. */
-export async function sendCode(phone: string): Promise<SendResult> {
-  const e164 = normalisePhone(phone);
+export async function sendCode(phone: string, country: CountryCode = "AU"): Promise<SendResult> {
+  const e164 = normalisePhone(phone, country);
   if (!e164) return fail("bad-number");
 
   const mod = await firebaseAuth();

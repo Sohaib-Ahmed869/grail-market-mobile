@@ -26,11 +26,28 @@ test("Australian mobiles, in any of the shapes people type them", () => {
   for (const v of ["0412 884 019", "0412884019", "+61412884019", "+61 412 884 019", "412884019"]) {
     assert.equal(normalisePhone(v), "+61412884019", v);
   }
-  // landlines cannot receive the code, so they fail here rather than at the
-  // gateway where it costs a message
-  assert.equal(normalisePhone("0298765432"), null);
-  assert.equal(normalisePhone("+15551234567"), null);
-  assert.match(phoneError("02 9876 5432") ?? "", /Australian mobile/);
+});
+
+test("a landline is rejected here, not at the gateway where it costs a message", () => {
+  assert.equal(normalisePhone("02 9876 5432"), null);
+  assert.match(phoneError("02 9876 5432") ?? "", /landline/i);
+});
+
+test("the country decides how the digits are read", () => {
+  // Real ranges only. 555 in the US and Ofcom's 07700 900xxx block are the
+  // numbers reserved for film and drama, and libphonenumber rejects them —
+  // which is correct, and cost me a failing test to remember.
+  assert.equal(normalisePhone("021 123 4567", "NZ"), "+64211234567");
+  assert.equal(normalisePhone("07911 123456", "GB"), "+447911123456");
+  assert.equal(normalisePhone("(415) 236-7890", "US"), "+14152367890");
+  // and an Australian mobile is not a valid UK one
+  assert.equal(normalisePhone("0412 884 019", "GB"), null);
+});
+
+test("already-international numbers ignore the picker", () => {
+  // someone who types +61... while the picker says United Kingdom still gets
+  // the number they meant
+  assert.equal(normalisePhone("+61412884019", "GB"), "+61412884019");
 });
 
 test("length is the password rule that matters", () => {
