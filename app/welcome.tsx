@@ -6,23 +6,27 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 import { Lockup } from "../components/Brand";
 import { Bloom } from "../components/Bloom";
 import { CardRibbon } from "../components/CardRibbon";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
-import { colors, space } from "../theme";
+import { colors, radius, space } from "../theme";
 
-/** Welcome.
+/** Three claims, one line each.
  *
- *  One claim, one ribbon, one action. The three-point feature list from the
- *  wireframe is gone — someone deciding whether to install looks at the
- *  pictures and presses the button, and those points are more use where they
- *  actually apply, on the levels screen and beside the scan.
- *
- *  The words are the wireframe's own, cut to two lines. The ID requirement
- *  stays on this screen because it is the product's whole proposition, and
- *  springing it later is what makes people abandon halfway through signup. */
+ *  The wireframe gave each of these a card and two sentences. On the screen
+ *  someone spends two seconds on, that is three paragraphs nobody finishes —
+ *  the title carries the claim and the tail only has to stop it being vague.
+ *  The long versions still exist where they are useful: the levels screen
+ *  explains what ID opens, and the scan screen explains what a scan reads. */
+const POINTS = [
+  { icon: "maximize" as const, title: "Scan, and know", tail: "market value in seconds" },
+  { icon: "shield" as const, title: "Everyone is ID checked", tail: "no anonymous accounts" },
+  { icon: "message-circle" as const, title: "Deal person to person", tail: "we never hold your money" },
+];
+
 export default function Welcome() {
   const router = useRouter();
   const enter = useSharedValue(0);
@@ -31,7 +35,7 @@ export default function Welcome() {
   useEffect(() => {
     const ease = Easing.bezier(0.22, 1, 0.36, 1);
     enter.value = withDelay(120, withTiming(1, { duration: 620, easing: ease }));
-    tail.value = withDelay(760, withTiming(1, { duration: 620, easing: ease }));
+    tail.value = withDelay(700, withTiming(1, { duration: 620, easing: ease }));
   }, [enter, tail]);
 
   const headStyle = useAnimatedStyle(() => ({
@@ -47,11 +51,11 @@ export default function Welcome() {
     <View style={s.root}>
       <LinearGradient
         colors={["#26364A", colors.dark, "#0E1720"]}
-        locations={[0, 0.46, 1]}
+        locations={[0, 0.44, 1]}
         style={StyleSheet.absoluteFill}
       />
       <View style={s.bloom}>
-        <Bloom size={620} color={colors.accent} opacity={0.26} />
+        <Bloom size={560} color={colors.accent} opacity={0.24} />
       </View>
 
       <SafeAreaView style={s.safe} edges={["top", "bottom"]}>
@@ -67,13 +71,28 @@ export default function Welcome() {
         </Animated.View>
 
         {/* the band runs off both edges on purpose — it should read as
-            continuing, not as nine cards in a row */}
+            continuing, not as seven cards in a row */}
         <CardRibbon style={s.ribbon} />
 
-        <Animated.View style={[s.bottom, tailStyle]}>
-          <Txt variant="body" color={colors.onDarkMuted} center style={s.sub}>
-            Price checks are free. Buying and selling needs a verified ID.
-          </Txt>
+        <Animated.View style={[s.mid, tailStyle]}>
+          <View style={s.points}>
+            {POINTS.map((p) => (
+              <View key={p.title} style={s.point}>
+                <View style={s.chip}>
+                  <Feather name={p.icon} size={14} color={colors.accent} />
+                </View>
+                <Txt variant="bodySmall" color={colors.onDark} style={s.pointTxt} numberOfLines={1}>
+                  {p.title}
+                  <Txt variant="bodySmall" color={colors.onDarkMuted}>{"  ·  "}{p.tail}</Txt>
+                </Txt>
+              </View>
+            ))}
+          </View>
+        </Animated.View>
+
+        {/* the actions stay pinned to the bottom; the points ride up with the
+            ribbon so the two are read as one block */}
+        <Animated.View style={[s.actions, tailStyle]}>
           <Button label="Create an account" kind="accent" onPress={() => router.push("/signup")} />
           <Button
             label="Look around first — no account"
@@ -89,13 +108,27 @@ export default function Welcome() {
 
 const s = StyleSheet.create({
   root: { flex: 1, width: "100%", backgroundColor: colors.dark, overflow: "hidden" },
-  bloom: { position: "absolute", alignSelf: "center", top: "18%", width: 620, height: 620 },
-  safe: { flex: 1, width: "100%", justifyContent: "space-between" },
+  bloom: { position: "absolute", alignSelf: "center", top: "10%", width: 560, height: 560 },
+  // laid out from the top rather than spread, so the ribbon sits high and the
+  // block underneath keeps a fixed relationship to the buttons
+  safe: { flex: 1, width: "100%" },
   top: { alignItems: "center", paddingTop: space.md },
-  head: { paddingHorizontal: space.xl },
+  head: { paddingHorizontal: space.xl, marginTop: space.xxl },
   h1: { letterSpacing: -0.9, lineHeight: 38 },
-  ribbon: { marginVertical: space.sm },
-  bottom: { width: "100%", paddingHorizontal: space.xl, paddingBottom: space.sm },
-  sub: { marginBottom: space.xl, paddingHorizontal: space.sm },
+  ribbon: { marginTop: space.xl },
+  mid: { width: "100%", paddingHorizontal: space.xl, marginTop: space.xxl },
+  actions: {
+    width: "100%", marginTop: "auto",
+    paddingHorizontal: space.xl, paddingBottom: space.sm,
+  },
+  points: { gap: space.md, paddingHorizontal: space.xs },
+  point: { flexDirection: "row", alignItems: "center", gap: space.md },
+  chip: {
+    width: 30, height: 30, borderRadius: radius.sm,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.10)",
+  },
+  pointTxt: { flex: 1 },
   ghost: { marginTop: space.xs },
 });
