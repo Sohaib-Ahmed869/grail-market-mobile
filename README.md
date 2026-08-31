@@ -37,3 +37,31 @@ uploading rather than after.
 
 Do not downscale before upload. Shrinking to 2000px once lost a collector
 number and mispriced a card by thirty times.
+
+## Running it
+
+```
+npm install
+npx expo start          # then i / a, or scan with Expo Go
+npx expo start --web    # quickest way to eyeball a screen
+```
+
+Identity verification (Didit) and the camera both need native modules, so
+those screens need a **dev build** — `npx expo run:ios` / `run:android`, or
+EAS. Expo Go will not run them, and from SDK 52 Expo Go cannot render the
+native splash faithfully either.
+
+## Brand
+
+`theme/` is the only place a colour or a type size is named. `assets/source/`
+holds the artwork as supplied; `assets/brand/` holds what the app actually
+uses.
+
+Two colour directions came with the assets and they disagree — Navy + Gold
+(brand sheet, app icon, splash, all 44 wireframes) and "Harbour" (pale marine,
+direction 2 of 5, marked *for review*). Navy is built. If Harbour wins,
+`theme/colors.ts` is the only file that changes.
+
+The wordmark is set as text in Poppins SemiBold — the brand sheet's own logo
+face — rather than shipped as an image. The supplied artwork is JPEG on a light
+ground, and keying it to transparency left halos on every stroke.
