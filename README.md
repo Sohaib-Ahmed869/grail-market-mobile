@@ -104,3 +104,37 @@ build over a file the repo deliberately does not ship.
 Australia's **SMS Sender ID Register** became mandatory on 1 July 2026.
 Unregistered alphanumeric sender IDs are delivered labelled `Unverified`.
 Register through an ACMA-approved provider, or accept a plain long number.
+
+## Testing phone auth on an iPhone
+
+Expo Go cannot load Firebase's native module, so `sendCode` reports
+`unavailable` there by design. You need a development build. Two routes:
+
+**Xcode, free.** Install Xcode from the App Store, then:
+
+```
+sudo xcode-select -s /Applications/Xcode.app
+npx expo run:ios --device        # iPhone plugged in and unlocked
+```
+
+Signing uses your personal Apple ID at no cost. The build expires after
+seven days, which is fine for development — reinstall when it does.
+
+**EAS, no Xcode, needs the Apple Developer Program.**
+
+```
+npm i -g eas-cli && eas login
+eas build --profile development --platform ios
+```
+
+Install the result from the QR code. Profiles are in `eas.json`.
+
+Either way, `npx expo start --dev-client` is what you run afterwards — the
+build is a shell, and the JavaScript still reloads from your machine.
+
+### Testing without spending SMS
+
+Firebase Console → Authentication → Sign-in method → Phone → **Phone numbers
+for testing**. Add a number and a fixed six-digit code. That pair verifies
+without a message being sent and without APNs configured, which is the fastest
+way to exercise the whole flow.
