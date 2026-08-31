@@ -1,10 +1,9 @@
-import { useMemo, useRef, useState } from "react";
-import {
-  FlatList, Modal, Platform, Pressable, StyleSheet, TextInput, View,
-} from "react-native";
+import { useMemo, useState } from "react";
+import { FlatList, Modal, Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import type { CountryCode } from "libphonenumber-js/min";
+import { Field } from "./Field";
 import { Txt } from "./Text";
 import { COUNTRIES, dialCode, findCountry, flag } from "../lib/countries";
 import { colors, radius, space, type } from "../theme";
@@ -22,80 +21,49 @@ type Props = {
 
 /** Mobile number, with its country in front of it.
  *
- *  The dial code sits inside the field rather than above it, because +61 and
- *  the digits after it are one number — splitting them into two labelled
- *  inputs invites people to type the country code twice.
+ *  This is a `Field` with something in its left slot, not a second input
+ *  implementation. It used to be its own component and spent three rounds of
+ *  fixes not opening the keyboard, while the field beside it — same job, same
+ *  props — worked. Two implementations of one control is two sets of bugs and
+ *  only one of them gets tested.
  *
- *  Australia is the default and is first in the list. Everyone else has to
- *  find their country; an Australian, which is nearly everyone here, has to do
- *  nothing at all. */
+ *  Australia is preselected and first in the list, so the case that is nearly
+ *  everyone costs no taps at all. */
 export function PhoneField({
   label, value, country, onChangeText, onChangeCountry, onBlur, error, hint,
 }: Props) {
-  const [focused, setFocused] = useState(false);
   const [picking, setPicking] = useState(false);
-  const input = useRef<TextInput>(null);
-  const bad = Boolean(error);
   const c = findCountry(country);
 
   return (
-    <View style={s.wrap}>
-      <Txt variant="label" color={bad ? colors.down : focused ? colors.ink : colors.inkMuted}>
-        {label}
-      </Txt>
+    <>
+      <Field
+        label={label}
+        value={value}
+        onChangeText={onChangeText}
+        onBlur={onBlur}
+        error={error}
+        hint={hint}
+        keyboardType="phone-pad"
+        autoComplete="tel"
+        textContentType="telephoneNumber"
+        placeholder={country === "AU" ? "412 884 019" : "Mobile number"}
+        left={
+          <Pressable
+            onPress={() => setPicking(true)}
+            style={({ pressed }) => [s.code, pressed && { opacity: 0.6 }]}
+            accessibilityRole="button"
+            accessibilityLabel={`Country: ${c.name}, ${dialCode(country)}. Change.`}
+          >
+            <Txt style={s.flag}>{flag(country)}</Txt>
+            <Txt variant="body" color={colors.ink}>{dialCode(country)}</Txt>
+            <Feather name="chevron-down" size={14} color={colors.inkFaint} />
+            <View style={s.divider} />
+          </Pressable>
+        }
+      />
 
-      <View style={[s.box, focused && s.boxFocused, bad && s.boxError]}>
-        <Pressable
-          onPress={() => setPicking(true)}
-          style={({ pressed }) => [s.code, pressed && { opacity: 0.6 }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Country: ${c.name}, ${dialCode(country)}. Change.`}
-        >
-          <Txt style={s.flag}>{flag(country)}</Txt>
-          <Txt variant="body" color={colors.ink}>{dialCode(country)}</Txt>
-          <Feather name="chevron-down" size={14} color={colors.inkFaint} />
-        </Pressable>
-
-        <View style={s.divider} />
-
-        {/* No Pressable around this one. A Pressable parent wins the touch
-            responder and the TextInput never receives the tap, so the keyboard
-            never opens — the input is its own hit target and is stretched to
-            fill the row so there is nothing to miss. */}
-        <TextInput
-          ref={input}
-          value={value}
-          onChangeText={onChangeText}
-          onFocus={() => setFocused(true)}
-          onBlur={() => { setFocused(false); onBlur?.(); }}
-          keyboardType="phone-pad"
-          autoComplete="tel"
-          textContentType="telephoneNumber"
-          placeholder={country === "AU" ? "412 884 019" : "Mobile number"}
-          placeholderTextColor={colors.inkFaint}
-          selectionColor={colors.accent}
-          style={s.input}
-        />
-      </View>
-
-      {(error || hint) && (
-        <View style={s.foot}>
-          {bad && <Feather name="alert-circle" size={12} color={colors.down} />}
-          <Txt variant="bodySmall" color={bad ? colors.down : colors.inkFaint} style={{ flex: 1 }}>
-            {error ?? hint}
-          </Txt>
-        </View>
-      )}
-
-      {/* Mounted only while open.
-        *
-        * A Modal left in the tree with visible={false} still installs a native
-        * modal host beside the form. On both platforms that host takes the
-        * window focus back whenever this component re-renders — and it
-        * re-renders the instant the input is focused, because focus sets
-        * state. The keyboard appeared and vanished in the same breath.
-        *
-        * Nothing to steal focus if nothing is there. */}
+      {/* mounted only while open, so there is no modal host beside the form */}
       {picking && (
         <CountrySheet
           selected={country}
@@ -103,7 +71,7 @@ export function PhoneField({
           onPick={(code) => { onChangeCountry(code); setPicking(false); }}
         />
       )}
-    </View>
+    </>
   );
 }
 
@@ -111,7 +79,8 @@ function CountrySheet({
   selected, onPick, onClose,
 }: {
   selected: CountryCode;
-  onPick: (c: CountryCode) => void; onClose: () => void;
+  onPick: (c: CountryCode) => void;
+  onClose: () => void;
 }) {
   const [q, setQ] = useState("");
   const list = useMemo(() => {
@@ -126,8 +95,6 @@ function CountrySheet({
     <Modal
       visible
       animationType="slide"
-      // pageSheet is iOS-only; on Android it is ignored and the default
-      // full-screen behaviour is what you get anyway
       presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
       onRequestClose={onClose}
     >
@@ -158,23 +125,20 @@ function CountrySheet({
           contentContainerStyle={{ paddingBottom: space.xxl }}
           ListEmptyComponent={
             <Txt variant="body" color={colors.inkFaint} center style={{ padding: space.xl }}>
-              No match. We only list the countries our members use — tell us if yours is missing.
+              No match. We list the countries our members use — tell us if yours is missing.
             </Txt>
           }
-          renderItem={({ item }) => {
-            const on = item.code === selected;
-            return (
-              <Pressable
-                onPress={() => onPick(item.code)}
-                style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.surfaceSunk }]}
-              >
-                <Txt style={s.flag}>{flag(item.code)}</Txt>
-                <Txt variant="body" style={{ flex: 1 }}>{item.name}</Txt>
-                <Txt variant="body" color={colors.inkMuted}>{dialCode(item.code)}</Txt>
-                {on && <Feather name="check" size={17} color={colors.accent} />}
-              </Pressable>
-            );
-          }}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => onPick(item.code)}
+              style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.surfaceSunk }]}
+            >
+              <Txt style={s.flag}>{flag(item.code)}</Txt>
+              <Txt variant="body" style={{ flex: 1 }}>{item.name}</Txt>
+              <Txt variant="body" color={colors.inkMuted}>{dialCode(item.code)}</Txt>
+              {item.code === selected && <Feather name="check" size={17} color={colors.accent} />}
+            </Pressable>
+          )}
         />
       </SafeAreaView>
     </Modal>
@@ -182,30 +146,9 @@ function CountrySheet({
 }
 
 const s = StyleSheet.create({
-  wrap: { gap: 7 },
-  box: {
-    flexDirection: "row", alignItems: "center",
-    height: 54, borderRadius: radius.md, borderWidth: 1.5,
-    borderColor: colors.line, backgroundColor: colors.surfaceSunk,
-  },
-  boxFocused: {
-    borderColor: colors.ink, backgroundColor: colors.surface,
-    shadowColor: colors.ink, shadowOpacity: 0.10, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 }, elevation: 2,
-  },
-  boxError: { borderColor: colors.down, backgroundColor: colors.downWash },
-  code: {
-    flexDirection: "row", alignItems: "center", gap: 6,
-    paddingLeft: space.lg, paddingRight: space.md, height: "100%",
-  },
+  code: { flexDirection: "row", alignItems: "center", gap: 6, paddingRight: space.sm },
   flag: { fontSize: 19 },
-  divider: { width: 1, height: 24, backgroundColor: colors.line },
-  input: {
-    flex: 1, height: "100%",
-    ...type.body, color: colors.ink,
-    paddingHorizontal: space.md, paddingVertical: 0,
-  },
-  foot: { flexDirection: "row", alignItems: "center", gap: 5 },
+  divider: { width: 1, height: 24, marginLeft: space.sm, backgroundColor: colors.line },
 
   sheet: { flex: 1, backgroundColor: colors.surface },
   sheetBar: {

@@ -10,6 +10,9 @@ type Props = TextInputProps & {
   secure?: boolean;
   error?: string;
   icon?: keyof typeof Feather.glyphMap;
+  /** Rendered before the input, inside the box — the phone field's country
+   *  button goes here. Anything in this slot must handle its own presses. */
+  left?: React.ReactNode;
   /** 0–3, drawn as a bar under the field. Only the password uses it. */
   strength?: number;
 };
@@ -23,7 +26,7 @@ type Props = TextInputProps & {
  *
  *  Focus is shown by the ring AND the icon taking the accent colour, because a
  *  border alone is easy to miss on a screen held at arm's length. */
-export function Field({ label, hint, secure, error, icon, strength, ...rest }: Props) {
+export function Field({ label, hint, secure, error, icon, strength, left, ...rest }: Props) {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(Boolean(secure));
   const input = useRef<TextInput>(null);
@@ -43,6 +46,7 @@ export function Field({ label, hint, secure, error, icon, strength, ...rest }: P
         onPress={() => input.current?.focus()}
         style={[s.box, focused && s.boxFocused, bad && s.boxError]}
       >
+        {left}
         {icon && (
           <Feather
             name={icon}
