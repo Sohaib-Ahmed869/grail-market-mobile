@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import {
-  FlatList, Modal, Pressable, StyleSheet, TextInput, View,
+  FlatList, Modal, Platform, Pressable, StyleSheet, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -87,20 +87,30 @@ export function PhoneField({
         </View>
       )}
 
-      <CountrySheet
-        open={picking}
-        selected={country}
-        onClose={() => setPicking(false)}
-        onPick={(code) => { onChangeCountry(code); setPicking(false); input.current?.focus(); }}
-      />
+      {/* Mounted only while open.
+        *
+        * A Modal left in the tree with visible={false} still installs a native
+        * modal host beside the form. On both platforms that host takes the
+        * window focus back whenever this component re-renders — and it
+        * re-renders the instant the input is focused, because focus sets
+        * state. The keyboard appeared and vanished in the same breath.
+        *
+        * Nothing to steal focus if nothing is there. */}
+      {picking && (
+        <CountrySheet
+          selected={country}
+          onClose={() => setPicking(false)}
+          onPick={(code) => { onChangeCountry(code); setPicking(false); }}
+        />
+      )}
     </View>
   );
 }
 
 function CountrySheet({
-  open, selected, onPick, onClose,
+  selected, onPick, onClose,
 }: {
-  open: boolean; selected: CountryCode;
+  selected: CountryCode;
   onPick: (c: CountryCode) => void; onClose: () => void;
 }) {
   const [q, setQ] = useState("");
@@ -113,7 +123,14 @@ function CountrySheet({
   }, [q]);
 
   return (
-    <Modal visible={open} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+    <Modal
+      visible
+      animationType="slide"
+      // pageSheet is iOS-only; on Android it is ignored and the default
+      // full-screen behaviour is what you get anyway
+      presentationStyle={Platform.OS === "ios" ? "pageSheet" : undefined}
+      onRequestClose={onClose}
+    >
       <SafeAreaView style={s.sheet} edges={["top", "bottom"]}>
         <View style={s.sheetBar}>
           <Txt variant="h2">Country</Txt>
