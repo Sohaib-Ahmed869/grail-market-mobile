@@ -30,9 +30,17 @@ export function Screen({
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
       // "handled" lets a tap reach a button without first dismissing the
-      // keyboard, so moving between fields takes one tap rather than two
+      // keyboard, so moving between fields takes one tap rather than two.
+      //
+      // keyboardDismissMode is deliberately NOT "on-drag". Tapping a field
+      // low in a form makes the list scroll it into view, and that scroll
+      // counts as a drag — so the keyboard opened and dismissed itself in the
+      // same gesture. Fields near the top were fine, because they needed no
+      // scroll, which is exactly the shape the bug took.
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode="on-drag"
+      // iOS insets the scroll view for the keyboard itself, and does it
+      // better than we can from JS
+      automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
     >
       {children}
     </ScrollView>
@@ -42,9 +50,15 @@ export function Screen({
 
   return (
     <SafeAreaView style={[s.safe, style]} edges={["top", "bottom"]}>
+      {/* Android resizes the window for the keyboard on its own
+        * (softwareKeyboardLayoutMode defaults to "resize"), and a
+        * KeyboardAvoidingView on top of that fights it — the layout is
+        * adjusted twice and jitters. So the avoiding behaviour is iOS only,
+        * and even there the ScrollView's own keyboard insets do the work
+        * for scrolling content. */}
       <KeyboardAvoidingView
         style={s.fill}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" && !scroll ? "padding" : undefined}
       >
         {back && (
           <View style={s.bar}>
