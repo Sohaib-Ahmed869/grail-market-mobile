@@ -76,21 +76,29 @@ export function CardRibbon({
 }
 
 function Slab({ src, i, open }: { src: number; i: number; open: SharedValue<number> }) {
+  // Every one of these is a plain number worked out on the JS thread, on
+  // purpose. The style callback below runs as a worklet on the UI thread,
+  // where a module-scope helper like turnAt() is not a worklet and calling one
+  // crashes the app the moment the screen mounts. Only numbers cross over.
   const d = Math.abs(i) / K;                 // 0 at the centre, 1 at the ends
+  const dir = i < 0 ? 1 : -1;
+  const turnOpen = turnAt(d) * dir;
+  const turnShut = dir * 88;                 // stacked and fully edge-on
+  const scaleOpen = scaleAt(d);
+  const xOpen = Math.sign(i) * LAYOUT[Math.abs(i)];
+  const depth = Math.round(10 + d * 10);     // the outer, nearer cards sit on top
+
   const style = useAnimatedStyle(() => {
     const t = open.value;
-    // cards nearest the middle stay the most turned away, which is what makes
-    // the row read as depth instead of a fan
-    const turn = turnAt(d) * (i < 0 ? 1 : -1);
     return {
       transform: [
         { perspective: 620 },
-        { translateX: interpolate(t, [0, 1], [0, Math.sign(i) * LAYOUT[Math.abs(i)]]) },
-        { rotateY: `${interpolate(t, [0, 1], [i < 0 ? 88 : -88, turn])}deg` },
-        { scale: interpolate(t, [0, 1], [0.6, scaleAt(d)]) },
+        { translateX: interpolate(t, [0, 1], [0, xOpen]) },
+        { rotateY: `${interpolate(t, [0, 1], [turnShut, turnOpen])}deg` },
+        { scale: interpolate(t, [0, 1], [0.6, scaleOpen]) },
       ],
       opacity: interpolate(t, [0, 0.18, 1], [0, 1, 1]),
-      zIndex: Math.round(10 + d * 10),       // the outer, nearer cards sit on top
+      zIndex: depth,
     };
   });
 

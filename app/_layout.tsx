@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -14,7 +15,12 @@ import { colors } from "../theme";
 // Hold the native splash until the fonts are in. Called at module scope, as
 // the SDK 57 docs require — inside a component it races the first render.
 SplashScreen.preventAutoHideAsync().catch(() => {});
-SplashScreen.setOptions({ duration: 300, fade: true });
+// setOptions is a no-op in Expo Go and logs a warning every reload. The
+// native splash it configures only exists in a real build anyway, so ask for
+// it there and stay quiet here.
+if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
+  SplashScreen.setOptions({ duration: 300, fade: true });
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
