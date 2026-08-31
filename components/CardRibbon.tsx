@@ -1,13 +1,18 @@
 import { useEffect } from "react";
-import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import { Image, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, {
-  Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming,
+  Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming, Extrapolation,
   type SharedValue,
 } from "react-native-reanimated";
 import { colors, radius } from "../theme";
 
+/** Seven, not nine.
+ *
+ *  Nine spanned 612pt. A phone is 390 wide, so the outermost pair sat entirely
+ *  off screen — two cards of decode, layout and transform work per frame that
+ *  nobody could see. Seven reaches 243 from the centre, which still runs past
+ *  the edge and still reads as a band that keeps going. */
 const ART = [
-  require("../assets/cards/charizard-pf.jpg"),
   require("../assets/cards/blastoise-base.jpg"),
   require("../assets/cards/rayquaza-gg.jpg"),
   require("../assets/cards/charizard-base.jpg"),
@@ -15,55 +20,39 @@ const ART = [
   require("../assets/cards/charizard-151.jpg"),
   require("../assets/cards/sylveon-vmax.jpg"),
   require("../assets/cards/venusaur-base.jpg"),
-  require("../assets/cards/giratina-tg.jpg"),
 ];
 
-const W = 116;                       // card width at full face
-const H = Math.round(W * 495 / 360); // the art's own ratio
-const K = (ART.length - 1) / 2;      // index of the middle card
-const OVERLAP = 0.88;                // how much neighbours tuck behind each other
+const W = 116;
+const H = Math.round(W * 495 / 360);
+const K = (ART.length - 1) / 2;
+const OVERLAP = 0.88;
 
-const turnAt = (d: number) => 74 - d * (74 - 22);   // degrees, edge-on at the centre
+const turnAt = (d: number) => 74 - d * (74 - 22);
 const scaleAt = (d: number) => 0.78 + d * (1.06 - 0.78);
 
-/** Where each card sits once the ribbon is open.
- *
- *  Even spacing looks wrong here. A card turned 74 degrees away covers a
- *  quarter of the width of one turned 22, so a constant pitch leaves holes
- *  beside the middle cards and crushes the outer ones. Positions are therefore
- *  accumulated from each card's PROJECTED width — what it actually occupies
- *  once rotated and scaled — which is what keeps the band continuous. */
+/** Positions accumulate from each card's PROJECTED width — what it actually
+ *  occupies once turned and scaled. Even spacing leaves holes beside the
+ *  middle cards, because one turned 74 degrees covers a quarter of the width
+ *  of one turned 22. */
 const LAYOUT = (() => {
   const proj = (d: number) => W * Math.cos((turnAt(d) * Math.PI) / 180) * scaleAt(d);
   const xs: number[] = [0];
   for (let n = 1; n <= K; n++) {
-    const a = proj((n - 1) / K);
-    const b = proj(n / K);
-    xs[n] = xs[n - 1] + ((a + b) / 2) * OVERLAP;
+    xs[n] = xs[n - 1] + ((proj((n - 1) / K) + proj(n / K)) / 2) * OVERLAP;
   }
-  return xs; // xs[|i|] is the distance from the centre
+  return xs;
 })();
 
-/** A ribbon of slabs that opens outward past both edges.
- *
- *  The shape is one row of cards receding to a vanishing point in the middle:
- *  each card is turned on its Y axis by an amount that grows toward the
- *  centre, so the middle ones are nearly edge-on and the outer ones face you.
- *  Under perspective that reads as a strip stretching away from the viewer in
- *  both directions rather than nine rectangles in a line.
- *
- *  Closed, every card is stacked at the centre and fully edge-on — a single
- *  bright seam. Opening rotates them toward the viewer while pushing them
- *  apart, so the seam splits and the cards appear to be pulled out of one
- *  another. The band deliberately runs off both edges: a ribbon that ends on
- *  screen is a row of nine, and the point is that it keeps going. */
 export function CardRibbon({
   style, height = H + 12,
 }: { style?: StyleProp<ViewStyle>; height?: number }) {
   const open = useSharedValue(0);
 
   useEffect(() => {
-    open.value = withTiming(1, { duration: 1250, easing: Easing.bezier(0.16, 1, 0.3, 1) });
+    // Shorter and less loitering than before. The old curve spent 1250ms with
+    // a very long tail, which reads as sluggish rather than smooth — most of
+    // it was spent crawling the last few pixels.
+    open.value = withTiming(1, { duration: 780, easing: Easing.bezier(0.2, 0.85, 0.25, 1) });
   }, [open]);
 
   return (
@@ -76,34 +65,44 @@ export function CardRibbon({
 }
 
 function Slab({ src, i, open }: { src: number; i: number; open: SharedValue<number> }) {
-  // Every one of these is a plain number worked out on the JS thread, on
-  // purpose. The style callback below runs as a worklet on the UI thread,
-  // where a module-scope helper like turnAt() is not a worklet and calling one
-  // crashes the app the moment the screen mounts. Only numbers cross over.
-  const d = Math.abs(i) / K;                 // 0 at the centre, 1 at the ends
+  // Plain numbers, worked out on the JS thread. The callback below is a
+  // worklet: a module-scope helper is not one, and calling it from there
+  // crashes on mount.
+  const d = Math.abs(i) / K;
   const dir = i < 0 ? 1 : -1;
   const turnOpen = turnAt(d) * dir;
-  const turnShut = dir * 88;                 // stacked and fully edge-on
+  const turnShut = dir * 88;
   const scaleOpen = scaleAt(d);
   const xOpen = Math.sign(i) * LAYOUT[Math.abs(i)];
-  const depth = Math.round(10 + d * 10);     // the outer, nearer cards sit on top
+  // the middle leaves first and the outer cards follow, so the band unfolds
+  // instead of every card sliding in lockstep
+  const lead = d * 0.26;
 
   const style = useAnimatedStyle(() => {
-    const t = open.value;
+    const t = interpolate(open.value, [lead, 1], [0, 1], Extrapolation.CLAMP);
     return {
       transform: [
         { perspective: 620 },
-        { translateX: interpolate(t, [0, 1], [0, xOpen]) },
-        { rotateY: `${interpolate(t, [0, 1], [turnShut, turnOpen])}deg` },
-        { scale: interpolate(t, [0, 1], [0.6, scaleOpen]) },
+        { translateX: t * xOpen },
+        { rotateY: `${turnShut + (turnOpen - turnShut) * t}deg` },
+        { scale: 0.6 + (scaleOpen - 0.6) * t },
       ],
-      opacity: interpolate(t, [0, 0.18, 1], [0, 1, 1]),
-      zIndex: depth,
+      opacity: interpolate(t, [0, 0.2, 1], [0, 1, 1]),
     };
   });
 
   return (
-    <Animated.View style={[s.slab, style]}>
+    <Animated.View
+      style={[
+        s.slab,
+        // Depth never changes, so it is set once here rather than returned
+        // from the worklet. A zIndex coming out of an animated style forces
+        // the view hierarchy to be re-ordered on the main thread every frame,
+        // which is most of why this stuttered.
+        { zIndex: Math.round(10 + d * 10) },
+        style,
+      ]}
+    >
       <View style={s.frame}>
         <Image source={src} style={s.art} resizeMode="cover" accessibilityIgnoresInvertColors />
       </View>
@@ -113,16 +112,15 @@ function Slab({ src, i, open }: { src: number; i: number; open: SharedValue<numb
 
 const s = StyleSheet.create({
   wrap: { width: "100%", alignItems: "center", justifyContent: "center" },
-  slab: {
-    position: "absolute", width: W, height: H,
-    shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 18,
-    shadowOffset: { width: 0, height: 10 },
-  },
-  // the white border is the sleeve: it is what separates one card from the
-  // next once they overlap, and without it the ribbon reads as one texture
+  slab: { position: "absolute", width: W, height: H },
+  // No shadow on these. Seven soft shadows, each on a view being rotated and
+  // scaled, is an offscreen pass per card per frame on iOS and the single
+  // biggest cost in the whole screen. The white sleeve edge already separates
+  // one card from the next, which is all the shadow was really doing.
   frame: {
     flex: 1, borderRadius: radius.sm, padding: 3,
     backgroundColor: colors.surface, overflow: "hidden",
+    ...Platform.select({ android: { elevation: 0 } }),
   },
   art: { width: "100%", height: "100%", borderRadius: 5 },
 });

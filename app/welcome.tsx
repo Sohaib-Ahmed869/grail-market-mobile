@@ -15,17 +15,14 @@ import { colors, space } from "../theme";
 
 /** Welcome.
  *
- *  One claim, one ribbon, one action. The earlier version carried a
- *  three-point feature list under the headline, which is the kind of thing
- *  that gets written because a screen looks empty rather than because anyone
- *  reads it — a person deciding whether to install does not audit a bullet
- *  list, they look at the pictures and press the button. The three points now
- *  live where they are actually useful, on the levels screen and beside the
- *  scan itself.
+ *  One claim, one ribbon, one action. The three-point feature list from the
+ *  wireframe is gone — someone deciding whether to install looks at the
+ *  pictures and presses the button, and those points are more use where they
+ *  actually apply, on the levels screen and beside the scan.
  *
- *  The ID requirement stays, because it is the product's whole proposition and
- *  springing it later is what makes people abandon halfway. It just says it in
- *  one line instead of a card. */
+ *  The words are the wireframe's own, cut to two lines. The ID requirement
+ *  stays on this screen because it is the product's whole proposition, and
+ *  springing it later is what makes people abandon halfway through signup. */
 export default function Welcome() {
   const router = useRouter();
   const enter = useSharedValue(0);
@@ -64,7 +61,8 @@ export default function Welcome() {
 
         <Animated.View style={[s.head, headStyle]}>
           <Txt variant="display" color={colors.onDark} center style={s.h1}>
-            Every card,{"\n"}priced honestly.
+            Australia&rsquo;s marketplace{"\n"}for{" "}
+            <Txt variant="display" color={colors.accent} style={s.h1}>slabs &amp; sealed</Txt>.
           </Txt>
         </Animated.View>
 
@@ -74,18 +72,15 @@ export default function Welcome() {
 
         <Animated.View style={[s.bottom, tailStyle]}>
           <Txt variant="body" color={colors.onDarkMuted} center style={s.sub}>
-            Scan any slab for its real market value. Free, and no account needed.
+            Price checks are free. Buying and selling needs a verified ID.
           </Txt>
-          <Button label="Get started" kind="accent" onPress={() => router.push("/signup")} />
+          <Button label="Create an account" kind="accent" onPress={() => router.push("/signup")} />
           <Button
-            label="Look around first"
+            label="Look around first — no account"
             kind="ghostLight"
             onPress={() => {}}
             style={s.ghost}
           />
-          <Txt variant="bodySmall" color={colors.onDarkMuted} center style={s.fine}>
-            Buying and selling needs a verified ID.
-          </Txt>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -103,5 +98,4 @@ const s = StyleSheet.create({
   bottom: { width: "100%", paddingHorizontal: space.xl, paddingBottom: space.sm },
   sub: { marginBottom: space.xl, paddingHorizontal: space.sm },
   ghost: { marginTop: space.xs },
-  fine: { marginTop: space.sm, opacity: 0.75 },
 });
