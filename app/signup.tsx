@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
 import { Screen } from "../components/Screen";
@@ -32,7 +32,13 @@ export default function SignUp() {
   const errors = useMemo(() => validateSignUp(form), [form]);
   const ready = isClean(errors);
   const set = (k: keyof SignUpForm) => (v: string) => setForm((f) => ({ ...f, [k]: v }));
-  const blur = (k: keyof SignUpForm) => () => setTouched((t) => ({ ...t, [k]: true }));
+  // Leaving a field you never typed in is not a mistake, so it does not go
+  // red. Tabbing through an empty form used to light every field at once,
+  // which is the fastest way to teach someone that the red means nothing.
+  // Submit still marks everything — that is the moment it IS a mistake.
+  const blur = (k: keyof SignUpForm) => () => {
+    if (form[k].trim()) setTouched((t) => ({ ...t, [k]: true }));
+  };
   const err = (k: keyof SignUpForm) => (touched[k] ? errors[k] ?? undefined : undefined);
 
   const [sending, setSending] = useState(false);
@@ -68,7 +74,7 @@ export default function SignUp() {
         </>
       }
     >
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <>
         <Steps step={1} label="Your details" />
         <Txt variant="display" style={{ marginTop: space.lg }}>Create your account</Txt>
         <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
@@ -137,7 +143,7 @@ export default function SignUp() {
             check fails.
           </Note>
         </View>
-      </KeyboardAvoidingView>
+      </>
     </Screen>
   );
 }

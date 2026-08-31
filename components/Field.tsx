@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { Txt } from "./Text";
@@ -26,6 +26,7 @@ type Props = TextInputProps & {
 export function Field({ label, hint, secure, error, icon, strength, ...rest }: Props) {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(Boolean(secure));
+  const input = useRef<TextInput>(null);
   const bad = Boolean(error);
 
   return (
@@ -34,7 +35,14 @@ export function Field({ label, hint, secure, error, icon, strength, ...rest }: P
         {label}
       </Txt>
 
-      <View style={[s.box, focused && s.boxFocused, bad && s.boxError]}>
+      {/* The whole box focuses the input, not just the 
+          text itself. A field is a target the size of the box as far as
+          anyone tapping it is concerned, and hitting the icon or the padding
+          either side of the caret did nothing at all. */}
+      <Pressable
+        onPress={() => input.current?.focus()}
+        style={[s.box, focused && s.boxFocused, bad && s.boxError]}
+      >
         {icon && (
           <Feather
             name={icon}
@@ -43,6 +51,7 @@ export function Field({ label, hint, secure, error, icon, strength, ...rest }: P
           />
         )}
         <TextInput
+          ref={input}
           {...rest}
           secureTextEntry={hidden}
           onFocus={(e) => { setFocused(true); rest.onFocus?.(e); }}
@@ -61,7 +70,7 @@ export function Field({ label, hint, secure, error, icon, strength, ...rest }: P
             <Feather name={hidden ? "eye" : "eye-off"} size={17} color={colors.inkFaint} />
           </Pressable>
         )}
-      </View>
+      </Pressable>
 
       {strength != null && <Strength level={strength} />}
 
