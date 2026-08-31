@@ -58,22 +58,24 @@ export function PhoneField({
 
         <View style={s.divider} />
 
-        <Pressable style={s.inputHit} onPress={() => input.current?.focus()}>
-          <TextInput
-            ref={input}
-            value={value}
-            onChangeText={onChangeText}
-            onFocus={() => setFocused(true)}
-            onBlur={() => { setFocused(false); onBlur?.(); }}
-            keyboardType="phone-pad"
-            autoComplete="tel"
-            textContentType="telephoneNumber"
-            placeholder={country === "AU" ? "412 884 019" : "Mobile number"}
-            placeholderTextColor={colors.inkFaint}
-            selectionColor={colors.accent}
-            style={s.input}
-          />
-        </Pressable>
+        {/* No Pressable around this one. A Pressable parent wins the touch
+            responder and the TextInput never receives the tap, so the keyboard
+            never opens — the input is its own hit target and is stretched to
+            fill the row so there is nothing to miss. */}
+        <TextInput
+          ref={input}
+          value={value}
+          onChangeText={onChangeText}
+          onFocus={() => setFocused(true)}
+          onBlur={() => { setFocused(false); onBlur?.(); }}
+          keyboardType="phone-pad"
+          autoComplete="tel"
+          textContentType="telephoneNumber"
+          placeholder={country === "AU" ? "412 884 019" : "Mobile number"}
+          placeholderTextColor={colors.inkFaint}
+          selectionColor={colors.accent}
+          style={s.input}
+        />
       </View>
 
       {(error || hint) && (
@@ -181,8 +183,11 @@ const s = StyleSheet.create({
   },
   flag: { fontSize: 19 },
   divider: { width: 1, height: 24, backgroundColor: colors.line },
-  inputHit: { flex: 1, height: "100%", justifyContent: "center" },
-  input: { ...type.body, color: colors.ink, paddingHorizontal: space.md, paddingVertical: 0 },
+  input: {
+    flex: 1, height: "100%",
+    ...type.body, color: colors.ink,
+    paddingHorizontal: space.md, paddingVertical: 0,
+  },
   foot: { flexDirection: "row", alignItems: "center", gap: 5 },
 
   sheet: { flex: 1, backgroundColor: colors.surface },
