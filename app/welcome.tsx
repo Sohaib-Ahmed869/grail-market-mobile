@@ -6,7 +6,7 @@ import { Feather } from "@expo/vector-icons";
 import { Lockup } from "../components/Brand";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
-import { CardFan } from "../components/CardFan";
+import { HeroCards } from "../components/HeroCards";
 import { colors, radius, space } from "../theme";
 
 const POINTS = [
@@ -31,7 +31,7 @@ export default function Welcome() {
       <LinearGradient colors={["#22303E", colors.dark]} style={[s.hero, { height: height * 0.34 }]}>
         <SafeAreaView edges={["top"]} style={s.heroInner}>
           <Lockup width={158} onDark />
-          <CardFan style={s.fan} />
+          <HeroCards style={s.fan} />
         </SafeAreaView>
       </LinearGradient>
 
