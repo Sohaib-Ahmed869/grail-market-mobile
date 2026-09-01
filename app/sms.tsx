@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { Screen } from "../components/Screen";
-import { confirmCode, sendCode } from "../lib/phoneauth";
+import { STUB_CODE, confirmCode, sendCode, usingStub } from "../lib/phoneauth";
 import { clearPending, getPending, setPending } from "../lib/signupsession";
 import { Txt } from "../components/Text";
 import { Note } from "../components/Note";
@@ -152,7 +152,16 @@ export default function SmsCode() {
         )}
       </View>
 
-      {failure ? (
+      {usingStub() ? (
+        // Impossible to miss, and gone from a release build with the stub
+        <Note tone="accent" icon="alert-triangle">
+          Development build — no SMS was sent. Enter{" "}
+          <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "700" }}>
+            {STUB_CODE}
+          </Txt>
+          . Real codes start once Firebase billing is enabled.
+        </Note>
+      ) : failure ? (
         <Note tone="bad" icon="alert-circle">{failure}</Note>
       ) : (
         <Note icon="info">

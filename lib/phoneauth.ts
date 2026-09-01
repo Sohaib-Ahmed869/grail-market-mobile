@@ -23,6 +23,22 @@ export type ConfirmResult =
 
 export type Confirmation = { confirm(code: string): Promise<{ user: { uid: string } | null }> };
 
+/** DEVELOPMENT ONLY — the code that stands in for a real SMS.
+ *
+ *  Firebase will not send verification codes on the Spark plan; it answers
+ *  auth/operation-not-allowed regardless of the provider being enabled. Rather
+ *  than block the whole signup flow on a billing decision, this accepts one
+ *  fixed code so the screens after it can be built and walked.
+ *
+ *  Set to null the moment Firebase billing is on. Two things make that hard to
+ *  forget: __DEV__ means it cannot exist in a release build at all, and the
+ *  code screen prints a banner saying the bypass is active. A bypass you
+ *  cannot see is how one ships. */
+export const STUB_CODE: string | null = __DEV__ ? "123456" : null;
+
+/** Whether the stub is standing in. Exported so the UI can say so. */
+export const usingStub = () => STUB_CODE != null;
+
 export type PhoneAuthError =
   | "bad-number" | "too-many-requests" | "wrong-code" | "expired"
   | "unavailable" | "network" | "unknown";
@@ -69,6 +85,14 @@ export async function sendCode(phone: string, country: CountryCode = "AU"): Prom
   const e164 = normalisePhone(phone, country);
   if (!e164) return fail("bad-number");
 
+  if (STUB_CODE != null) {
+    console.warn(
+      `[phoneauth] STUB ACTIVE — no SMS sent. The code is ${STUB_CODE}. ` +
+        `Set STUB_CODE to null once Firebase billing is enabled.`,
+    );
+    return { ok: true, session: stubSession(e164) };
+  }
+
   const mod = await firebaseAuth();
   if (!mod) return fail("unavailable");
 
@@ -91,6 +115,24 @@ export async function confirmCode(session: Confirmation, code: string): Promise<
   } catch (e) {
     return fail(classify(e));
   }
+}
+
+/** A confirmation that behaves like Firebase's but checks one fixed code.
+ *
+ *  Same shape as the real thing, including the wrong-code error, so the screen
+ *  exercises every branch it will exercise in production. */
+function stubSession(e164: string): Confirmation {
+  return {
+    async confirm(code: string) {
+      if (code !== STUB_CODE) {
+        throw Object.assign(new Error("stub: wrong code"), {
+          code: "auth/invalid-verification-code",
+        });
+      }
+      // a stable fake uid, so repeated runs look like the same person
+      return { user: { uid: `stub-${e164.replace(/\D/g, "")}` } };
+    },
+  };
 }
 
 /** True when the native module is present, so a screen can explain itself

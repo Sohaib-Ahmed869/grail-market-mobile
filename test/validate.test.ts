@@ -62,3 +62,14 @@ test("confirm has to match, and empty is its own message", () => {
   assert.match(confirmError("a-good-password", "") ?? "", /again/);
   assert.match(confirmError("a-good-password", "a-good-passwrod") ?? "", /do not match/);
 });
+
+// The development OTP bypass. It exists because Firebase will not send codes
+// on the Spark plan, and the risk it carries is shipping by accident — so what
+// is worth pinning is the guard, not the happy path.
+test("the stub is impossible in a release build", async () => {
+  // __DEV__ is what gates it. Under node it is undefined, which is the same
+  // falsy path a production bundle takes, so the constant must be null here.
+  const { STUB_CODE, usingStub } = await import("../lib/devstub.ts");
+  assert.equal(STUB_CODE, null, "a release build must have no stub code");
+  assert.equal(usingStub(), false);
+});
