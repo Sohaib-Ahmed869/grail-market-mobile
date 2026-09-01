@@ -6,6 +6,7 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { colors, radius, space } from "../theme";
+import { useIdentity } from "../lib/useIdentity";
 
 type Level = {
   name: string; requires: string; here?: boolean;
@@ -22,46 +23,60 @@ const LEVELS: Level[] = [
     cannot: ["Save a collection", "Message a seller"],
   },
   {
-    name: "Signed in", requires: "Mobile number confirmed",
+    name: "Signed in", requires: "Mobile number confirmed", here: true,
     can: ["Everything above", "Save a collection and watchlist", "Set price alerts"],
     cannot: ["Buy or sell", "Message a seller", "Create a listing"],
   },
   {
-    name: "Verified member", requires: "Driver's licence, or two forms of ID", here: true,
+    name: "Verified member", requires: "Driver's licence, or two forms of ID",
     can: ["Buy, sell and message", "Create listings", "Earn the Seller Verified badge"],
     cannot: [],
   },
 ];
 
+const DEV_USER = "dev-user-1";
+
 export default function AccessLevels() {
   const router = useRouter();
+  // The same answer the gate uses. This screen offered to verify a member who
+  // already was, one tap from a screen saying so.
+  const { verified } = useIdentity(DEV_USER);
+
   return (
     <Screen
       back
       footer={
-        <>
-          <Button label="Verify my ID — 2 minutes" onPress={() => router.push("/idcheck")} />
-          <Button label="Later, take me in" kind="ghost" onPress={() => {}} />
-        </>
+        verified ? (
+          <Button label="Take me in" onPress={() => {}} />
+        ) : (
+          <>
+            <Button label="Verify my ID — 2 minutes" onPress={() => router.push("/idcheck")} />
+            <Button label="Later, take me in" kind="ghost" onPress={() => {}} />
+          </>
+        )
       }
     >
       <Txt variant="display">Three levels, one ladder</Txt>
       <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
-        You&rsquo;re at level 2. Level two is where the marketplace opens — and it&rsquo;s
-        required, not optional.
+        {verified
+          ? "You\u2019re at level 3. Everything the marketplace does is open to you."
+          : "You\u2019re at level 2. Level three is where the marketplace opens \u2014 and it\u2019s required, not optional."}
       </Txt>
 
       <View style={s.list}>
-        {LEVELS.map((l, i) => (
-          <Card key={l.name} tone={l.here ? "accent" : "plain"}>
+        {LEVELS.map((l, i) => {
+          // the tier you are actually on, rather than the one hard-coded
+          const here = verified ? l.name === "Verified member" : Boolean(l.here);
+          return (
+          <Card key={l.name} tone={here ? "accent" : "plain"}>
             <View style={s.head}>
-              <View style={[s.num, l.here && s.numHere]}>
-                <Txt variant="overline" color={l.here ? colors.onPrimary : colors.inkMuted} style={s.numTxt}>
+              <View style={[s.num, here && s.numHere]}>
+                <Txt variant="overline" color={here ? colors.onPrimary : colors.inkMuted} style={s.numTxt}>
                   {i + 1}
                 </Txt>
               </View>
               <Txt variant="h2" style={s.title}>{l.name}</Txt>
-              {l.here && (
+              {here && (
                 <Txt variant="overline" color={colors.accent}>You are here</Txt>
               )}
             </View>
@@ -72,7 +87,8 @@ export default function AccessLevels() {
               {l.cannot.map((c) => <Row key={c} label={c} />)}
             </View>
           </Card>
-        ))}
+          );
+        })}
       </View>
     </Screen>
   );

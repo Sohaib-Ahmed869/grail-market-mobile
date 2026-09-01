@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -8,7 +8,8 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
-import { fetchStatus, runVerification, type IdentityStatus } from "../lib/identity";
+import { runVerification } from "../lib/identity";
+import { setIdentity, useIdentity } from "../lib/useIdentity";
 import { colors, radius, space } from "../theme";
 
 /** Until there is an account system, one device is one person. */
@@ -35,20 +36,10 @@ export default function IdCheck() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const [known, setKnown] = useState<IdentityStatus | null>(null);
-
-  // Ask before offering. Someone who verified on another device — or on the
-  // hosted flow in a browser, which is a supported path — should not be asked
-  // to do it again just because this screen never checked. The backend already
-  // knows; the screen only had to look.
-  useEffect(() => {
-    let alive = true;
-    fetchStatus(DEV_USER).then((s) => alive && setKnown(s));
-    return () => { alive = false; };
-  }, []);
-
-  const verified = known === "Approved";
-  const reviewing = known === "In Review";
+  // Ask before offering. Someone who verified on another device — the hosted
+  // flow in a browser is a supported path — should not be asked again just
+  // because this screen never looked.
+  const { verified, reviewing } = useIdentity(DEV_USER);
 
   const start = async () => {
     setFailure(null);
