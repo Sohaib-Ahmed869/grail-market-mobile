@@ -56,6 +56,20 @@ export default (): ExpoConfig => ({
   ios: {
     supportsTablet: true,
     bundleIdentifier: "au.com.grailmarket.app",
+    // iOS terminates the app the moment a protected resource is touched
+    // without a reason string. The identity SDK reaches for all of these, so a
+    // missing line here is a crash in the middle of verification rather than a
+    // warning at build time.
+    infoPlist: {
+      NSCameraUsageDescription:
+        "GrailMarket uses the camera to photograph your ID and card so we can verify them.",
+      NSMicrophoneUsageDescription:
+        "A short video is recorded during the liveness check that confirms the ID is yours.",
+      NSPhotoLibraryUsageDescription:
+        "Choose an existing photo of your ID or your card instead of taking a new one.",
+      NFCReaderUsageDescription:
+        "Reading the chip in a passport verifies it far more reliably than a photograph can.",
+    },
     ...(hasIosFirebase ? { googleServicesFile: IOS_GOOGLE } : {}),
   },
   android: {
@@ -82,6 +96,7 @@ export default (): ExpoConfig => ({
     // which publishes no module map, so as plain static libraries they cannot
     // be imported from Swift at all.
     "./plugins/withRNFirebaseNoSPM",
+    "@didit-protocol/sdk-react-native",
     ["expo-build-properties", { ios: { useFrameworks: "static" } }],
     [
       "expo-splash-screen",
