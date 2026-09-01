@@ -47,11 +47,11 @@ export default function AccessLevels() {
       back
       footer={
         verified ? (
-          <Button label="Take me in" onPress={() => {}} />
+          <Button label="Take me in" onPress={() => router.push("/plans")} />
         ) : (
           <>
             <Button label="Verify my ID — 2 minutes" onPress={() => router.push("/idcheck")} />
-            <Button label="Later, take me in" kind="ghost" onPress={() => {}} />
+            <Button label="Later, take me in" kind="ghost" onPress={() => router.push("/plans")} />
           </>
         )
       }
