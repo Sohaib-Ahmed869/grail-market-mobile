@@ -20,7 +20,7 @@ const OPENS = [
 export default function Ready() {
   const router = useRouter();
   return (
-    <Screen footer={<Button label="Start scanning" onPress={() => router.replace("/welcome")} />}>
+    <Screen footer={<Button label="Start scanning" onPress={() => router.replace("/(tabs)/home")} />}>
       <View style={s.middle}>
         <View style={s.badge}>
           <Feather name="check" size={34} color={colors.up} />

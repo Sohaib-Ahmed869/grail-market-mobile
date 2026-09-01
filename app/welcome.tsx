@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing, interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming,
 } from "react-native-reanimated";
@@ -97,9 +97,17 @@ export default function Welcome() {
           <Button
             label="Look around first — no account"
             kind="ghostLight"
-            onPress={() => {}}
+            onPress={() => router.replace("/(tabs)/home")}
             style={s.ghost}
           />
+          <Pressable onPress={() => router.push("/signin")} hitSlop={8} style={s.signin}>
+            <Txt variant="bodySmall" color={colors.onDarkMuted} center>
+              Already a member?{" "}
+              <Txt variant="bodySmall" color={colors.onDark} style={{ fontWeight: "600" }}>
+                Sign in
+              </Txt>
+            </Txt>
+          </Pressable>
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -131,4 +139,5 @@ const s = StyleSheet.create({
   },
   pointTxt: { flex: 1 },
   ghost: { marginTop: space.xs },
+  signin: { marginTop: space.md },
 });
