@@ -41,6 +41,10 @@ const SAY: Record<PhoneAuthError, string> = {
 
 function classify(e: unknown): PhoneAuthError {
   const code = String((e as { code?: string })?.code ?? "");
+  // The user-facing strings below are deliberately vague; the real code is
+  // what makes a failure diagnosable, and losing it cost an hour of guessing
+  // at "something went wrong".
+  if (__DEV__) console.warn("[phoneauth] firebase error:", code, e);
   if (code.includes("invalid-phone-number")) return "bad-number";
   if (code.includes("too-many-requests") || code.includes("quota-exceeded")) return "too-many-requests";
   if (code.includes("invalid-verification-code")) return "wrong-code";
