@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -8,7 +8,7 @@ import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
-import { runVerification } from "../lib/identity";
+import { fetchStatus, runVerification, type IdentityStatus } from "../lib/identity";
 import { colors, radius, space } from "../theme";
 
 /** Until there is an account system, one device is one person. */
@@ -35,6 +35,20 @@ export default function IdCheck() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [known, setKnown] = useState<IdentityStatus | null>(null);
+
+  // Ask before offering. Someone who verified on another device — or on the
+  // hosted flow in a browser, which is a supported path — should not be asked
+  // to do it again just because this screen never checked. The backend already
+  // knows; the screen only had to look.
+  useEffect(() => {
+    let alive = true;
+    fetchStatus(DEV_USER).then((s) => alive && setKnown(s));
+    return () => { alive = false; };
+  }, []);
+
+  const verified = known === "Approved";
+  const reviewing = known === "In Review";
 
   const start = async () => {
     setFailure(null);
@@ -50,21 +64,36 @@ export default function IdCheck() {
     <Screen
       back
       footer={
-        <>
-          <Button label="Verify my ID — 2 minutes" onPress={start} loading={busy} />
-          <Button label="Not now" kind="ghost" onPress={() => router.back()} />
-        </>
+        verified ? (
+          <Button label="Continue" onPress={() => router.replace("/ladder")} />
+        ) : (
+          <>
+            <Button
+              label={reviewing ? "Check again" : "Verify my ID — 2 minutes"}
+              onPress={reviewing ? () => router.push("/idreview") : start}
+              loading={busy}
+            />
+            <Button label="Not now" kind="ghost" onPress={() => router.back()} />
+          </>
+        )
       }
     >
       <Steps step={3} label="Prove it's you" />
-      <Txt variant="display" style={{ marginTop: space.lg }}>One step before you trade</Txt>
+
+      {/* Once someone is verified this screen has nothing to ask for, so it
+          stops asking. Leaving the requirements up under a green tick reads as
+          the app not knowing its own mind. */}
+      <Txt variant="display" style={{ marginTop: space.lg }}>
+        {verified ? "You\u2019re verified" : "One step before you trade"}
+      </Txt>
       <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
-        Buying, selling and messaging all need a verified identity. It takes about two
-        minutes, and your draft is saved while you do it.
+        {verified
+          ? "You can buy, sell and message. The Seller Verified badge shows on every listing you post."
+          : "Buying, selling and messaging all need a verified identity. It takes about two minutes, and your draft is saved while you do it."}
       </Txt>
 
       <View style={s.list}>
-        {NEEDS.map((n) => (
+        {!verified && NEEDS.map((n) => (
           <Card key={n.title}>
             <View style={s.row}>
               <View style={s.chip}>
@@ -82,7 +111,7 @@ export default function IdCheck() {
       {/* The reason the ID is collected at all. It belongs on the screen where
           we ask for it, not buried in a terms document nobody opens. */}
       <View style={{ marginTop: space.lg }}>
-        <Note tone="accent" icon="shield">
+        <Note tone={verified ? "good" : "accent"} icon="shield">
           If your licence is on file you think twice before you scam someone. Confirmed
           fraud is referred to NSW Police, or your state's equivalent, with the identity
           we hold.
