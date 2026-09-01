@@ -73,6 +73,16 @@ export default (): ExpoConfig => ({
   plugins: [
     "expo-router",
     "expo-font",
+    // Both of these are unconditional, because the react-native-firebase pods
+    // autolink from node_modules even when the Firebase plugins below are
+    // switched off — the build hits their problems either way.
+    //
+    // SPM off, then static frameworks: that pairing is what react-native-
+    // firebase documents. Firebase's Swift pods depend on GoogleUtilities,
+    // which publishes no module map, so as plain static libraries they cannot
+    // be imported from Swift at all.
+    "./plugins/withRNFirebaseNoSPM",
+    ["expo-build-properties", { ios: { useFrameworks: "static" } }],
     [
       "expo-splash-screen",
       {
@@ -84,12 +94,6 @@ export default (): ExpoConfig => ({
     ],
     // Only worth adding when there is a project for them to read. The plugins
     // themselves fail the prebuild if the files are missing.
-    ...(firebase
-      ? [
-          "@react-native-firebase/app",
-          "@react-native-firebase/auth",
-          ["expo-build-properties", { ios: { useFrameworks: "static" } }],
-        ]
-      : []),
+    ...(firebase ? ["@react-native-firebase/app", "@react-native-firebase/auth"] : []),
   ] as ExpoConfig["plugins"],
 });

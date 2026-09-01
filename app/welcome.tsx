@@ -81,7 +81,7 @@ export default function Welcome() {
                 <View style={s.chip}>
                   <Feather name={p.icon} size={14} color={colors.accent} />
                 </View>
-                <Txt variant="bodySmall" color={colors.onDark} style={s.pointTxt} numberOfLines={1}>
+                <Txt variant="bodySmall" color={colors.onDark} style={s.pointTxt}>
                   {p.title}
                   <Txt variant="bodySmall" color={colors.onDarkMuted}>{"  ·  "}{p.tail}</Txt>
                 </Txt>
