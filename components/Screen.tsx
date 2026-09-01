@@ -27,6 +27,11 @@ export function Screen({
 
   const body = scroll ? (
     <ScrollView
+      // flex:1 is what bounds the scroll view's height. Without it a
+      // ScrollView in a column takes the height of its CONTENT, so a long form
+      // does not scroll — it overflows underneath the footer and the fields at
+      // the bottom become unreachable.
+      style={s.fill}
       contentContainerStyle={s.content}
       showsVerticalScrollIndicator={false}
       // "handled" lets a tap reach a button without first dismissing the
