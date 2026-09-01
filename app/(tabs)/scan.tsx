@@ -70,7 +70,7 @@ export default function Scan() {
     clearInterval(tick);
     setBusy(false);
     if (!r.ok) { setFailure(r.message); return; }
-    setLastScan(r.scan);
+    setLastScan(r.scan, { front, back: back ?? undefined });
     router.push("/scanresult");
   };
 

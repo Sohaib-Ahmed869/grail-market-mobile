@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Screen } from "../components/Screen";
@@ -7,8 +7,40 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Note } from "../components/Note";
-import { getLastScan } from "../lib/lastscan";
+import { getLastScan, getLastShots } from "../lib/lastscan";
 import { colors, radius, space, type } from "../theme";
+
+/** What each rejection means, and the thing that actually fixes it.
+ *
+ *  The backend returns a reason code — "too_much_glare", "card_too_small" —
+ *  which is precise and useless to a person holding a phone. Each one is
+ *  translated into what went wrong and what to do differently. */
+const REASONS: Record<string, { title: string; says: string; fix: string[] }> = {
+  too_much_glare: {
+    title: "Too much glare",
+    says: "Light is bouncing off the case, so the label couldn\u2019t be read.",
+    fix: [
+      "Turn away from the light, or tilt the card slightly",
+      "Avoid shooting directly under a ceiling light",
+      "A window with indirect daylight works best",
+    ],
+  },
+  card_too_small: {
+    title: "Card too small in frame",
+    says: "There wasn\u2019t enough detail to read the number or the label.",
+    fix: ["Move closer until the card fills most of the frame", "Keep the whole card in shot"],
+  },
+  no_card_found: {
+    title: "No card found",
+    says: "Nothing card-shaped was detected in that photo.",
+    fix: ["Lay the card on a plain surface", "Make sure all four edges are visible"],
+  },
+  blurred: {
+    title: "Out of focus",
+    says: "The text was too soft to read.",
+    fix: ["Tap the screen on the card to focus", "Hold still for a moment before shooting"],
+  },
+};
 
 const money = (n: number | null | undefined, cur = "AUD") =>
   n == null ? "—" : `${cur === "AUD" ? "A$" : "$"}${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
@@ -63,22 +95,53 @@ export default function ScanResult() {
   }
 
   if (scan.rejection) {
+    const shots = getLastShots();
+    const why = REASONS[String(scan.rejection.reason)] ?? {
+      title: "Couldn\u2019t read that",
+      says: scan.rejection.hint ?? "The photo wasn\u2019t clear enough.",
+      fix: ["Fill the frame with the card", "Lay it flat", "Keep glare off the case"],
+    };
     return (
-      <Screen back footer={<Button label="Try again" onPress={() => router.back()} />}>
-        <View style={s.middle}>
+      <Screen back footer={<Button label="Take another" onPress={() => router.back()} />}>
+        <View style={s.rejectHead}>
           <View style={s.badgeBad}>
-            <Feather name="camera-off" size={30} color={colors.down} />
+            <Feather name="camera-off" size={26} color={colors.down} />
           </View>
-          <Txt variant="display" center>Couldn&rsquo;t read that</Txt>
-          <Txt variant="body" color={colors.inkMuted} center style={{ marginTop: space.sm }}>
-            {scan.rejection.hint ?? scan.rejection.reason ?? "The photo wasn't clear enough."}
-          </Txt>
-          {/* A rejection is a better answer than a confident wrong price, and
-              saying so is what stops it reading as a failure of the app. */}
-          <Txt variant="bodySmall" color={colors.inkFaint} center style={{ marginTop: space.xl }}>
-            We&rsquo;d rather say nothing than guess. Fill the frame, lay it flat,
-            and keep glare off the case.
-          </Txt>
+          <View style={{ flex: 1 }}>
+            <Txt variant="h1">{why.title}</Txt>
+            <Txt variant="bodySmall" color={colors.inkMuted}>{why.says}</Txt>
+          </View>
+        </View>
+
+        {/* The photograph that was rejected.
+          *
+          * Told "too much glare" against a blank screen, nobody can tell
+          * whether they shot the wrong thing, cropped it badly or caught the
+          * light — and one look at their own frame answers it. */}
+        {shots?.front && (
+          <View style={s.rejectShot}>
+            <Image source={{ uri: shots.front }} style={s.rejectImg} resizeMode="contain" />
+            <Txt variant="overline" color={colors.inkFaint} center style={{ marginTop: space.sm }}>
+              What we received
+            </Txt>
+          </View>
+        )}
+
+        <View style={s.fixes}>
+          <Txt variant="h3">What usually fixes it</Txt>
+          {why.fix.map((f) => (
+            <View key={f} style={s.fixRow}>
+              <Feather name="check" size={14} color={colors.up} />
+              <Txt variant="bodySmall" color={colors.inkMuted} style={{ flex: 1 }}>{f}</Txt>
+            </View>
+          ))}
+        </View>
+
+        <View style={{ marginTop: space.lg }}>
+          <Note icon="info">
+            We&rsquo;d rather say nothing than guess. A wrong price on a card worth
+            thousands costs more than asking you to shoot it again.
+          </Note>
         </View>
       </Screen>
     );
@@ -189,8 +252,17 @@ export default function ScanResult() {
 
 const s = StyleSheet.create({
   middle: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.md },
+  rejectHead: { flexDirection: "row", gap: space.md, alignItems: "flex-start" },
+  rejectShot: {
+    marginTop: space.xl, borderRadius: radius.lg, overflow: "hidden",
+    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
+    padding: space.md,
+  },
+  rejectImg: { width: "100%", height: 300, borderRadius: radius.sm },
+  fixes: { marginTop: space.xl, gap: space.sm },
+  fixRow: { flexDirection: "row", alignItems: "center", gap: space.sm },
   badgeBad: {
-    width: 70, height: 70, borderRadius: 35, marginBottom: space.xl,
+    width: 48, height: 48, borderRadius: 24,
     alignItems: "center", justifyContent: "center",
     backgroundColor: colors.downWash, borderWidth: 1, borderColor: colors.down,
   },
