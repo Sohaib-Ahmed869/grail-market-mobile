@@ -2,13 +2,15 @@
  *
  *  EXPO_PUBLIC_ variables are inlined into the bundle at build time, which is
  *  fine for a base URL and is exactly why no key may ever travel this way. */
+import { authHeader } from "./session";
+
 export const API =
   process.env.EXPO_PUBLIC_API_URL ?? "https://grail-market-backend.onrender.com";
 
 export async function post<T>(path: string, body: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(`${API}${path}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...headers },
+    headers: { "Content-Type": "application/json", ...authHeader(), ...headers },
     body: JSON.stringify(body ?? {}),
   });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
@@ -16,7 +18,7 @@ export async function post<T>(path: string, body: unknown, headers: Record<strin
 }
 
 export async function get<T>(path: string) {
-  const res = await fetch(`${API}${path}`);
+  const res = await fetch(`${API}${path}`, { headers: { ...authHeader() } });
   if (!res.ok) throw new Error(`${path} -> ${res.status}`);
   return (await res.json()) as T;
 }

@@ -67,6 +67,8 @@ export default (): ExpoConfig => ({
         "A short video is recorded during the liveness check that confirms the ID is yours.",
       NSPhotoLibraryUsageDescription:
         "Choose an existing photo of your ID or your card instead of taking a new one.",
+      NSPhotoLibraryAddUsageDescription:
+        "Save a scan back to your photos.",
       NFCReaderUsageDescription:
         "Reading the chip in a passport verifies it far more reliably than a photograph can.",
     },

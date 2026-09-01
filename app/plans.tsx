@@ -9,9 +9,10 @@ import { Note } from "../components/Note";
 import {
   awaitSubscription, fetchPlans, startCheckout, type Plan, type PlanId,
 } from "../lib/billing";
+import { useSession } from "../lib/session";
 import { colors, radius, space } from "../theme";
 
-const DEV_USER = "dev-user-1";
+
 const money = (cents: number) => `A$${(cents / 100).toFixed(0)}`;
 
 /** Pick a plan.
@@ -25,6 +26,8 @@ const money = (cents: number) => `A$${(cents / 100).toFixed(0)}`;
  *  number, which is the difference between reading a PCI questionnaire and
  *  not. */
 export default function Plans() {
+  const session = useSession();
+  const userId = session?.userId ?? "";
   const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [configured, setConfigured] = useState(true);
@@ -40,7 +43,7 @@ export default function Plans() {
   const go = async () => {
     setFailure(null);
     setBusy(true);
-    const r = await startCheckout(DEV_USER, chosen);
+    const r = await startCheckout(userId, chosen);
     setBusy(false);
     if (r.outcome === "failed") { setFailure(r.message); return; }
     if (r.outcome === "dismissed") return;   // backed out; nothing to say
@@ -48,7 +51,7 @@ export default function Plans() {
     // The browser came back. That is not payment — Stripe's webhook is, so we
     // ask our own backend rather than believing the redirect.
     setWaiting(true);
-    const sub = await awaitSubscription(DEV_USER);
+    const sub = await awaitSubscription(userId);
     setWaiting(false);
     if (sub.status === "active" || sub.status === "trialing") router.replace("/ready");
     else setFailure("We haven't seen the payment confirmed yet. It can take a moment — check Plan & billing shortly.");

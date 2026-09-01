@@ -10,10 +10,11 @@ import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
 import { runVerification } from "../lib/identity";
 import { setIdentity, useIdentity } from "../lib/useIdentity";
+import { useSession } from "../lib/session";
 import { colors, radius, space } from "../theme";
 
 /** Until there is an account system, one device is one person. */
-const DEV_USER = "dev-user-1";
+
 
 const NEEDS = [
   { icon: "credit-card" as const, title: "An Australian driver's licence",
@@ -33,18 +34,20 @@ const NEEDS = [
  *  asking, what happens to the photographs, and that the draft they were in
  *  the middle of is safe. */
 export default function IdCheck() {
+  const session = useSession();
+  const userId = session?.userId ?? "";
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   // Ask before offering. Someone who verified on another device — the hosted
   // flow in a browser is a supported path — should not be asked again just
   // because this screen never looked.
-  const { verified, reviewing } = useIdentity(DEV_USER);
+  const { verified, reviewing } = useIdentity(userId);
 
   const start = async () => {
     setFailure(null);
     setBusy(true);
-    const r = await runVerification(DEV_USER);
+    const r = await runVerification(userId);
     setBusy(false);
     if (r.outcome === "finished") router.push("/idreview");
     else if (r.outcome === "failed") setFailure(r.message);

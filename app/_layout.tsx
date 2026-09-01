@@ -11,6 +11,7 @@ import {
   Inter_700Bold,
 } from "@expo-google-fonts/inter";
 import { colors } from "../theme";
+import { loadSession } from "../lib/session";
 
 // Hold the native splash until the fonts are in. Called at module scope, as
 // the SDK 57 docs require — inside a component it races the first render.
@@ -33,6 +34,10 @@ export default function RootLayout() {
   // A font that will not load must not cost the user the app. We show the UI
   // in the system face rather than holding a navy screen forever.
   const ready = loaded || Boolean(error);
+
+  // The keychain read happens once, at boot, so no screen has to wonder
+  // whether the session has loaded yet.
+  useEffect(() => { loadSession().catch(() => {}); }, []);
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});

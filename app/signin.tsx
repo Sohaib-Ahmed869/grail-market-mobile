@@ -7,6 +7,7 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { emailError } from "../lib/validate";
+import { login } from "../lib/auth";
 import { colors, radius, space } from "../theme";
 
 /** Sign in.
@@ -28,11 +29,15 @@ export default function SignIn() {
   const emailBad = useMemo(() => emailError(form.email), [form.email]);
   const ready = !emailBad && form.password.length > 0;
 
-  const submit = () => {
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
     if (!ready) { setTouched({ email: true }); return; }
-    // TODO(auth): there is no account system yet. Until there is, this is the
-    // same placeholder identity the rest of the app uses.
     setFailure(null);
+    setBusy(true);
+    const r = await login(form.email.trim(), form.password);
+    setBusy(false);
+    if (!r.ok) { setFailure(r.message); return; }
     router.replace("/(tabs)/home");
   };
 
@@ -41,7 +46,7 @@ export default function SignIn() {
       back
       footer={
         <>
-          <Button label="Sign in" onPress={submit} />
+          <Button label="Sign in" onPress={submit} loading={busy} />
           <Pressable onPress={() => router.replace("/signup")} hitSlop={8}>
             <Txt variant="bodySmall" color={colors.inkMuted} center>
               New here?{" "}

@@ -12,6 +12,7 @@ import { Steps } from "../components/Steps";
 import { colors, radius, space } from "../theme";
 import { isClean, passwordStrength, validateSignUp, type SignUpForm } from "../lib/validate";
 import { sendCode } from "../lib/phoneauth";
+import { register } from "../lib/auth";
 import { DEFAULT_COUNTRY } from "../lib/countries";
 import { setPending } from "../lib/signupsession";
 
@@ -56,6 +57,16 @@ export default function SignUp() {
     }
     setFailure(null);
     setSending(true);
+
+    // The account is created first. Without it the SMS code, the identity
+    // check and the subscription all attach to nobody — which is exactly what
+    // happened while this was a placeholder id.
+    const acct = await register({
+      email: form.email.trim(), name: form.name.trim(),
+      phone: form.phone.trim(), password: form.password,
+    });
+    if (!acct.ok) { setSending(false); setFailure(acct.message); return; }
+
     // The text goes out from here, not from the code screen. Landing on a
     // screen that says "we sent a code" before anything has been sent is how
     // people end up waiting for a message that was never going to arrive.

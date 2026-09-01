@@ -7,9 +7,10 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Note } from "../components/Note";
 import { awaitDecision, type IdentityStatus } from "../lib/identity";
+import { useSession } from "../lib/session";
 import { colors, radius, space } from "../theme";
 
-const DEV_USER = "dev-user-1";
+
 
 /** Checking, then the verdict.
  *
@@ -19,6 +20,8 @@ const DEV_USER = "dev-user-1";
  *  rather than trusting what the SDK handed back on the way out. The SDK says
  *  a person finished; only the signed webhook says they passed. */
 export default function IdReview() {
+  const session = useSession();
+  const userId = session?.userId ?? "";
   const router = useRouter();
   const [status, setStatus] = useState<IdentityStatus>("In Progress");
   const [slow, setSlow] = useState(false);
@@ -37,7 +40,7 @@ export default function IdReview() {
   useEffect(() => {
     let alive = true;
     const slowTimer = setTimeout(() => alive && setSlow(true), 12_000);
-    awaitDecision(DEV_USER).then((s) => {
+    awaitDecision(userId).then((s) => {
       if (alive) setStatus(s);
     });
     return () => { alive = false; clearTimeout(slowTimer); };

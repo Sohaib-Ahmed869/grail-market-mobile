@@ -7,9 +7,10 @@ import { Feather } from "@expo/vector-icons";
 import { Mark } from "../../components/Brand";
 import { Txt } from "../../components/Text";
 import { useIdentity } from "../../lib/useIdentity";
+import { useSession } from "../../lib/session";
 import { colors, radius, space } from "../../theme";
 
-const DEV_USER = "dev-user-1";
+
 
 /** Home.
  *
@@ -22,8 +23,10 @@ const DEV_USER = "dev-user-1";
  *  directly in the meeting, and it is the difference between a ledger and a
  *  reason to open the app twice a day. */
 export default function Home() {
+  const session = useSession();
+  const userId = session?.userId ?? "";
   const router = useRouter();
-  const { verified } = useIdentity(DEV_USER);
+  const { verified } = useIdentity(userId);
 
   return (
     <View style={s.root}>
@@ -33,7 +36,7 @@ export default function Home() {
             <View style={s.who}>
               <Mark size={26} onDark />
               <View>
-                <Txt variant="h3" color={colors.onDark}>Morning, Alex</Txt>
+                <Txt variant="h3" color={colors.onDark}>{session ? `Hello, ${session.name.split(" ")[0]}` : "Welcome"}</Txt>
                 <Txt variant="bodySmall" color={colors.onDarkMuted}>
                   Sydney · {verified ? "Verified member" : "Not yet verified"}
                 </Txt>
