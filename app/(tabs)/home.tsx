@@ -25,8 +25,9 @@ import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
+import { ValueHero } from "../../components/ValueHero";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
-import { marketIndex } from "../../lib/history";
+import { collectionHistory, marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
@@ -62,6 +63,10 @@ export default function Home() {
     { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  // The hero is built out of the collection, so it needs the pictures and the
+  // line as well as the totals.
+  const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
+  const [valueLine, setValueLine] = useState<number[] | undefined>(undefined);
   const [forSale, setForSale] = useState<Listing[] | undefined>(undefined);
   const [unread, setUnread] = useState(0);
   const [alerts, setAlerts] = useState(0);
@@ -80,6 +85,16 @@ export default function Home() {
     if (!userId) setCollection(null);
     else {
       getCollection().then((r) => {
+        if (!alive) return;
+        // Most valuable first: if only six can be shown, they should be the
+        // six worth showing.
+        setHeldArt(
+          [...r.entries]
+            .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+            .map((e) => e.imageUrl)
+            .filter(Boolean)
+            .slice(0, 6),
+        );
         if (alive) setCollection({
           value: r.value, gain: r.gain, cost: r.cost,
           cards: r.entries.length, priced: r.priced,
@@ -94,6 +109,11 @@ export default function Home() {
       setWatched([]);
     }
     marketPulse().then((r) => { if (alive) setPulse(r); });
+    // 30 days, not 90: the hero's line is 56pt tall and a quarter of the
+    // screen wide, so a longer window only adds detail nobody can see.
+    collectionHistory(30).then((h) => {
+      if (alive) setValueLine(h?.points.map((p) => p.price));
+    });
     browse({ sort: "featured" }).then((r) => { if (alive) setForSale(r.listings.slice(0, 10)); });
     return () => { alive = false; clearInterval(timer); };
   }, [userId]));
@@ -175,116 +195,34 @@ export default function Home() {
             </View>
 
             {signedIn ? (
-              <Pressable style={s.valueCard} onPress={() => router.push("/(tabs)/portfolio")}>
-                <LinearGradient
-                  colors={["#2C3D4B", colors.dark, "#0B131B"]}
-                  locations={[0, 0.5, 1]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                {/* the light source, same as the splash */}
-                <View style={s.cardBloom} pointerEvents="none">
-                  <Bloom size={340} color={colors.accent} opacity={0.34} />
-                </View>
-                {/* the mark, very large and mostly off the edge: a watermark
-                    rather than a logo, so the card is branded without a badge
-                    sitting on it */}
-                <View style={s.watermark} pointerEvents="none">
-                  <Mark size={190} onDark />
-                </View>
-                {/* a gold rule along the top edge — the one piece of brand
-                    colour, and the thing that stops a dark rectangle reading
-                    as a placeholder */}
-                <View style={s.goldRule} pointerEvents="none" />
-
-                <View style={s.cardBody}>
-                  {/* "Live market value" is a phrase from a pricing tool, not
-                    * a sentence anyone says. What a person wants to know is
-                    * what their cards are worth if they sold them today. */}
-                  <Txt variant="h3" color={colors.onDarkMuted}>
-                    Your Cards Are Worth
-                  </Txt>
-
-                  {collection === undefined ? (
-                    <View style={{ marginTop: space.sm, gap: 8 }}>
-                      <Bone w="62%" h={34} style={{ backgroundColor: "rgba(255,255,255,0.14)" }} />
-                      <Bone w="40%" h={12} style={{ backgroundColor: "rgba(255,255,255,0.10)" }} />
-                    </View>
-                  ) : (
-                    <>
-                      {/* A dash is what a broken number looks like. An empty
-                        * collection is not an error, it is a person who has
-                        * not scanned anything yet, and the card should say
-                        * the next thing to do rather than draw a placeholder. */}
-                      {!collection || collection.cards === 0 ? (
-                        <View style={{ marginTop: space.sm }}>
-                          <Txt variant="h1" color={colors.onDark}>No Cards Yet</Txt>
-                          <Txt variant="bodySmall" color={colors.onDarkMuted} style={{ marginTop: 4 }}>
-                            Scan a card and its value starts tracking from today.
-                          </Txt>
-                          <Pressable
-                            onPress={() => router.push("/(tabs)/scan")}
-                            style={s.emptyCta}
-                          >
-                            <Icon name="scan" size={16} color={colors.dark} />
-                            <Txt variant="button" color={colors.dark}>Scan your first card</Txt>
-                          </Pressable>
-                        </View>
-                      ) : (
-                      <View style={s.valueRow}>
-                        <Txt variant="price" color={colors.onDark} style={s.bigValue}>
-                          {aud(collection.value)}
-                        </Txt>
-                        {collection.cost > 0 && collection.gain !== 0 && (
-                          <View style={[s.delta, {
-                            backgroundColor: collection.gain > 0
-                              ? "rgba(44,122,91,0.26)" : "rgba(174,74,64,0.26)",
-                          }]}>
-                            <Icon name="price" size={12}
-                              color={collection.gain > 0 ? colors.up : colors.down} />
-                            <Txt variant="bodySmall"
-                              color={collection.gain > 0 ? colors.up : colors.down}>
-                              {collection.gain > 0 ? "+" : "−"}{aud(Math.abs(collection.gain))}
-                            </Txt>
-                          </View>
-                        )}
-                      </View>
-                      )}
-
-                      {/* three facts, on a rule, instead of four buttons */}
-                      <View style={s.cardStats}>
-                        <View style={{ flex: 1 }}>
-                          <Txt variant="h3" color={colors.onDark}>
-                            {collection ? collection.cards : 0}
-                          </Txt>
-                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
-                            {collection && collection.cards === 1 ? "card held" : "cards held"}
-                          </Txt>
-                        </View>
-                        <View style={s.statRule} />
-                        <View style={{ flex: 1 }}>
-                          <Txt variant="h3" color={colors.onDark}>
-                            {watched ? watched.length : 0}
-                          </Txt>
-                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
-                            following
-                          </Txt>
-                        </View>
-                        <View style={s.statRule} />
-                        <View style={{ flex: 1 }}>
-                          <Txt variant="h3" color={collection && collection.priced < collection.cards
-                            ? colors.accent : colors.onDark}>
-                            {collection ? collection.priced : 0}
-                          </Txt>
-                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
-                            priced
-                          </Txt>
-                        </View>
-                      </View>
-                    </>
-                  )}
-                </View>
-              </Pressable>
+              <ValueHero
+                loading={collection === undefined}
+                empty={!collection || collection.cards === 0}
+                value={aud(collection?.value ?? 0)}
+                delta={
+                  collection && collection.cost > 0 && collection.gain !== 0
+                    ? {
+                        up: collection.gain > 0,
+                        text: `${collection.gain > 0 ? "+" : "−"}${aud(Math.abs(collection.gain))}`,
+                      }
+                    : null
+                }
+                // The panel is made of the collection it is valuing. As cards
+                // go in, the card itself changes — which no arrangement of
+                // type on a dark rectangle can do.
+                art={heldArt}
+                spark={valueLine}
+                stats={[
+                  {
+                    n: String(collection?.cards ?? 0),
+                    label: collection?.cards === 1 ? "card held" : "cards held",
+                  },
+                  { n: String(watched?.length ?? 0), label: "following" },
+                  { n: String(collection?.priced ?? 0), label: "priced" },
+                ]}
+                onScan={() => router.push("/(tabs)/scan")}
+                onPress={() => router.push("/(tabs)/portfolio")}
+              />
             ) : (
               <View style={s.valueCard}>
                 <LinearGradient
