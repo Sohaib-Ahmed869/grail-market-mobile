@@ -4,16 +4,19 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { MoveBars } from "../components/MoveBars";
+import { TrendCompare } from "../components/TrendCompare";
 import { Bone } from "../components/Skeleton";
 import { marketPulse, type Pulse } from "../lib/cardmarket";
 import { money, useFx } from "../lib/fx";
-import { colors, space } from "../theme";
+import { StyleSheet } from "react-native";
+import { colors, radius, space } from "../theme";
 
 /** Everything that moved, not just the three the dashboard has room for. */
 export default function Movers() {
   const router = useRouter();
   const fx = useFx();
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  const [focus, setFocus] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,13 +43,25 @@ export default function Movers() {
         </Txt>
       ) : (
         <View style={{ marginTop: space.lg }}>
+          <View style={s.compare}>
+            <TrendCompare
+              series={pulse.slice(0, 8).map((p) => ({
+                id: p.cardId ?? p.label,
+                label: p.label,
+                points: p.spark ?? [],
+              }))}
+              selectedId={focus ?? pulse[0]?.cardId ?? pulse[0]?.label}
+              onSelect={setFocus}
+              height={200}
+            />
+          </View>
+
           <MoveBars
             rows={pulse.map((p) => ({
               label: p.label,
               meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
               change: p.change7d,
               cardId: p.cardId,
-              spark: p.spark,
               // Only here. The dashboard shows three rows as a glance; this
               // screen is what somebody opened to actually look.
               periods: {
@@ -65,3 +80,11 @@ export default function Movers() {
     </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  compare: {
+    padding: space.lg, marginBottom: space.lg,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.outline,
+  },
+});

@@ -1,7 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Txt } from "./Text";
 import { PeriodStrip, type Periods } from "./PeriodStrip";
-import { MarketChart } from "./MarketChart";
 import { colors, radius, space, type } from "../theme";
 
 export type MoveRow = {
@@ -11,8 +10,6 @@ export type MoveRow = {
   cardId?: string | null;
   /** The other three windows. */
   periods?: Periods | null;
-  /** The actual price history, oldest first. */
-  spark?: number[] | null;
 };
 
 const BAR = 84;
@@ -86,16 +83,6 @@ export function MoveBars({
             </Txt>
             </View>
 
-            {r.spark && r.spark.length > 1 && (
-              <View style={s.chartWrap}>
-                <MarketChart
-                  points={r.spark}
-                  height={116}
-                  label={`${r.spark.length} readings · high to low across the period`}
-                />
-              </View>
-            )}
-
             {r.periods && <PeriodStrip periods={r.periods} />}
           </Pressable>
         );
@@ -122,7 +109,6 @@ const s = StyleSheet.create({
   },
   pressed: { opacity: 0.75, borderColor: colors.ink },
   who: { flex: 1, gap: 1 },
-  chartWrap: { marginTop: space.md },
   gauge: {
     width: BAR, height: 20, justifyContent: "center",
     borderRadius: 5, borderWidth: 1, borderColor: colors.lineStrong,

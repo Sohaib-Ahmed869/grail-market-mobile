@@ -26,6 +26,7 @@ import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
+import { TrendCompare } from "../../components/TrendCompare";
 import { ValueHero } from "../../components/ValueHero";
 import { FocusRail } from "../../components/FocusRail";
 import { FollowRing } from "../../components/FollowRing";
@@ -67,6 +68,8 @@ export default function Home() {
     { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  // Which line on the comparison chart is in front.
+  const [focusMover, setFocusMover] = useState<string | null>(null);
   // The hero is built out of the collection, so it needs the pictures and the
   // line as well as the totals.
   const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
@@ -342,13 +345,28 @@ export default function Home() {
             body="Prices held steady this week, or too few cards sold to tell." />
         ) : (
           <View style={s.movers}>
+            {/* One grid, every mover on it. A chart per card answers "what
+                did this one do"; together they answer the question somebody
+                opened the app with — which of these is running and which is
+                falling. */}
+            <View style={s.compare}>
+              <TrendCompare
+                series={pulse.slice(0, 6).map((p) => ({
+                  id: p.cardId ?? p.label,
+                  label: p.label,
+                  points: p.spark ?? [],
+                }))}
+                selectedId={focusMover ?? pulse[0]?.cardId ?? pulse[0]?.label}
+                onSelect={setFocusMover}
+              />
+            </View>
+
             <MoveBars
               rows={pulse.slice(0, 3).map((p) => ({
                 label: p.label,
                 meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
                 change: p.change7d,
                 cardId: p.cardId,
-                spark: p.spark,
                 // All four windows here too. Three rows is few enough that
                 // the extra line is depth rather than density, and a single
                 // figure cannot tell a spike from a trend on any screen.
@@ -673,6 +691,10 @@ const s = StyleSheet.create({
   sectionBody: { paddingHorizontal: GUTTER },
   rail: { marginHorizontal: 0 },
   movers: { paddingHorizontal: GUTTER, marginTop: space.sm, gap: space.md },
+  compare: {
+    padding: space.lg, borderRadius: radius.lg,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline,
+  },
   railInner: { paddingHorizontal: GUTTER, gap: space.md },
 
   moverArt: {
