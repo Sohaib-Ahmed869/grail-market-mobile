@@ -15,6 +15,7 @@ import { useSession } from "../../lib/session";
 import { signOut } from "../../lib/auth";
 import { useIdentity } from "../../lib/useIdentity";
 import { fetchSubscription } from "../../lib/billing";
+import { useNavScroll } from "../../lib/navbar";
 import { colors, radius, space } from "../../theme";
 
 type Row = {
@@ -56,6 +57,7 @@ const ACCOUNT: Row[] = [
  *  will let you do, so hiding them behind a tap is how a member ends up at the
  *  end of the sell flow being told they cannot list. */
 export default function Profile() {
+  const navScroll = useNavScroll();
   // Browsing is open to anyone; this is not. See JoinGate for why the
   // line is drawn here rather than at the front door.
   const guest = useGuest();
@@ -103,7 +105,7 @@ export default function Profile() {
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <PageWash />
-      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false} {...navScroll}>
         <View style={s.who}>
           <Pressable onPress={() => router.push("/avatar")}>
             <Avatar name={session?.name ?? "?"} id={session?.avatar} size={64} />

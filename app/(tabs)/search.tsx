@@ -10,6 +10,7 @@ import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
 import { searchCards, type CardHit } from "../../lib/cards";
 import { allSets, type SetSummary } from "../../lib/cardmarket";
+import { useNavScroll } from "../../lib/navbar";
 import { colors, radius, space, type } from "../../theme";
 
 const GAME_LABEL: Record<string, string> = {
@@ -27,6 +28,7 @@ const GAME_LABEL: Record<string, string> = {
  *  one for "charizard". Each query carries a sequence number and anything
  *  stale is dropped. */
 export default function Search() {
+  const navScroll = useNavScroll();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<CardHit[]>([]);
@@ -91,6 +93,7 @@ export default function Search() {
 
       {browsing ? (
         <FlatList
+          {...navScroll}
           data={sets ?? []}
           keyExtractor={(x) => x.setId}
           numColumns={2}
@@ -127,6 +130,7 @@ export default function Search() {
         />
       ) : (
       <FlatList
+        {...navScroll}
         data={hits}
         keyExtractor={(c) => c.cardId}
         keyboardShouldPersistTaps="handled"

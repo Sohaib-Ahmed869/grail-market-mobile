@@ -9,6 +9,7 @@ import { SkeletonList, SkeletonPost } from "../../components/Skeleton";
 import { PostRow } from "../../components/PostRow";
 import { communities, feed, joinCommunity, type Community, type Post } from "../../lib/community";
 import { useSession } from "../../lib/session";
+import { useNavScroll } from "../../lib/navbar";
 import { colors, radius, space } from "../../theme";
 
 const SORTS = [
@@ -24,6 +25,7 @@ const SORTS = [
  *  into two screens means two scroll positions and two ways to be lost.
  */
 export default function Community() {
+  const navScroll = useNavScroll();
   const router = useRouter();
   const session = useSession();
   const params = useLocalSearchParams<{ slug?: string }>();
@@ -108,6 +110,7 @@ export default function Community() {
       </View>
 
       <FlatList
+        {...navScroll}
         data={posts ?? []}
         keyExtractor={(p) => p.post_id}
         contentContainerStyle={s.list}

@@ -3,6 +3,7 @@ import { Alert, Image, Modal, Pressable, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Screen } from "../../components/Screen";
+import { useNavScroll } from "../../lib/navbar";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
 import { Note } from "../../components/Note";
@@ -29,6 +30,7 @@ const DIRS = [
  *  it is what the screen should show; anything else and the list disagrees
  *  with the notification the person just tapped. */
 export default function Watchlist() {
+  const navScroll = useNavScroll();
   const router = useRouter();
   const fx = useFx();
   const [rows, setRows] = useState<Watch[] | undefined>(undefined);
@@ -53,7 +55,7 @@ export default function Watchlist() {
     ]);
 
   return (
-    <Screen>
+    <Screen {...navScroll}>
       <Txt variant="display" style={{ marginTop: space.sm }}>Watchlist</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
         Cards you don&rsquo;t own but want to know about.

@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "./Icon";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Txt } from "./Text";
+import { useNavCollapsed } from "../lib/navbar";
 import { colors, radius, space } from "../theme";
 
 // Route name to icon. Watchlist joins the bar; profile moves to the avatar
@@ -43,13 +44,24 @@ const RAISED = "scan";
  *  one continuous movement that matches the 320ms cross-fade of the screens
  *  underneath. A bar that snaps while the screen dissolves reads as two
  *  unrelated things happening at once.
+ *
+ *  It also narrows as you read. Scrolling down drops the label and tightens
+ *  every item, so the bar shrinks to a compact pill and gives the page back
+ *  the width; scrolling up, or reaching the top, opens it again. The width
+ *  change rides the same layout transition the active pill already uses, so
+ *  it is one mechanism doing two jobs rather than a second animation fighting
+ *  the first.
  */
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const collapsed = useNavCollapsed();
 
   return (
     <View style={[s.wrap, { paddingBottom: Math.max(insets.bottom, space.md) }]} pointerEvents="box-none">
-      <View style={s.bar}>
+      <Animated.View
+        layout={LinearTransition.duration(320)}
+        style={[s.bar, collapsed && s.barTight]}
+      >
         {state.routes.map((route, i) => {
           const focused = state.index === i;
           const { options } = descriptors[route.key];
@@ -78,13 +90,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 accessibilityLabel={label}
                 style={({ pressed }) => [
                   s.raised,
+                  collapsed && s.raisedTight,
                   focused && s.raisedOn,
                   pressed && { transform: [{ scale: 0.94 }] },
                 ]}
               >
                 <Icon
                   name="scan"
-                  size={26}
+                  size={collapsed ? 22 : 26}
                   color={focused ? colors.dark : colors.onPrimary}
                   filled
                 />
@@ -99,10 +112,19 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 accessibilityRole="button"
                 accessibilityState={focused ? { selected: true } : {}}
                 accessibilityLabel={label}
-                style={({ pressed }) => [s.item, focused && s.itemOn, pressed && { opacity: 0.7 }]}
+                style={({ pressed }) => [
+                  s.item,
+                  collapsed && s.itemTight,
+                  focused && s.itemOn,
+                  focused && collapsed && s.itemOnTight,
+                  pressed && { opacity: 0.7 },
+                ]}
               >
                 <TabIcon icon={icon} focused={focused} />
-                {focused && (
+                {/* The label is what the width is made of, so dropping it is
+                    what makes the bar narrow. Unmounted rather than hidden:
+                    a zero-opacity label still occupies its width. */}
+                {focused && !collapsed && (
                   <Animated.View entering={FadeIn.duration(260).delay(60)} exiting={FadeOut.duration(140)}>
                     <Txt variant="bodySmall" color={colors.onPrimary} style={s.label} numberOfLines={1}>
                       {label}
@@ -113,7 +135,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             </Animated.View>
           );
         })}
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -171,6 +193,13 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: 6,
     height: 46, paddingHorizontal: 12, borderRadius: radius.pill,
   },
+  // Collapsed. Everything tightens together — a bar that only dropped its
+  // label would keep the same generous padding around a smaller thing and
+  // read as a gap rather than as a smaller bar.
+  barTight: { padding: 4 },
+  itemTight: { height: 40, paddingHorizontal: 8 },
+  itemOnTight: { paddingHorizontal: 10 },
+  raisedTight: { width: 48, height: 48, borderRadius: 24, marginTop: -12, borderWidth: 3 },
   raised: {
     width: 58, height: 58, borderRadius: 29, marginTop: -18,
     alignItems: "center", justifyContent: "center",

@@ -25,6 +25,7 @@ import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
+import { useNavScroll } from "../../lib/navbar";
 import { colors, radius, space } from "../../theme";
 
 const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
@@ -43,6 +44,7 @@ const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
  *  same way and nothing overlaps at any font size.
  */
 export default function Home() {
+  const navScroll = useNavScroll();
   const session = useSession();
   const guest = useGuest();
   const userId = session?.userId ?? "";
@@ -95,7 +97,11 @@ export default function Home() {
   return (
     <View style={s.root}>
       <PageWash />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 130 }}
+        {...navScroll}
+      >
         {/* ---- the band ---------------------------------------------------- */}
         {/* A gradient the content stands on, not a solid block sitting on top
             of it. The navy is still here — it has become the ink and the one

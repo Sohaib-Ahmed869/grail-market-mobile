@@ -1,6 +1,6 @@
 import {
   KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View,
-  type StyleProp, type ViewStyle,
+  type ScrollViewProps, type StyleProp, type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PageWash } from "./PageWash";
@@ -16,13 +16,18 @@ import { colors, space } from "../theme";
  *  triggered it loses focus — which reads as "tapping the field does nothing".
  */
 export function Screen({
-  children, back, footer, scroll = true, style,
+  children, back, footer, scroll = true, style, onScroll, scrollEventThrottle,
 }: {
   children: React.ReactNode;
   back?: boolean;
   footer?: React.ReactNode;
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
+  /** Passed straight to the scroll view. The tab screens spread `useNavScroll()`
+   *  in here so the bottom bar narrows as you read; screens without a bar have
+   *  no reason to and do not. */
+  onScroll?: ScrollViewProps["onScroll"];
+  scrollEventThrottle?: number;
 }) {
   const goBack = useBack();
 
@@ -48,6 +53,8 @@ export function Screen({
       // same gesture. Fields near the top were fine, because they needed no
       // scroll, which is exactly the shape the bug took.
       keyboardShouldPersistTaps="handled"
+      onScroll={onScroll}
+      scrollEventThrottle={scrollEventThrottle}
       // iOS insets the scroll view for the keyboard itself, and does it
       // better than we can from JS
       automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}

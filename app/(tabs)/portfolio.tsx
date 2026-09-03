@@ -15,6 +15,7 @@ import { gradeLabel, variantLabel } from "../../lib/grading";
 import { setDraftSeed, clearDraft } from "../../lib/selldraft";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory } from "../../lib/history";
+import { useNavScroll } from "../../lib/navbar";
 import { colors, radius, space } from "../../theme";
 
 const money = (n: number | null, cur = "A$") =>
@@ -30,6 +31,7 @@ const money = (n: number | null, cur = "A$") =>
  *  how many are priced. A total that silently skips them reads as the value of
  *  the whole collection and is not. */
 export default function Portfolio() {
+  const navScroll = useNavScroll();
   // Browsing is open to anyone; this is not. See JoinGate for why the
   // line is drawn here rather than at the front door.
   const guest = useGuest();
@@ -64,6 +66,7 @@ export default function Portfolio() {
     <SafeAreaView style={s.root} edges={["top"]}>
       <PageWash />
       <FlatList
+        {...navScroll}
         data={data.entries}
         keyExtractor={(e) => e.entryId}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={colors.inkFaint} />}
