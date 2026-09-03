@@ -45,7 +45,10 @@ export function JoinGate({
   // The phone scales to the screen rather than to a number. On a small device
   // it shrinks so the copy and the buttons keep their room; it never grows
   // past a size where it stops being a prop and becomes a poster.
-  const phoneW = Math.max(168, Math.min(214, Math.min(width * 0.52, height * 0.26)));
+  //
+  // 0.66 of the screen. Below that the phone is a stripe behind the cards
+  // rather than the thing they are sitting on.
+  const phoneW = Math.max(190, Math.min(268, Math.min(width * 0.66, height * 0.3)));
 
   return (
     <View style={s.root}>
@@ -105,8 +108,11 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
   },
-  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.xxl },
+  // The heading needs air under the phone or the two read as one block. The
+  // fade already softens the join; the gap is what separates the picture from
+  // the sentence about it.
+  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.xxxl },
   copy: { alignItems: "center", paddingHorizontal: space.xl },
-  why: { marginTop: space.sm },
-  foot: { paddingHorizontal: space.xl, paddingTop: space.md, gap: 2 },
+  why: { marginTop: space.md },
+  foot: { paddingHorizontal: space.xl, paddingTop: space.lg, gap: 2 },
 });
