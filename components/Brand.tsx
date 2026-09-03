@@ -20,6 +20,24 @@ export function Mark({ size = 40, onDark = false }: { size?: number; onDark?: bo
   return <Svg width={size} height={size} />;
 }
 
+/** The mark as a watermark: enormous, barely there, bleeding off an edge.
+ *
+ *  The hero used to carry an animated G AND the lockup, which also contains a
+ *  G — the same letter twice, one of them moving, above a form. Two marks is
+ *  not twice the brand, it is a screen with no clear subject.
+ *
+ *  So the letter stays, at an opacity where it is texture rather than a logo,
+ *  and the lockup is the only thing actually being read. */
+export function MarkWatermark({
+  size = 300, opacity = 0.05, style,
+}: { size?: number; opacity?: number; style?: StyleProp<ViewStyle> }) {
+  return (
+    <View style={[{ opacity }, style]} pointerEvents="none">
+      <Mark size={size} onDark />
+    </View>
+  );
+}
+
 /** The mark, arriving.
  *
  *  For the front door, not for waiting. The Loader turns the card over and

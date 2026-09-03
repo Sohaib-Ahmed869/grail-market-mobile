@@ -4,7 +4,7 @@ import { KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Bloom } from "./Bloom";
-import { Lockup, MarkIntro } from "./Brand";
+import { Lockup, MarkWatermark } from "./Brand";
 import { Txt } from "./Text";
 import { Icon } from "./Icon";
 import { useBack } from "../lib/nav";
@@ -41,22 +41,22 @@ export function AuthShell({
         locations={[0, 0.5, 1]}
         style={s.hero}
       >
+        {/* Texture, in two layers. The bloom warms the band; the letter gives
+            it something to warm. Both sit behind everything and neither is
+            meant to be looked at directly. */}
         <View style={s.bloom} pointerEvents="none">
-          <Bloom size={460} color={colors.accent} opacity={0.30} />
+          <Bloom size={460} color={colors.accent} opacity={0.26} />
         </View>
+        <MarkWatermark size={340} opacity={0.055} style={s.watermark} />
         <SafeAreaView edges={["top"]}>
           <Pressable onPress={goBack} hitSlop={12} style={s.back}>
             <Icon name="home" size={17} color={colors.onDark} />
           </Pressable>
           <View style={s.brand}>
-            {/* The G turns face-up, then the name arrives under it. Two beats
-                rather than one, which is why the wordmark is delayed — a logo
-                and its name appearing together is a still image that faded in. */}
-            <MarkIntro size={52} />
-            <Animated.View entering={FadeInDown.duration(520).delay(560)}>
-              <Lockup width={172} onDark />
+            <Animated.View entering={FadeInDown.duration(560).delay(120)}>
+              <Lockup width={182} onDark />
             </Animated.View>
-            <Animated.View entering={FadeIn.duration(480).delay(820)}>
+            <Animated.View entering={FadeIn.duration(520).delay(340)}>
               <Txt variant="bodySmall" color={colors.onDarkMuted} center style={{ marginTop: space.sm }}>
                 Australia&rsquo;s marketplace for slabs &amp; sealed
               </Txt>
@@ -98,6 +98,10 @@ const s = StyleSheet.create({
   fill: { flex: 1 },
   hero: { paddingBottom: space.xxxl, overflow: "hidden" },
   bloom: { position: "absolute", top: -160, alignSelf: "center", width: 460, height: 460 },
+  // Off the right edge and cropped by the band. A watermark centred and whole
+  // is just a faint logo; one running off an edge reads as a surface the
+  // content is laid on.
+  watermark: { position: "absolute", right: -130, top: -40 },
   back: {
     marginLeft: space.xl, marginTop: space.sm,
     width: 38, height: 38, borderRadius: 19,
@@ -105,7 +109,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.16)",
   },
-  brand: { alignItems: "center", marginTop: space.md, gap: 2 },
+  brand: { alignItems: "center", marginTop: space.lg },
   // the sheet overlaps the band, which is what gives the screen its depth
   sheet: {
     flex: 1, marginTop: -space.xxl,
@@ -113,7 +117,11 @@ const s = StyleSheet.create({
     backgroundColor: colors.washBottom,
     overflow: "hidden",
   },
-  sheetBody: { paddingHorizontal: space.xl, paddingTop: space.xxl, paddingBottom: space.lg },
+  // Top-aligned, deliberately. Centring a short form was tried and it moves
+  // the empty third from below the fields to above the title — and a heading
+  // that starts a third of the way down the sheet reads as a page that has
+  // not finished loading. Empty space under a form is just room.
+  sheetBody: { paddingHorizontal: space.xl, paddingTop: space.xl, paddingBottom: space.lg },
   footer: {
     paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.xl,
     gap: space.sm, borderTopWidth: 1, borderTopColor: colors.line,

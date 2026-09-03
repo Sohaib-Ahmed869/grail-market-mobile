@@ -6,6 +6,7 @@ import { AuthShell } from "../components/AuthShell";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
+import { SocialAuth } from "../components/SocialAuth";
 import { emailError } from "../lib/validate";
 import { login } from "../lib/auth";
 import { colors, radius, space } from "../theme";
@@ -64,6 +65,16 @@ export default function SignIn() {
         </>
       }
     >
+      <SocialAuth
+        onDone={(r) => {
+          if (r.ok !== true) return;
+          toast(`Welcome${r.created ? "" : " back"}, ${r.session.name.split(" ")[0]}.`, {
+            tone: "good",
+          });
+          router.replace("/(tabs)/home");
+        }}
+      />
+
       <View style={s.form}>
         <Field
           label="Email"
@@ -110,5 +121,5 @@ export default function SignIn() {
 const s = StyleSheet.create({
   // space.md, not lg: every field now carries its own reserved error line, so
   // a 16pt gap on top of that reads as fields drifting apart.
-  form: { gap: space.md, marginTop: space.xl },
+  form: { gap: space.md, marginTop: space.lg },
 });

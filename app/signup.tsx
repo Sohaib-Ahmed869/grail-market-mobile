@@ -6,6 +6,7 @@ import { AuthShell } from "../components/AuthShell";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
+import { SocialAuth } from "../components/SocialAuth";
 import { PhoneField } from "../components/PhoneField";
 import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
@@ -115,6 +116,14 @@ export default function SignUp() {
           <Steps step={1} label="Your details" />
         </View>
 
+        <SocialAuth
+          onDone={(r) => {
+            if (r.ok !== true) return;
+            toast(`Welcome, ${r.session.name.split(" ")[0]}.`, { tone: "good" });
+            router.replace("/(tabs)/home");
+          }}
+        />
+
         <View style={s.form}>
           <Field
             label="Full name — as it appears on your ID"
@@ -172,5 +181,5 @@ export default function SignUp() {
 }
 
 const s = StyleSheet.create({
-  form: { gap: space.md, marginTop: space.xl },
+  form: { gap: space.md, marginTop: space.lg },
 });

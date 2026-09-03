@@ -89,6 +89,9 @@ export default (): ExpoConfig => ({
   plugins: [
     "expo-router",
     "expo-font",
+    // Adds the Sign in with Apple entitlement. Without it the native sheet
+    // does not open at all — this is not something the JS side can arrange.
+    "expo-apple-authentication",
     // Both of these are unconditional, because the react-native-firebase pods
     // autolink from node_modules even when the Firebase plugins below are
     // switched off — the build hits their problems either way.
