@@ -96,9 +96,23 @@ export type SetDetail = SetSummary & {
   cards: { cardId: string; name: string; localId: string; imageUrl: string | null }[];
 };
 
-export async function allSets(): Promise<SetSummary[]> {
+export type BrowseGame = { id: string; name: string; sets?: number };
+
+/** The games we can browse. Cheap — the server answers from whatever it has
+ *  already cached rather than asking four catalogues to draw four tiles. */
+export async function browseGames(): Promise<BrowseGame[]> {
   try {
-    const r = await get<{ sets: SetSummary[] }>("/market/sets");
+    const r = await get<{ games: BrowseGame[] }>("/market/games");
+    return r.games ?? [];
+  } catch { return []; }
+}
+
+/** Sets, for one game or — with no game — the Pokemon list this always was. */
+export async function allSets(game?: string): Promise<SetSummary[]> {
+  try {
+    const r = await get<{ sets: SetSummary[] }>(
+      `/market/sets${game ? `?game=${encodeURIComponent(game)}` : ""}`,
+    );
     return r.sets ?? [];
   } catch { return []; }
 }

@@ -10,7 +10,7 @@ import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
 import { searchCards, type CardHit } from "../../lib/cards";
 import { lookup, looksLikeCode, type Lookup } from "../../lib/lookup";
-import { allSets, type SetSummary } from "../../lib/cardmarket";
+import { allSets, browseGames, type BrowseGame, type SetSummary } from "../../lib/cardmarket";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space, type } from "../../theme";
@@ -49,8 +49,23 @@ export default function Search() {
   const [cert, setCert] = useState<Extract<Lookup, { kind: "cert" }> | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
+  // Games, then that game's sets, then the cards in a set. Browsing used to
+  // open straight onto 218 Pokemon sets, which is the right answer only if
+  // you hold a Pokemon card — and no answer at all if you hold a One Piece
+  // one, since the list was Pokemon and nothing said so.
+  const [games, setGames] = useState<BrowseGame[] | null>(null);
+  const [game, setGame] = useState<BrowseGame | null>(null);
   const [sets, setSets] = useState<SetSummary[] | null>(null);
-  useEffect(() => { allSets().then(setSets); }, []);
+
+  useEffect(() => { browseGames().then(setGames); }, []);
+  useEffect(() => {
+    if (!game) { setSets(null); return; }
+    let alive = true;
+    setSets(null);
+    allSets(game.id).then((r) => { if (alive) setSets(r); });
+    return () => { alive = false; };
+  }, [game]);
+
   const browsing = q.trim().length < 2;
 
   useEffect(() => {
@@ -106,6 +121,33 @@ export default function Search() {
 
       {cert ? (
         <CertResult cert={cert} clearance={clearance} />
+      ) : browsing && !game ? (
+        <FlatList
+          {...navScroll}
+          data={games ?? []}
+          keyExtractor={(g) => g.id}
+          numColumns={2}
+          columnWrapperStyle={{ gap: space.md }}
+          contentContainerStyle={[s.setList, { paddingBottom: clearance }]}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={
+            <Txt variant="overline" color={colors.inkFaint} style={{ marginBottom: space.md }}>
+              Browse by game
+            </Txt>
+          }
+          ListEmptyComponent={games == null ? <Loader fill /> : null}
+          renderItem={({ item }) => (
+            <Pressable
+              onPress={() => setGame(item)}
+              style={({ pressed }) => [s.gameTile, pressed && { opacity: 0.75 }]}
+            >
+              <Txt variant="h2" color={colors.onDark} numberOfLines={2}>{item.name}</Txt>
+              <Txt variant="bodySmall" color={colors.onDarkMuted}>
+                {item.sets ? `${item.sets} sets` : "Browse sets"}
+              </Txt>
+            </Pressable>
+          )}
+        />
       ) : browsing ? (
         <FlatList
           {...navScroll}
@@ -116,9 +158,13 @@ export default function Search() {
           contentContainerStyle={[s.setList, { paddingBottom: clearance }]}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
-            <Txt variant="overline" color={colors.inkFaint} style={{ marginBottom: space.md }}>
-              {sets == null ? "Loading sets" : `${sets.length} sets · newest first`}
-            </Txt>
+            <Pressable onPress={() => setGame(null)} hitSlop={8} style={s.crumb}>
+              <Feather name="chevron-left" size={15} color={colors.ink} />
+              <Txt variant="button">{game?.name}</Txt>
+              <Txt variant="bodySmall" color={colors.inkFaint}>
+                {sets == null ? "loading" : `${sets.length} sets`}
+              </Txt>
+            </Pressable>
           }
           ListEmptyComponent={
             sets == null
@@ -229,6 +275,13 @@ const s = StyleSheet.create({
   input: { flex: 1, ...type.body, color: colors.ink, paddingVertical: 0 },
   list: { paddingHorizontal: space.xl, paddingTop: space.lg },
   certWrap: { paddingHorizontal: space.xl, paddingTop: space.xl },
+  gameTile: {
+    flex: 1, height: 120, padding: space.lg, justifyContent: "flex-end",
+    borderRadius: radius.lg, backgroundColor: colors.dark,
+  },
+  crumb: {
+    flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.md,
+  },
   certLink: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: space.lg, height: 54,
