@@ -221,7 +221,7 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.lg },
   out: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
-    height: 50, marginTop: space.xxl, borderRadius: radius.md,
+    height: 50, marginTop: space.xxl, borderRadius: radius.pill,
     borderWidth: 1, borderColor: colors.line,
   },
 });

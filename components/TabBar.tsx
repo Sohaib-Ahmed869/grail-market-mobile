@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon, type IconName } from "./Icon";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Txt } from "./Text";
-import { useNavCollapsed } from "../lib/navbar";
+import { useNavCollapsed, useNavHidden } from "../lib/navbar";
 import { colors, radius, space } from "../theme";
 
 // Route name to icon. Watchlist joins the bar; profile moves to the avatar
@@ -81,6 +81,11 @@ const RAISED = "scan";
 export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const collapsed = useNavCollapsed();
+  const hidden = useNavHidden();
+
+  // After the hooks, never before one — an early return above them is a
+  // different hook order on the render that hides the bar.
+  if (hidden) return null;
 
   return (
     <View style={[s.wrap, { paddingBottom: Math.max(insets.bottom, space.md) }]} pointerEvents="box-none">

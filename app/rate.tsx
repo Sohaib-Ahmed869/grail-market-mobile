@@ -183,7 +183,7 @@ const s = StyleSheet.create({
   raise: {
     marginTop: space.md, height: 48, flexDirection: "row", gap: space.sm,
     alignItems: "center", justifyContent: "center",
-    borderRadius: radius.md, backgroundColor: colors.downWash,
+    borderRadius: radius.pill, backgroundColor: colors.downWash,
   },
   empty: { alignItems: "center", marginTop: space.xxl, paddingHorizontal: space.lg },
   emptyIcon: {

@@ -282,7 +282,7 @@ const s = StyleSheet.create({
   },
   withdraw: {
     marginTop: space.xl, height: 48, alignItems: "center", justifyContent: "center",
-    borderRadius: radius.md, borderWidth: 1, borderColor: colors.line,
+    borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line,
   },
   compose: { flexDirection: "row", alignItems: "flex-end", gap: space.sm },
   attach: {

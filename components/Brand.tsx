@@ -87,7 +87,13 @@ export function MarkIntro({
 
   return (
     <View style={[s.markWrap, { width: size * 2.4, height: size * 1.7 }]} pointerEvents="none">
-      <Animated.View style={[StyleSheet.absoluteFill, s.center, glow]}>
+      {/* Bloom sets absoluteFill on its own <Svg> as well as taking a size,
+          so nesting it in an absoluteFill parent stretched the square gradient
+          into the parent's rectangle — which is why the glow sat low and small
+          instead of centred behind the mark. It gets a square of its own. */}
+      <Animated.View
+        style={[s.center, glow, { position: "absolute", width: size * 2.4, height: size * 2.4 }]}
+      >
         <Bloom size={size * 2.4} color={colors.accent} opacity={1} />
       </Animated.View>
       <Animated.View style={mark}>

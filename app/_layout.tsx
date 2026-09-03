@@ -48,7 +48,11 @@ export default function RootLayout() {
 
   return (
     <ToastHost>
-      <StatusBar style="light" />
+      {/* Dark glyphs, because the app runs light — see the note in the
+          palette. The three dark screens (splash, welcome, the auth hero)
+          each set "light" for themselves; a global "light" put a white clock
+          on a white screen everywhere else. */}
+      <StatusBar style="dark" />
       {/* Transitions carry meaning, so they are not all the same.
         *
         * Pushing deeper — a listing, a seller, a thread — slides in from the

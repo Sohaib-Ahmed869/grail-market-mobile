@@ -499,11 +499,11 @@ const s = StyleSheet.create({
   raise: {
     height: 52, flexDirection: "row", gap: space.sm,
     alignItems: "center", justifyContent: "center",
-    borderRadius: radius.md, backgroundColor: colors.downWash,
+    borderRadius: radius.pill, backgroundColor: colors.downWash,
   },
   minor: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
-    height: 48, borderRadius: radius.md,
+    height: 48, borderRadius: radius.pill,
     borderWidth: 1.5, borderColor: colors.fieldLine, backgroundColor: colors.surface,
   },
   yours: {

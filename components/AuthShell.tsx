@@ -9,6 +9,7 @@ import { Txt } from "./Text";
 import { Icon } from "./Icon";
 import { useBack } from "../lib/nav";
 import { colors, radius, space } from "../theme";
+import { StatusBar } from "expo-status-bar";
 
 /** The frame both auth screens sit in.
  *
@@ -32,6 +33,9 @@ export function AuthShell({
 
   return (
     <View style={s.root}>
+      {/* The navy band runs under the status bar, so the clock needs to be
+          white here even though every other screen is dark-on-light. */}
+      <StatusBar style="light" />
       <LinearGradient
         colors={["#25374A", colors.dark, "#0A1219"]}
         locations={[0, 0.5, 1]}

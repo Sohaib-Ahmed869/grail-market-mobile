@@ -730,11 +730,11 @@ const s = StyleSheet.create({
   },
   emptyCta: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
-    height: 44, marginTop: space.lg, borderRadius: radius.md, backgroundColor: colors.accent,
+    height: 44, marginTop: space.lg, borderRadius: radius.pill, backgroundColor: colors.accent,
   },
   join: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
-    height: 48, marginTop: space.lg, borderRadius: radius.md, backgroundColor: colors.accent,
+    height: 48, marginTop: space.lg, borderRadius: radius.pill, backgroundColor: colors.accent,
   },
 
 

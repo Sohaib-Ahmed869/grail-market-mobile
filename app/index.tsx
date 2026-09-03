@@ -12,6 +12,7 @@ import { Mark, Lockup } from "../components/Brand";
 import { Txt } from "../components/Text";
 import { loadSession } from "../lib/session";
 import { colors, space } from "../theme";
+import { StatusBar } from "expo-status-bar";
 
 // The beats, in milliseconds from the top. Kept in one place because the
 // sequence is the design here — read down the list and you have the animation.
@@ -86,6 +87,7 @@ export default function Splash() {
 
   return (
     <View style={s.root}>
+      <StatusBar style="light" />
       <LinearGradient
         colors={["#26364A", colors.dark, "#101922"]}
         locations={[0, 0.55, 1]}

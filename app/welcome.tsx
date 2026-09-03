@@ -14,6 +14,7 @@ import { enterGuest } from "../lib/guest";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { colors, radius, space } from "../theme";
+import { StatusBar } from "expo-status-bar";
 
 /** Three claims, one line each.
  *
@@ -50,6 +51,8 @@ export default function Welcome() {
 
   return (
     <View style={s.root}>
+      {/* Navy from edge to edge, so the clock has to be white. */}
+      <StatusBar style="light" />
       <LinearGradient
         colors={["#26364A", colors.dark, "#0E1720"]}
         locations={[0, 0.44, 1]}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 
 // Whether the bottom bar is collapsed, in one place.
@@ -16,6 +17,17 @@ import type { NativeScrollEvent, NativeSyntheticEvent } from "react-native";
 let collapsed = false;
 const listeners = new Set<(v: boolean) => void>();
 
+// Whether the bar is gone entirely, which is a different question from
+// whether it is narrow. A screen that is one decision — the guest gate — is
+// not a place to offer five destinations; the decision is the page.
+let hidden = false;
+const hideListeners = new Set<(v: boolean) => void>();
+const setHidden = (v: boolean) => {
+  if (v === hidden) return;
+  hidden = v;
+  hideListeners.forEach((l) => l(v));
+};
+
 const set = (v: boolean) => {
   if (v === collapsed) return;
   collapsed = v;
@@ -23,6 +35,34 @@ const set = (v: boolean) => {
 };
 
 export const expandNav = () => set(false);
+
+/** Read by the bar itself. */
+export function useNavHidden(): boolean {
+  const [v, setV] = useState(hidden);
+  useEffect(() => {
+    hideListeners.add(setV);
+    return () => { hideListeners.delete(setV); };
+  }, []);
+  return v;
+}
+
+/** Called by a screen that wants the bar gone while it is on top.
+ *
+ *  Tied to focus rather than to mount: a gate stays mounted underneath when
+ *  you push sign-up on top of it, and a bar that stayed hidden after you came
+ *  back would look like a bar that had crashed.
+ *
+ *  Any screen using this MUST offer its own way out — see the gate's back
+ *  control. Hiding the only navigation and giving nothing back is how a
+ *  person ends up force-quitting the app. */
+export function useHideNav(): void {
+  useFocusEffect(
+    useCallback(() => {
+      setHidden(true);
+      return () => setHidden(false);
+    }, []),
+  );
+}
 
 export function useNavCollapsed(): boolean {
   const [v, setV] = useState(collapsed);
