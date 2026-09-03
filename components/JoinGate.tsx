@@ -5,6 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import { PageWash } from "./PageWash";
 import { Txt } from "./Text";
 import { Button } from "./Button";
+import { useTabBarClearance } from "./TabBar";
 import { colors, radius, space } from "../theme";
 
 /** What a guest sees where a member's screen would be.
@@ -25,10 +26,16 @@ export function JoinGate({
   points: string[];
 }) {
   const router = useRouter();
+  // Every gate sits on a tab, and the bar floats over the bottom of the
+  // screen. Without this the sign-in button is not just overlapped — it is
+  // completely covered, which is why the gate looked like it only offered
+  // signing up.
+  const clearance = useTabBarClearance();
+
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <PageWash />
-      <View style={s.middle}>
+      <View style={[s.middle, { paddingBottom: clearance / 2 }]}>
         <View style={s.badge}>
           <Feather name={icon} size={26} color={colors.ink} />
         </View>
@@ -47,9 +54,13 @@ export function JoinGate({
         </View>
       </View>
 
-      <View style={s.foot}>
+      <View style={[s.foot, { paddingBottom: clearance }]}>
         <Button label="Create an account" onPress={() => router.push("/signup")} />
-        <Button label="I already have one" kind="ghost" onPress={() => router.push("/signin")} />
+        {/* Secondary, but not decoration. Somebody who already has an account
+            and is looking at this screen has exactly one thing they want, and
+            a ghost button reading "I already have one" answers a question
+            rather than naming the action. */}
+        <Button label="Sign in" kind="secondary" onPress={() => router.push("/signin")} />
       </View>
     </SafeAreaView>
   );
@@ -72,5 +83,5 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
   },
   point: { flexDirection: "row", alignItems: "flex-start", gap: space.sm },
-  foot: { paddingHorizontal: space.xl, paddingBottom: space.xl, gap: space.sm },
+  foot: { paddingHorizontal: space.xl, gap: space.sm },
 });

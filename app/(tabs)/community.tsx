@@ -10,6 +10,7 @@ import { PostRow } from "../../components/PostRow";
 import { communities, feed, joinCommunity, type Community, type Post } from "../../lib/community";
 import { useSession } from "../../lib/session";
 import { useNavScroll } from "../../lib/navbar";
+import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
 
 const SORTS = [
@@ -26,6 +27,7 @@ const SORTS = [
  */
 export default function Community() {
   const navScroll = useNavScroll();
+  const clearance = useTabBarClearance();
   const router = useRouter();
   const session = useSession();
   const params = useLocalSearchParams<{ slug?: string }>();
@@ -113,7 +115,7 @@ export default function Community() {
         {...navScroll}
         data={posts ?? []}
         keyExtractor={(p) => p.post_id}
-        contentContainerStyle={s.list}
+        contentContainerStyle={[s.list, { paddingBottom: clearance }]}
         onRefresh={load}
         refreshing={false}
         ListEmptyComponent={
@@ -193,7 +195,7 @@ const s = StyleSheet.create({
     paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
   },
   sortOn: { backgroundColor: colors.surfaceSunk },
-  list: { paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: 150, gap: space.md },
+  list: { paddingHorizontal: space.xl, paddingTop: space.lg, gap: space.md },
   empty: { alignItems: "center", marginTop: space.xxl },
   makeChip: {
     flexDirection: "row", alignItems: "center", gap: 5,

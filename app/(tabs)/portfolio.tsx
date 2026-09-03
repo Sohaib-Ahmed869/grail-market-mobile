@@ -16,6 +16,7 @@ import { setDraftSeed, clearDraft } from "../../lib/selldraft";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory } from "../../lib/history";
 import { useNavScroll } from "../../lib/navbar";
+import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
 
 const money = (n: number | null, cur = "A$") =>
@@ -32,6 +33,7 @@ const money = (n: number | null, cur = "A$") =>
  *  the whole collection and is not. */
 export default function Portfolio() {
   const navScroll = useNavScroll();
+  const clearance = useTabBarClearance();
   // Browsing is open to anyone; this is not. See JoinGate for why the
   // line is drawn here rather than at the front door.
   const guest = useGuest();
@@ -70,7 +72,7 @@ export default function Portfolio() {
         data={data.entries}
         keyExtractor={(e) => e.entryId}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={colors.inkFaint} />}
-        contentContainerStyle={s.list}
+        contentContainerStyle={[s.list, { paddingBottom: clearance }]}
         ListHeaderComponent={
           <View style={s.head}>
             <Txt variant="display">Collection</Txt>
@@ -250,7 +252,7 @@ const s = StyleSheet.create({
   },
   trendHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   root: { flex: 1, backgroundColor: colors.washBottom },
-  list: { paddingHorizontal: space.xl, paddingBottom: 130 },
+  list: { paddingHorizontal: space.xl },
   head: { paddingTop: space.sm, marginBottom: space.lg },
   valueCard: {
     marginTop: space.lg, padding: space.lg, borderRadius: radius.lg,

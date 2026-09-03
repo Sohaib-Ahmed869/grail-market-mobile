@@ -11,6 +11,7 @@ import { Txt } from "../../components/Text";
 import { searchCards, type CardHit } from "../../lib/cards";
 import { allSets, type SetSummary } from "../../lib/cardmarket";
 import { useNavScroll } from "../../lib/navbar";
+import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space, type } from "../../theme";
 
 const GAME_LABEL: Record<string, string> = {
@@ -29,6 +30,7 @@ const GAME_LABEL: Record<string, string> = {
  *  stale is dropped. */
 export default function Search() {
   const navScroll = useNavScroll();
+  const clearance = useTabBarClearance();
   const router = useRouter();
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<CardHit[]>([]);
@@ -98,7 +100,7 @@ export default function Search() {
           keyExtractor={(x) => x.setId}
           numColumns={2}
           columnWrapperStyle={{ gap: space.md }}
-          contentContainerStyle={s.setList}
+          contentContainerStyle={[s.setList, { paddingBottom: clearance }]}
           keyboardShouldPersistTaps="handled"
           ListHeaderComponent={
             <Txt variant="overline" color={colors.inkFaint} style={{ marginBottom: space.md }}>
@@ -134,7 +136,7 @@ export default function Search() {
         data={hits}
         keyExtractor={(c) => c.cardId}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={s.list}
+        contentContainerStyle={[s.list, { paddingBottom: clearance }]}
         ListEmptyComponent={
           busy ? (
             <Loader fill />
@@ -212,7 +214,7 @@ const s = StyleSheet.create({
     borderColor: colors.fieldLine, backgroundColor: colors.field,
   },
   input: { flex: 1, ...type.body, color: colors.ink, paddingVertical: 0 },
-  list: { paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: 130 },
+  list: { paddingHorizontal: space.xl, paddingTop: space.lg },
   row: {
     flexDirection: "row", alignItems: "center", gap: space.md,
     paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.line,
@@ -221,7 +223,7 @@ const s = StyleSheet.create({
   thumbEmpty: { alignItems: "center", justifyContent: "center" },
   rowText: { flex: 1, gap: 1 },
   empty: { alignItems: "center", marginTop: space.xxxl, paddingHorizontal: space.xl },
-  setList: { paddingHorizontal: space.xl, paddingTop: space.lg, paddingBottom: 130, gap: space.lg },
+  setList: { paddingHorizontal: space.xl, paddingTop: space.lg, gap: space.lg },
   setTile: { flex: 1 },
   setLogoBox: {
     aspectRatio: 1.5, borderRadius: radius.md, backgroundColor: colors.surfaceSunk,

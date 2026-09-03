@@ -13,6 +13,7 @@ import { useGuest } from "../../lib/guest";
 import { Txt } from "../../components/Text";
 import { Icon } from "../../components/Icon";
 import { PageWash } from "../../components/PageWash";
+import { useTabBarClearance } from "../../components/TabBar";
 import { scanCard, scanQuota, type ScanQuota } from "../../lib/scan";
 import { setLastScan } from "../../lib/lastscan";
 import { colors, radius, space } from "../../theme";
@@ -47,6 +48,7 @@ const STAGES = [
 export default function Scan() {
   // Refreshed on focus rather than once on mount: coming back from a scan is
   // exactly when the number has changed.
+  const clearance = useTabBarClearance();
   const [quota, setQuota] = useState<ScanQuota | null>(null);
   useFocusEffect(
     useCallback(() => {
@@ -243,7 +245,7 @@ export default function Scan() {
         </View>
 
         {/* ---- the controls ---------------------------------------------- */}
-        <View style={s.controls}>
+        <View style={[s.controls, { paddingBottom: clearance }]}>
           <Pressable onPress={() => pick("library")} style={s.round} accessibilityLabel="Choose a photo">
             <Icon name="photo" size={21} color={colors.ink} />
           </Pressable>
@@ -341,8 +343,6 @@ const s = StyleSheet.create({
   controls: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: space.xxl, paddingTop: space.lg,
-    // clear of the floating tab bar, which is 46pt of pill plus its lift
-    paddingBottom: 116,
   },
   round: {
     width: 52, height: 52, borderRadius: 26, overflow: "hidden",

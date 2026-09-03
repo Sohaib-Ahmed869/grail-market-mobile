@@ -16,6 +16,7 @@ import { signOut } from "../../lib/auth";
 import { useIdentity } from "../../lib/useIdentity";
 import { fetchSubscription } from "../../lib/billing";
 import { useNavScroll } from "../../lib/navbar";
+import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
 
 type Row = {
@@ -58,6 +59,7 @@ const ACCOUNT: Row[] = [
  *  end of the sell flow being told they cannot list. */
 export default function Profile() {
   const navScroll = useNavScroll();
+  const clearance = useTabBarClearance();
   // Browsing is open to anyone; this is not. See JoinGate for why the
   // line is drawn here rather than at the front door.
   const guest = useGuest();
@@ -105,7 +107,7 @@ export default function Profile() {
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
       <PageWash />
-      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false} {...navScroll}>
+      <ScrollView contentContainerStyle={[s.body, { paddingBottom: clearance }]} showsVerticalScrollIndicator={false} {...navScroll}>
         <View style={s.who}>
           <Pressable onPress={() => router.push("/avatar")}>
             <Avatar name={session?.name ?? "?"} id={session?.avatar} size={64} />
@@ -198,7 +200,7 @@ function Section({ title, rows, onPress }: { title: string; rows: Row[]; onPress
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.washBottom },
-  body: { paddingHorizontal: space.xl, paddingTop: space.sm, paddingBottom: 130 },
+  body: { paddingHorizontal: space.xl, paddingTop: space.sm },
   who: { flexDirection: "row", alignItems: "center", gap: space.lg },
   editFace: {
     position: "absolute", right: -2, bottom: -2,

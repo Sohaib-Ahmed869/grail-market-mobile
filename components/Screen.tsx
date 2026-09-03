@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { PageWash } from "./PageWash";
 import { Feather } from "@expo/vector-icons";
 import { useBack } from "../lib/nav";
+import { useTabBarClearance } from "./TabBar";
 import { colors, space } from "../theme";
 
 /** The frame every non-splash screen sits in.
@@ -16,7 +17,7 @@ import { colors, space } from "../theme";
  *  triggered it loses focus — which reads as "tapping the field does nothing".
  */
 export function Screen({
-  children, back, footer, scroll = true, style, onScroll, scrollEventThrottle,
+  children, back, footer, scroll = true, style, onScroll, scrollEventThrottle, tabBar,
 }: {
   children: React.ReactNode;
   back?: boolean;
@@ -28,8 +29,21 @@ export function Screen({
    *  no reason to and do not. */
   onScroll?: ScrollViewProps["onScroll"];
   scrollEventThrottle?: number;
+  /** This screen sits under the floating tab bar.
+   *
+   *  The bar is absolutely positioned so it takes no space in any layout —
+   *  that is what lets the page scroll under it — which means the bottom of
+   *  the content has to be moved out of the way by hand. Off by default,
+   *  because most screens using this have no bar over them and the room would
+   *  be a gap at the bottom of every one of them. */
+  tabBar?: boolean;
 }) {
   const goBack = useBack();
+  const clearance = useTabBarClearance();
+  const bottom = tabBar ? clearance : undefined;
+  // No "bottom" safe-area edge when the bar is over us: the bar consumes that
+  // inset itself, and taking it twice leaves a home-indicator's worth of dead
+  // space above the pill.
 
   const body = scroll ? (
     <ScrollView
@@ -38,7 +52,7 @@ export function Screen({
       // does not scroll — it overflows underneath the footer and the fields at
       // the bottom become unreachable.
       style={s.fill}
-      contentContainerStyle={s.content}
+      contentContainerStyle={[s.content, bottom != null && { paddingBottom: bottom }]}
       onLayout={(e) =>
         console.log("[screen] viewport h =", Math.round(e.nativeEvent.layout.height))
       }
@@ -62,11 +76,11 @@ export function Screen({
       {children}
     </ScrollView>
   ) : (
-    <View style={s.content}>{children}</View>
+    <View style={[s.content, bottom != null && { paddingBottom: bottom }]}>{children}</View>
   );
 
   return (
-    <SafeAreaView style={[s.safe, style]} edges={["top", "bottom"]}>
+    <SafeAreaView style={[s.safe, style]} edges={tabBar ? ["top"] : ["top", "bottom"]}>
       {/* The same ground every other screen stands on — see PageWash. */}
       <PageWash />
       {/* Android resizes the window for the keyboard on its own

@@ -20,6 +20,32 @@ const ICONS: Record<string, IconName> = {
   portfolio: "collection",
 };
 
+/** How much room the floating bar occupies at the bottom of a tab screen.
+ *
+ *  The bar is absolutely positioned — that is what makes the page scroll
+ *  *under* it — which means it takes no space in any layout and nothing below
+ *  it moves out of the way on its own. Anything pinned to the bottom of a tab
+ *  screen has to subtract this by hand, or it ends up underneath the bar.
+ *
+ *  6 padding + 46 item + 6 padding = 58 for the pill, and the raised Scan
+ *  button breaks 18 above that — so the tallest thing to clear is 76, not 58.
+ *  Clearing only the pill leaves the last row of a list tucked behind the one
+ *  control that sticks out.
+ */
+export const TAB_BAR_HEIGHT = 58;
+export const RAISED_OVERHANG = 18;
+export const TAB_BAR_GAP = space.md;
+
+/** Bottom padding that clears the floating bar, safe area included.
+ *
+ *  `useSafeAreaInsets` rather than a SafeAreaView edge, because the bar
+ *  already consumes the inset itself — a screen that also insets would leave
+ *  a home-indicator's worth of gap twice over. */
+export function useTabBarClearance(): number {
+  const insets = useSafeAreaInsets();
+  return TAB_BAR_HEIGHT + RAISED_OVERHANG + Math.max(insets.bottom, space.md) + TAB_BAR_GAP;
+}
+
 /** The one that is not a peer of the others.
  *
  *  Scanning is what the product is for; everything else is what you do with

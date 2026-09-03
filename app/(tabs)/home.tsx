@@ -26,6 +26,7 @@ import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
+import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
 
 const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
@@ -45,6 +46,7 @@ const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
  */
 export default function Home() {
   const navScroll = useNavScroll();
+  const clearance = useTabBarClearance();
   const session = useSession();
   const guest = useGuest();
   const userId = session?.userId ?? "";
@@ -99,7 +101,7 @@ export default function Home() {
       <PageWash />
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 130 }}
+        contentContainerStyle={{ paddingBottom: clearance }}
         {...navScroll}
       >
         {/* ---- the band ---------------------------------------------------- */}

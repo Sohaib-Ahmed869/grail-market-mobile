@@ -55,7 +55,7 @@ export default function Watchlist() {
     ]);
 
   return (
-    <Screen {...navScroll}>
+    <Screen tabBar {...navScroll}>
       <Txt variant="display" style={{ marginTop: space.sm }}>Watchlist</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
         Cards you don&rsquo;t own but want to know about.
