@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Image, Pressable, StyleSheet, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,13 +7,13 @@ import Animated, {
   withRepeat, withTiming,
 } from "react-native-reanimated";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { JoinGate } from "../../components/JoinGate";
 import { useGuest } from "../../lib/guest";
 import { Txt } from "../../components/Text";
 import { Icon } from "../../components/Icon";
 import { PageWash } from "../../components/PageWash";
-import { scanCard } from "../../lib/scan";
+import { scanCard, scanQuota, type ScanQuota } from "../../lib/scan";
 import { setLastScan } from "../../lib/lastscan";
 import { colors, radius, space } from "../../theme";
 
@@ -45,6 +45,17 @@ const STAGES = [
  *  type in a corner, and it is the whole identity of the card.
  */
 export default function Scan() {
+  // Refreshed on focus rather than once on mount: coming back from a scan is
+  // exactly when the number has changed.
+  const [quota, setQuota] = useState<ScanQuota | null>(null);
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      scanQuota().then((q) => { if (alive) setQuota(q); });
+      return () => { alive = false; };
+    }, []),
+  );
+
   const guest = useGuest();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -132,7 +143,22 @@ export default function Scan() {
 
       <SafeAreaView edges={["top"]} style={{ flex: 1 }}>
         <View style={s.head}>
-          <Txt variant="h2">Scan A Card</Txt>
+          <View style={{ flex: 1 }}>
+            <Txt variant="h2">Scan A Card</Txt>
+            {/* Asked before the camera opens, so nobody takes a photograph
+                they cannot use. Silent when there is no ceiling — "unlimited
+                scans remaining" is a sentence nobody needs. */}
+            {quota?.remaining != null && (
+              <Txt
+                variant="bodySmall"
+                color={quota.remaining === 0 ? colors.down : colors.inkFaint}
+              >
+                {quota.remaining === 0
+                  ? `No scans left — they reset on ${quota.resetsOn ?? "the 1st"}`
+                  : `${quota.remaining} scan${quota.remaining === 1 ? "" : "s"} left this month`}
+              </Txt>
+            )}
+          </View>
           <View style={s.sides}>
             {(["front", "back"] as const).map((x) => {
               const on = side === x;
@@ -263,7 +289,10 @@ const BRACKET = 30;
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.washBottom },
 
-  head: { paddingHorizontal: space.xl, paddingTop: space.sm, gap: space.md },
+  head: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: space.xl, paddingTop: space.sm, gap: space.md,
+  },
   sides: { flexDirection: "row", gap: space.sm },
   side: {
     flexDirection: "row", alignItems: "center", gap: 6,

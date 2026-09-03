@@ -6,8 +6,19 @@ import { authHeader } from "./session";
 // lost a collector number and mispriced a card by thirty times, and the number
 // is often four points of type in a corner.
 
+export type Identification = {
+  name?: string; setName?: string; localId?: string; rarity?: string;
+  game?: string; language?: string; cardId?: string; printing?: string;
+  imageUrl?: string | null; matchScore?: number; ocrName?: string;
+};
+
 export type ScanResult = {
   id?: string;
+  /** The matches we did not choose, best first, with the chosen one first.
+   *
+   *  Empty when there was no real alternative. A wrong answer used to have no
+   *  route out except scanning the same card again. */
+  candidates?: { identification: Identification; valuation?: unknown }[] | null;
   identification?: {
     name?: string; setName?: string; localId?: string; rarity?: string;
     game?: string; language?: string; cardId?: string; printing?: string;
@@ -28,6 +39,37 @@ export type ScanResult = {
   } | null;
   ocrNames?: string[];
 };
+
+/** "No, it's the other one." Re-prices from what was already fetched — no
+ *  photograph is sent again and vision never runs twice over the same pixels. */
+export async function pickCandidate(
+  scanId: string, cardId: string,
+): Promise<ScanResult | null> {
+  try {
+    const res = await fetch(`${SCAN_API}/scans/${scanId}/pick`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeader() },
+      body: JSON.stringify({ cardId }),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as ScanResult;
+  } catch { return null; }
+}
+
+export type ScanQuota = {
+  plan: string; used: number; limit: number | null; remaining: number | null;
+  resetsOn?: string; anonymous?: boolean;
+};
+
+/** How many scans are left this month. Asked before the camera opens, so the
+ *  answer arrives before somebody has taken a photograph they cannot use. */
+export async function scanQuota(): Promise<ScanQuota | null> {
+  try {
+    const res = await fetch(`${SCAN_API}/scans/quota`, { headers: { ...authHeader() } });
+    if (!res.ok) return null;
+    return (await res.json()) as ScanQuota;
+  } catch { return null; }
+}
 
 export type ScanOutcome =
   | { ok: true; scan: ScanResult }

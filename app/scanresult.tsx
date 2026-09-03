@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -13,6 +13,7 @@ import { CardMarket } from "../components/CardMarket";
 import { conversionNote, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
 import { getLastScan, getLastShots, setLastScan } from "../lib/lastscan";
+import { pickCandidate, type ScanResult } from "../lib/scan";
 import { addToCollection } from "../lib/market";
 import { clearDraft, setDraftSeed } from "../lib/selldraft";
 import { apiMessage } from "../lib/api";
@@ -101,7 +102,11 @@ export default function ScanResult() {
   const router = useRouter();
   const params = useLocalSearchParams<{ demo?: string }>();
   if (__DEV__ && params.demo && !getLastScan()) setLastScan(DEMO as any);
-  const scan = getLastScan();
+  // Held in state as well as in the module store, because picking a different
+  // match replaces it and the screen has to redraw. The store is still the
+  // source of truth for anything that navigates away and comes back.
+  const [scan, setScanState] = useState(getLastScan());
+  const setScan = (next: ScanResult) => { setLastScan(next); setScanState(next); };
   const fx = useFx();
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -131,6 +136,17 @@ export default function ScanResult() {
   const grader = ((form.grader || "RAW").toUpperCase() as GraderId);
   const brand = graderById(grader);
   const [variant, setVariant] = useState<string>(id?.printing ?? "normal");
+
+  // Re-seeded when a different match is chosen. The form is the editable copy
+  // of the identification, and leaving it on the rejected card is how somebody
+  // corrects the match and then saves the wrong name anyway.
+  useEffect(() => {
+    if (!id) return;
+    setForm((f) => ({
+      ...f, name: id.name ?? "", setName: id.setName ?? "", number: id.localId ?? "",
+    }));
+    setVariant(id.printing ?? "normal");
+  }, [id?.cardId, id?.name, id?.setName, id?.localId, id?.printing]);
   const [qty, setQty] = useState("1");
   const [paid, setPaid] = useState("");
 
@@ -348,9 +364,16 @@ export default function ScanResult() {
         </View>
       </View>
 
+      <OtherMatches
+        scanId={scan?.id}
+        candidates={scan?.candidates ?? []}
+        chosenId={id?.cardId}
+        onPicked={setScan}
+      />
+
       <Pressable onPress={() => router.replace("/(tabs)/search")} hitSlop={6} style={{ marginTop: space.sm }}>
         <Txt variant="bodySmall" color={colors.inkFaint} center>
-          Not the right card?{" "}
+          Still not it?{" "}
           <Txt variant="bodySmall" color={colors.ink} style={{ textDecorationLine: "underline" }}>
             Search for it
           </Txt>
@@ -551,7 +574,100 @@ function Evidence({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** The matches we did not pick.
+ *
+ *  Every catalogue was already asked, so these cost nothing to keep and are
+ *  the only way out of a wrong answer that does not involve photographing the
+ *  same card again and getting the same wrong answer.
+ *
+ *  Collapsed by default. The top match is right most of the time, and a list
+ *  of maybes under a confident answer undermines it — this is a door, not a
+ *  question. */
+function OtherMatches({
+  scanId, candidates, chosenId, onPicked,
+}: {
+  scanId?: string;
+  candidates: { identification: any }[];
+  chosenId?: string;
+  onPicked: (s: ScanResult) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const toast = useToast();
+
+  const others = candidates.filter((c) => c.identification?.cardId !== chosenId);
+  if (!scanId || others.length === 0) return null;
+
+  const choose = async (cardId: string) => {
+    setBusy(cardId);
+    const next = await pickCandidate(scanId, cardId);
+    setBusy(null);
+    if (!next) { toast("That didn't take. Try again.", { tone: "bad" }); return; }
+    onPicked(next);
+    setOpen(false);
+    toast("Match changed. The price has been redone.", { tone: "good" });
+  };
+
+  return (
+    <View style={{ marginTop: space.md }}>
+      <Pressable onPress={() => setOpen((o) => !o)} hitSlop={6} style={s.otherToggle}>
+        <Feather name={open ? "chevron-up" : "chevron-down"} size={14} color={colors.ink} />
+        <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "600" }}>
+          Not the right card? {others.length} other match{others.length === 1 ? "" : "es"}
+        </Txt>
+      </Pressable>
+
+      {open && (
+        <View style={s.others}>
+          {others.map((c) => {
+            const o = c.identification;
+            const key = o.cardId || `${o.game}:${o.name}`;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => choose(key)}
+                disabled={busy != null}
+                style={[s.other, busy === key && { opacity: 0.5 }]}
+              >
+                {o.imageUrl ? (
+                  <Image source={{ uri: o.imageUrl }} style={s.otherArt} resizeMode="contain" />
+                ) : (
+                  <View style={[s.otherArt, s.compareEmpty]}>
+                    <Feather name="image" size={14} color={colors.inkFaint} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Txt variant="button" numberOfLines={2}>{o.name}</Txt>
+                  <Txt variant="bodySmall" color={colors.inkMuted} numberOfLines={1}>
+                    {[o.setName, o.localId && `#${o.localId}`].filter(Boolean).join(" · ")}
+                  </Txt>
+                </View>
+                {o.matchScore != null && (
+                  <Txt variant="bodySmall" color={colors.inkFaint}>
+                    {Math.round(o.matchScore * 100)}%
+                  </Txt>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  otherToggle: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    paddingVertical: space.sm,
+  },
+  others: { gap: space.sm },
+  other: {
+    flexDirection: "row", alignItems: "center", gap: space.md, padding: space.sm,
+    borderRadius: radius.md, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  otherArt: { width: 38, height: 53, borderRadius: 4, backgroundColor: colors.surfaceSunk },
   middle: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: space.md },
   rejectHead: { flexDirection: "row", gap: space.md, alignItems: "flex-start" },
   rejectShot: {
