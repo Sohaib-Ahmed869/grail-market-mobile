@@ -92,13 +92,15 @@ export default function Profile() {
   if (guest) {
     return (
       <JoinGate
-        icon={"user"}
-        title="No account yet"
-        why="You are looking around as a guest. Browsing and search stay open either way."
-        points={[
-          "ID-checked members only, so you know who you are dealing with",
-          "Sell your own cards once you are verified",
-          "Offers, messages and your listing history in one place",
+        title="You're Missing This"
+        why="Browsing and search stay open as a guest. Everything that happens between people needs an account."
+        preview={[
+          { icon: "offer", tone: colors.ink, title: "Offer received",
+            body: "A$420 for your Charizard", when: "now" },
+          { icon: "messages", tone: colors.info, title: "Marcus replied",
+            body: "Still available? Happy to collect.", when: "2m" },
+          { icon: "verified", tone: colors.up, title: "You're verified",
+            body: "You can list cards now.", when: "1h" },
         ]}
       />
     );

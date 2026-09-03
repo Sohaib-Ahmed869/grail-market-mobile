@@ -3,11 +3,11 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
-import { CardFan } from "./CardFan";
+import { PhonePreview, type PreviewNote } from "./PhonePreview";
 import { Txt } from "./Text";
 import { Button } from "./Button";
 import { useHideNav } from "../lib/navbar";
-import { colors, radius, space } from "../theme";
+import { colors, space } from "../theme";
 
 /** What a guest sees where a member's screen would be.
  *
@@ -16,34 +16,36 @@ import { colors, radius, space } from "../theme";
  *  somebody. So the gate says which of those it is, rather than "sign in to
  *  continue", and it never pretends the feature is broken.
  *
+ *  It SHOWS what an account is rather than listing it. This was three ticked
+ *  bullets in a white box, which is the shape of a pricing page and is read
+ *  the way a pricing page is read — which is to say not at all. A phone with
+ *  an offer landing on it, a buyer's message and a price move says the same
+ *  three things and cannot be skimmed, because there is nothing to skim.
+ *
  *  It takes the whole screen, tab bar included. This is one decision, and a
  *  row of five destinations under it says the opposite — that this is a page
  *  among pages you might tab past. The way out is the arrow at the top, which
  *  is the only navigation a page like this needs.
- *
- *  There is no hero PANEL. A dark rounded box with the logo centred in it is
- *  where any layout lands when nobody decides what the picture should be, and
- *  every app has one. The picture here is a hand of cards, sitting on the page
- *  and casting its own shadow — which is the product, and is not a box.
  */
 export function JoinGate({
-  icon, title, why, points,
+  title, why, preview,
 }: {
-  icon: keyof typeof Feather.glyphMap;
   title: string;
   why: string;
-  points: string[];
+  /** The three things this particular gate is holding back, shown as the
+   *  notifications a member would have got. */
+  preview: PreviewNote[];
 }) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { height, width } = useWindowDimensions();
 
   useHideNav();
 
-  // The hero gets whatever is left after the copy and the actions, within
-  // reason. On a small phone it shrinks rather than pushing the buttons off;
-  // on a large one it does not become a poster.
-  const heroH = Math.max(200, Math.min(300, height * 0.32));
+  // The phone scales to the screen rather than to a number. On a small device
+  // it shrinks so the copy and the buttons keep their room; it never grows
+  // past a size where it stops being a prop and becomes a poster.
+  const phoneW = Math.max(168, Math.min(214, Math.min(width * 0.52, height * 0.26)));
 
   return (
     <View style={s.root}>
@@ -62,42 +64,29 @@ export function JoinGate({
         </View>
 
         <View style={s.body}>
-          {/* ---- the hero -------------------------------------------------- */}
-          <View style={[s.hero, { height: heroH }]}>
-            <CardFan size={Math.min(132, heroH * 0.52)} />
-          </View>
+          <PhonePreview notes={preview} width={phoneW} />
 
-          {/* ---- what and why ---------------------------------------------- */}
-          <Animated.View entering={FadeInDown.duration(440).delay(160)} style={s.copy}>
+          <Animated.View entering={FadeInDown.duration(440).delay(180)} style={s.copy}>
             <Txt variant="display" center>{title}</Txt>
             <Txt variant="body" color={colors.inkMuted} center style={s.why}>
               {why}
             </Txt>
           </Animated.View>
-
-          {/* ---- what you get ----------------------------------------------- */}
-          <Animated.View entering={FadeInDown.duration(440).delay(280)} style={s.points}>
-            {points.map((p, i) => (
-              <View key={p} style={[s.point, i > 0 && s.pointDivided]}>
-                <View style={s.tick}>
-                  <Feather name="check" size={11} color={colors.up} />
-                </View>
-                <Txt variant="bodySmall" color={colors.inkMuted} style={{ flex: 1 }}>{p}</Txt>
-              </View>
-            ))}
-          </Animated.View>
         </View>
 
-        {/* ---- the decision ------------------------------------------------ */}
         <Animated.View
-          entering={FadeInDown.duration(440).delay(380)}
+          entering={FadeInDown.duration(440).delay(320)}
           style={[s.foot, { paddingBottom: Math.max(insets.bottom, space.lg) + space.sm }]}
         >
           <Button label="Create an account" pill onPress={() => router.push("/signup")} />
           {/* A link, not a second button. Two bordered boxes give both choices
               equal weight when one of them is plainly the answer for most
               people standing here. */}
-          <Button label="I already have an account" kind="link" onPress={() => router.push("/signin")} />
+          <Button
+            label="I already have an account"
+            kind="link"
+            onPress={() => router.push("/signin")}
+          />
         </Animated.View>
       </SafeAreaView>
     </View>
@@ -116,22 +105,8 @@ const s = StyleSheet.create({
     alignItems: "center", justifyContent: "center",
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
   },
-  body: { flex: 1, paddingHorizontal: space.xl, justifyContent: "center", gap: space.xl },
-  hero: { alignItems: "center", justifyContent: "center" },
-  copy: { alignItems: "center" },
-  why: { marginTop: space.sm, paddingHorizontal: space.sm },
-  points: {
-    borderRadius: radius.lg, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.line,
-    paddingHorizontal: space.lg,
-  },
-  point: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
-  // Hairlines between rather than gaps: three floating rows in a box read as
-  // three things that happen to be near each other.
-  pointDivided: { borderTopWidth: 1, borderTopColor: colors.line },
-  tick: {
-    width: 20, height: 20, borderRadius: 10, alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.upWash,
-  },
+  body: { flex: 1, alignItems: "center", justifyContent: "center", gap: space.xxl },
+  copy: { alignItems: "center", paddingHorizontal: space.xl },
+  why: { marginTop: space.sm },
   foot: { paddingHorizontal: space.xl, paddingTop: space.md, gap: 2 },
 });

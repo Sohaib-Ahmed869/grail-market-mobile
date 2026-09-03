@@ -127,13 +127,15 @@ export default function Scan() {
   if (guest) {
     return (
       <JoinGate
-        icon={"maximize"}
-        title="Scanning needs an account"
+        title="Scanning Needs An Account"
         why="Every scan buys a real price lookup, so it is tied to a member rather than a device."
-        points={[
-          "Free scans every day on any plan",
-          "Corrections you make are remembered",
-          "Add what you scan straight to a collection",
+        preview={[
+          { icon: "scan", tone: colors.ink, title: "Scan finished",
+            body: "Charizard · Base Set · PSA 10", when: "now" },
+          { icon: "price", tone: colors.up, title: "Worth A$8,400",
+            body: "From 14 sales in the last 90 days", when: "now" },
+          { icon: "collection", tone: colors.accent, title: "Added to your collection",
+            body: "Tracking from today", when: "1m" },
         ]}
       />
     );

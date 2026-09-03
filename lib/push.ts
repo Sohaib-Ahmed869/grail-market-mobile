@@ -87,6 +87,29 @@ export async function enablePush(): Promise<boolean> {
 
 export const pushRegistered = () => registered;
 
+export type PushStatus = "unavailable" | "granted" | "denied" | "undetermined";
+
+/** What the OS currently thinks, without asking for anything.
+ *
+ *  The priming screen needs this before it renders: there is no point selling
+ *  notifications to somebody who already has them, and somebody who has said
+ *  no cannot be asked again — iOS only shows its dialog once, so the only
+ *  honest offer at that point is a link to Settings. */
+export async function pushStatus(): Promise<PushStatus> {
+  const mod = load();
+  if (!mod || !mod.isDevice) return "unavailable";
+  try {
+    const p = await mod.N.getPermissionsAsync();
+    if (p.status === "granted") return "granted";
+    // canAskAgain is the distinction that matters. "denied" from a first-run
+    // prompt that was never shown is not the same as a person having refused.
+    if (p.status === "denied" && !p.canAskAgain) return "denied";
+    return p.status === "denied" ? "denied" : "undetermined";
+  } catch {
+    return "unavailable";
+  }
+}
+
 /** Whether a notification could ever arrive on this build. The alert sheet
  *  uses it to be honest rather than promising something that cannot happen. */
 export const pushPossible = () => {

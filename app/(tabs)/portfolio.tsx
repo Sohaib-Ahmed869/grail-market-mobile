@@ -52,13 +52,15 @@ export default function Portfolio() {
   if (guest) {
     return (
       <JoinGate
-        icon={"briefcase"}
-        title="Your collection lives with your account"
-        why="A collection has to belong to somebody. Create an account and it follows you to any device."
-        points={[
-          "Valued at today’s market, not what you paid",
-          "One tap turns any card into a listing",
-          "Nothing is shared unless you list it",
+        title="A Collection Needs An Owner"
+        why="Create an account and it follows you to any device, valued at today's market rather than what you paid."
+        preview={[
+          { icon: "price", tone: colors.up, title: "Up A$180 this week",
+            body: "Your 24 cards are worth A$3,910", when: "now" },
+          { icon: "offer", tone: colors.ink, title: "Offer received",
+            body: "A$420 for your Vulpix", when: "3m" },
+          { icon: "watchlist", tone: colors.info, title: "Pikachu VMAX moved",
+            body: "Up 12% since you followed it", when: "1h" },
         ]}
       />
     );
