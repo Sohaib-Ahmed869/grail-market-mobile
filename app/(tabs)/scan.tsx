@@ -206,9 +206,17 @@ export default function Scan() {
                     style={{ height: 2, width: "100%" }}
                   />
                 </Animated.View>
-                <Icon name="card" size={34} color="rgba(255,255,255,0.28)" />
-                <Txt variant="bodySmall" color={colors.onDarkMuted} center style={{ marginTop: space.md }}>
-                  Fill the frame with the {side}
+                {/* A card-shaped outline, not a card icon. The frame is a
+                    rounded rectangle and the thing going into it is a
+                    rounded rectangle — showing the shape says "line this up"
+                    where a small pictogram in the middle of a void said
+                    nothing and left the space feeling empty. */}
+                {/* The outline holds nothing. The sweep travels down the
+                    frame, and any text sitting in the middle of it gets
+                    struck through once a second. */}
+                <View style={s.guide} />
+                <Txt variant="bodySmall" color={colors.onDarkMuted} center style={s.guideLabel}>
+                  Line the {side} up here
                 </Txt>
               </>
             )}
@@ -248,9 +256,12 @@ export default function Scan() {
 
         {/* ---- the controls ---------------------------------------------- */}
         <View style={[s.controls, { paddingBottom: clearance }]}>
-          <Pressable onPress={() => pick("library")} style={s.round} accessibilityLabel="Choose a photo">
-            <Icon name="photo" size={21} color={colors.ink} />
-          </Pressable>
+          <View style={s.slot}>
+            <Pressable onPress={() => pick("library")} style={s.round} accessibilityLabel="Choose a photo">
+              <Icon name="photo" size={20} color={colors.ink} />
+            </Pressable>
+            <Txt variant="bodySmall" color={colors.inkFaint}>Library</Txt>
+          </View>
 
           {front && !busy ? (
             <Pressable onPress={run} style={[s.shutter, s.shutterGo]} accessibilityLabel="Scan this card">
@@ -267,14 +278,19 @@ export default function Scan() {
             </Pressable>
           )}
 
-          <View style={s.round}>
-            {back ? (
-              <Image source={{ uri: back }} style={s.thumb} resizeMode="cover" />
-            ) : front ? (
-              <Image source={{ uri: front }} style={s.thumb} resizeMode="cover" />
-            ) : (
-              <Icon name="card" size={20} color={colors.inkFaint} />
-            )}
+          <View style={s.slot}>
+            <View style={s.round}>
+              {back ? (
+                <Image source={{ uri: back }} style={s.thumb} resizeMode="cover" />
+              ) : front ? (
+                <Image source={{ uri: front }} style={s.thumb} resizeMode="cover" />
+              ) : (
+                <Icon name="card" size={19} color={colors.inkFaint} />
+              )}
+            </View>
+            <Txt variant="bodySmall" color={colors.inkFaint}>
+              {back ? "2 shots" : front ? "1 shot" : "Nothing yet"}
+            </Txt>
           </View>
         </View>
 
@@ -343,9 +359,21 @@ const s = StyleSheet.create({
   },
 
   controls: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between",
     paddingHorizontal: space.xxl, paddingTop: space.lg,
   },
+  // The label sits under its own control rather than beside it, so the three
+  // stay evenly spaced whatever the words underneath happen to be.
+  slot: { alignItems: "center", gap: 6, width: 76 },
+  guide: {
+    width: "58%", aspectRatio: 0.72,
+    borderRadius: 12, borderWidth: 1.5, borderStyle: "dashed",
+    // Gold, faintly. The brackets on the corners are gold and the guide is
+    // the same instruction at a different scale; grey made it look like a
+    // disabled control rather than an aim.
+    borderColor: "rgba(168,141,96,0.45)",
+  },
+  guideLabel: { position: "absolute", bottom: space.xl, left: space.lg, right: space.lg },
   round: {
     width: 52, height: 52, borderRadius: 26, overflow: "hidden",
     alignItems: "center", justifyContent: "center",
@@ -354,9 +382,10 @@ const s = StyleSheet.create({
   },
   thumb: { width: "100%", height: "100%" },
   shutter: {
-    width: 78, height: 78, borderRadius: 39,
+    width: 78, height: 78, borderRadius: 39, marginTop: -2,
     alignItems: "center", justifyContent: "center",
     borderWidth: 3, borderColor: colors.lineStrong,
+    backgroundColor: colors.surface,
   },
   shutterInner: {
     width: 60, height: 60, borderRadius: 30, backgroundColor: colors.ink,

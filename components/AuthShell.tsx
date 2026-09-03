@@ -22,12 +22,16 @@ import { StatusBar } from "expo-status-bar";
  *  Both screens share it so they cannot drift apart, which is what happened
  *  the last time each owned its own layout. */
 export function AuthShell({
-  title, sub, children, footer,
+  title, sub, children, footer, back = true,
 }: {
   title: string;
   sub: string;
   children: React.ReactNode;
   footer: React.ReactNode;
+  /** Off at the end of a flow. "You're in" is not somewhere you go back
+   *  from — the account exists, and an arrow pointing at the welcome screen
+   *  is an invitation to undo something that cannot be undone. */
+  back?: boolean;
 }) {
   const goBack = useBack("/welcome");
 
@@ -49,9 +53,16 @@ export function AuthShell({
         </View>
         <MarkWatermark size={340} opacity={0.055} style={s.watermark} />
         <SafeAreaView edges={["top"]}>
-          <Pressable onPress={goBack} hitSlop={12} style={s.back}>
-            <Icon name="home" size={17} color={colors.onDark} />
-          </Pressable>
+          {back ? (
+            <Pressable onPress={goBack} hitSlop={12} style={s.back}>
+              <Icon name="home" size={17} color={colors.onDark} />
+            </Pressable>
+          ) : (
+            // Reserves the same space, draws nothing. Reusing s.back left a
+            // grey empty circle sitting in the corner of the one screen that
+            // has no back control.
+            <View style={s.backSpacer} />
+          )}
           <View style={s.brand}>
             <Animated.View entering={FadeInDown.duration(560).delay(120)}>
               <Lockup width={182} onDark />
@@ -109,6 +120,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.16)",
   },
+  backSpacer: { marginLeft: space.xl, marginTop: space.sm, width: 38, height: 38 },
   brand: { alignItems: "center", marginTop: space.lg },
   // the sheet overlaps the band, which is what gives the screen its depth
   sheet: {
