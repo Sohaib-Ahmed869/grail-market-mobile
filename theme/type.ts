@@ -21,7 +21,7 @@ export const type = {
   h3:        { fontFamily: fonts.semi, fontSize: 15.5, lineHeight: 21 },
   body:      { fontFamily: fonts.regular, fontSize: 15.5, lineHeight: 23 },
   bodySmall: { fontFamily: fonts.regular, fontSize: 13.5, lineHeight: 19 },
-  label:     { fontFamily: fonts.medium, fontSize: 13.5, lineHeight: 18 },
+  label:     { fontFamily: fonts.semi,   fontSize: 13.5, lineHeight: 18 },
   button:    { fontFamily: fonts.semi, fontSize: 15.5, lineHeight: 21 },
   // was "overline": small caps, 1.2 tracking. Now a quiet label — the same
   // job, without the shouting.

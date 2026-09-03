@@ -17,9 +17,17 @@ export const colors = {
   surfaceSunk: "#F7F9FB",          // wells inside a surface
 
   ink: palette.navy,               // headings, primary text
-  inkMuted: "#5A6875",             // body and secondary
-  inkFaint: "#8D99A6",             // captions, placeholders
-  line: "#E3E8ED",                 // hairlines and field borders
+  // Measured against the page, not chosen by eye. The previous pair read as
+  // "quiet" on a design mock and as "washed out" on a phone in daylight:
+  // inkFaint was 2.8:1 against the page, which is under half the 4.5 the
+  // guidelines ask for — and it is the colour on every placeholder, hint,
+  // timestamp and "not priced yet" in the app.
+  //
+  // Both are the same hue darkened rather than new colours, so nothing shifts
+  // temperature — the greys still belong to the navy.
+  inkMuted: "#4D5863",             // body and secondary — 7.0:1
+  inkFaint: "#6A737D",             // captions, placeholders — 4.7:1
+  line: "#E3E8ED",                 // hairlines
   lineStrong: "#D2DAE2",
 
   accent: palette.gold,
@@ -48,7 +56,9 @@ export const colors = {
   // invisible at arm's length in daylight, which is how a form ends up
   // looking like a list of labels with nothing to type into.
   field: "#EDEFF2",
-  fieldLine: "#B9C1C9",
+  // 1.8:1 was a border you could only find by looking for it. Still decoration
+  // rather than text, so it does not need 4.5 — it needs to be visible.
+  fieldLine: "#9DA4AB",
   fieldLineFocus: palette.navy,
 
   // The page is not flat white, but it is not blue either. The wash is the

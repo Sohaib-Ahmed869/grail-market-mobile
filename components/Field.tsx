@@ -52,7 +52,10 @@ export function Field({
       <View style={s.labelRow}>
         <Txt
           variant="label"
-          color={bad ? colors.down : focused ? colors.ink : colors.inkMuted}
+          // Full ink, focused or not. A label is the thing that tells you what
+          // to type — it is not secondary to the empty box underneath it, and
+          // greying it out was the single biggest reason the forms read light.
+          color={bad ? colors.down : colors.ink}
           style={s.label}
           numberOfLines={1}
         >
