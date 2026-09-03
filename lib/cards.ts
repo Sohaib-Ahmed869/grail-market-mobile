@@ -62,3 +62,26 @@ export async function cardTrend(a: {
     return null;
   }
 }
+
+
+export type Candle = {
+  day: string; open: number; high: number; low: number; close: number; readings: number;
+};
+
+/** Bars for a card, and which ranges the history can honestly draw.
+ *
+ *  `ohlc` is false when each bar is a single daily close — four equal values,
+ *  which is a line and not a candle. */
+export async function cardCandles(catalogId: string, range = "1W"): Promise<{
+  candles: Candle[]; ranges: string[]; range: string; ohlc: boolean; grader: string | null;
+}> {
+  const empty = { candles: [], ranges: [], range, ohlc: false, grader: null };
+  try {
+    const r = await get<typeof empty>(
+      `/history/candles?catalogId=${encodeURIComponent(catalogId)}&range=${range}`,
+    );
+    return { ...empty, ...r };
+  } catch {
+    return empty;
+  }
+}

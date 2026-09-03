@@ -16,9 +16,10 @@ import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grad
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
 import { InterestBar } from "../../components/InterestBar";
-import { cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
+import { cardCandles, cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
 import { PeriodStrip } from "../../components/PeriodStrip";
 import { MarketChart } from "../../components/MarketChart";
+import { CandleChart } from "../../components/CandleChart";
 import { Bone } from "../../components/Skeleton";
 import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
@@ -48,6 +49,15 @@ export default function CardPage() {
     following: 0, holding: 0, views: 0, faces: [],
   });
   const [trend, setTrend] = useState<CardTrend | null>(null);
+  const [range, setRange] = useState("1W");
+  const [bars, setBars] = useState<Awaited<ReturnType<typeof cardCandles>>>({
+    candles: [], ranges: [], range: "1W", ohlc: false, grader: null,
+  });
+  useEffect(() => {
+    let alive = true;
+    if (id) cardCandles(String(id), range).then((b) => { if (alive) setBars(b); });
+    return () => { alive = false; };
+  }, [id, range]);
   // Needs the card's NAME, so it waits for the metadata rather than firing on
   // the id. The feed is queried by name; asking with an empty one is a paid
   // call that cannot match anything.
@@ -212,15 +222,29 @@ export default function CardPage() {
             />
           </View>
 
-          {trend.spark.length > 1 && (
-            <View style={s.quoteChart}>
+          <View style={s.quoteChart}>
+            {bars.candles.length > 0 ? (
+              <CandleChart
+                candles={bars.candles}
+                ohlc={bars.ohlc}
+                ranges={bars.ranges}
+                range={bars.range}
+                onRange={setRange}
+                height={168}
+                note={
+                  bars.ohlc
+                    ? "Each bar opens where the period began and closes where it ended."
+                    : "One reading a day so far — bars become candles as the history fills in."
+                }
+              />
+            ) : trend.spark.length > 1 ? (
               <MarketChart
                 points={trend.spark}
                 height={140}
-                label={`${trend.spark.length} readings · the line is coloured by each leg`}
+                label={`${trend.spark.length} readings · coloured by each leg`}
               />
-            </View>
-          )}
+            ) : null}
+          </View>
         </View>
       )}
 
