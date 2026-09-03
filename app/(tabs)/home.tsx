@@ -28,6 +28,7 @@ import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
 import { ValueHero } from "../../components/ValueHero";
 import { FocusRail } from "../../components/FocusRail";
+import { FollowRing } from "../../components/FollowRing";
 import { CardArt } from "../../components/CardArt";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory, marketIndex } from "../../lib/history";
@@ -284,60 +285,22 @@ export default function Home() {
           <>
             <Section
               title="Following"
-              sub="Cards you asked to be told about"
+              sub="Tap one to see where it is"
               action={{ label: "Watchlist", onPress: () => router.push("/watchlist") }}
             />
-            <FocusRail
-              data={watched.slice(0, 8)}
-              itemWidth={196}
-              keyOf={(w) => w.watchId}
-              render={(w) => {
-                const up = (w.since ?? 0) >= 0;
-                return (
-                  <Pressable
-                    onPress={() => w.catalogId && router.push(`/card/${w.catalogId}` as any)}
-                    style={({ pressed }) => [s.watch, pressed && { opacity: 0.85 }]}
-                  >
-                    <View style={s.watchArt}>
-                      <CardArt uri={w.imageUrl} iconSize={22} />
-                      <View style={s.watchGrade}>
-                        <GraderBadge grader={w.grader ?? "RAW"} grade={w.grade} />
-                      </View>
-                      {/* the reason this card is here at all */}
-                      <View style={s.watchFollow}>
-                        <Icon name="watchlist" size={11} color={colors.onPrimary} filled />
-                        <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
-                          {w.alertPct != null ? `${w.alertPct}%` : "Following"}
-                        </Txt>
-                      </View>
-                    </View>
-
-                    <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
-                      {w.cardName}
-                    </Txt>
-                    <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
-                      {w.setName ?? ""}
-                    </Txt>
-
-                    <View style={s.watchFoot}>
-                      <View style={{ flex: 1 }}>
-                        <Txt variant="h3">{money(w.value, { fx, from: "USD" })}</Txt>
-                        <Txt variant="overline" color={colors.inkFaint} style={{ fontSize: 11 }}>
-                          {w.value == null ? "not priced yet" : "market value"}
-                        </Txt>
-                      </View>
-                      {w.since != null && Math.abs(w.since) >= 0.05 && (
-                        <View style={[s.move, { backgroundColor: up ? colors.upWash : colors.downWash }]}>
-                          <Icon name="price" size={11} color={up ? colors.up : colors.down} />
-                          <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
-                            {up ? "+" : ""}{w.since.toFixed(1)}%
-                          </Txt>
-                        </View>
-                      )}
-                    </View>
-                  </Pressable>
-                );
+            <FollowRing
+              items={watched.slice(0, 12).map((w) => ({
+                id: w.watchId,
+                name: w.cardName,
+                imageUrl: w.imageUrl,
+                since: w.since,
+                alerting: w.alertPct != null,
+              }))}
+              onPress={(it) => {
+                const w = watched.find((x) => x.watchId === it.id);
+                if (w?.catalogId) router.push(`/card/${w.catalogId}` as any);
               }}
+              onAdd={() => router.push("/watchlist")}
             />
           </>
         )}
