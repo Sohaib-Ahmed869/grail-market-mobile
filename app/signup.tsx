@@ -8,7 +8,6 @@ import { Button } from "../components/Button";
 import { Field } from "../components/Field";
 import { SocialAuth } from "../components/SocialAuth";
 import { PhoneField } from "../components/PhoneField";
-import { Note } from "../components/Note";
 import { Steps } from "../components/Steps";
 import { colors, radius, space } from "../theme";
 import { isClean, passwordStrength, validateSignUp, type SignUpForm } from "../lib/validate";
@@ -80,7 +79,7 @@ export default function SignUp() {
   return (
     <AuthShell
       title="Create Your Account"
-      sub="Two minutes now. You'll verify your ID before you buy or sell."
+      sub="Takes about two minutes."
       footer={
         <>
           <Button label="Continue" onPress={submit} loading={sending} />
@@ -88,7 +87,7 @@ export default function SignUp() {
               have to be reachable from — not buried three taps into a profile
               somebody only reaches after agreeing. */}
           <Txt variant="bodySmall" color={colors.inkFaint} center style={{ paddingHorizontal: space.md }}>
-            By continuing you agree to the{" "}
+            By continuing you agree to our{" "}
             <Txt
               variant="bodySmall"
               color={colors.ink}
@@ -97,7 +96,7 @@ export default function SignUp() {
             >
               Terms
             </Txt>
-            {" "}and the{" "}
+            {" "}and{" "}
             <Txt
               variant="bodySmall"
               color={colors.ink}
@@ -113,7 +112,7 @@ export default function SignUp() {
     >
       <>
         <View style={{ marginTop: space.lg }}>
-          <Steps step={1} label="Your details" />
+          <Steps step={1} />
         </View>
 
         <SocialAuth
@@ -126,7 +125,8 @@ export default function SignUp() {
 
         <View style={s.form}>
           <Field
-            label="Full name — as it appears on your ID"
+            label="Full name"
+            hint="Must match your ID"
             value={form.name} onChangeText={set("name")} onBlur={blur("name")}
             error={err("name")}
             icon="user"
@@ -153,7 +153,7 @@ export default function SignUp() {
           />
           <Field
             label="Password" value={form.password} onChangeText={set("password")} onBlur={blur("password")}
-            error={err("password")} hint="Length beats symbols. Three words is plenty."
+            error={err("password")}
             icon="lock" strength={passwordStrength(form.password)}
             reserve
             secure autoComplete="new-password" textContentType="newPassword"
@@ -169,12 +169,6 @@ export default function SignUp() {
           />
         </View>
 
-        <View style={{ marginTop: space.lg }}>
-          <Note>
-            Your name has to match your ID later. Mismatches are the most common reason a
-            check fails.
-          </Note>
-        </View>
       </>
     </AuthShell>
   );
