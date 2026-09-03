@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import { AntDesign } from "@expo/vector-icons";
 import { useToast } from "../components/Toast";
 import { AuthShell } from "../components/AuthShell";
 import { Txt } from "../components/Text";
@@ -37,7 +36,13 @@ export default function SignIn() {
     setBusy(true);
     const r = await login(form.email.trim(), form.password);
     setBusy(false);
-    if (!r.ok) { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
+    if (r.ok === false) { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
+    // The password was right and the account has a second step. Nothing is
+    // stored yet — there is no session until the code checks out.
+    if (r.ok === "mfa") {
+      router.push({ pathname: "/twostep", params: { challenge: r.challenge } });
+      return;
+    }
     router.replace("/(tabs)/home");
   };
 
@@ -59,17 +64,6 @@ export default function SignIn() {
         </>
       }
     >
-      <View style={s.social}>
-        <SocialButton label="Apple" icon={<AntDesign name="apple" size={17} color={colors.ink} />} />
-        <SocialButton label="Google" icon={<AntDesign name="google" size={16} color="#DB4437" />} />
-      </View>
-
-      <View style={s.divider}>
-        <View style={s.rule} />
-        <Txt variant="bodySmall" color={colors.inkFaint}>or with your details</Txt>
-        <View style={s.rule} />
-      </View>
-
       <View style={s.form}>
         <Field
           label="Email"
@@ -89,31 +83,20 @@ export default function SignIn() {
           autoComplete="current-password" textContentType="password"
           placeholder="Your password"
         />
-        <Pressable hitSlop={8} style={{ alignSelf: "flex-end" }}>
-          <Txt variant="bodySmall" color={colors.ink}>Forgot password?</Txt>
+        <Pressable
+          onPress={() => router.push({ pathname: "/forgot", params: { email: form.email.trim() } })}
+          hitSlop={8}
+          style={{ alignSelf: "flex-end" }}
+        >
+          <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "600" }}>
+            Forgot password?
+          </Txt>
         </Pressable>
       </View>
     </AuthShell>
   );
 }
 
-function SocialButton({ label, icon }: { label: string; icon: React.ReactNode }) {
-  return (
-    <Pressable accessibilityRole="button" style={({ pressed }) => [s.social1, pressed && { opacity: 0.7 }]}>
-      {icon}
-      <Txt variant="button">{label}</Txt>
-    </Pressable>
-  );
-}
-
 const s = StyleSheet.create({
-  social: { flexDirection: "row", gap: space.md, marginTop: space.xxl },
-  social1: {
-    flex: 1, height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: space.sm, borderRadius: radius.md, borderWidth: 1.5,
-    borderColor: colors.fieldLine, backgroundColor: colors.surface,
-  },
-  divider: { flexDirection: "row", alignItems: "center", gap: space.md, marginVertical: space.xl },
-  rule: { flex: 1, height: 1, backgroundColor: colors.line },
-  form: { gap: space.lg },
+  form: { gap: space.lg, marginTop: space.xxl },
 });

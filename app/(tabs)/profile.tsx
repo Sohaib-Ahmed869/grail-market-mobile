@@ -40,6 +40,7 @@ const SELLING: Row[] = [
 ];
 
 const ACCOUNT: Row[] = [
+  { icon: "settings", label: "Account settings", hint: "Your details, password and two-step", to: "/account" },
   { icon: "smile", label: "Your face", hint: "Pick one of the built-in avatars", to: "/avatar" },
   { icon: "credit-card", label: "Plan", to: "/plans" },
   { icon: "shield", label: "Identity verification", to: "/idcheck" },

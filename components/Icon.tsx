@@ -37,6 +37,8 @@ const ICONS = {
   bell:        { family: "mc",  on: "bell-ring",         off: "bell-outline" },
   card:        { family: "mc",  on: "cards-playing",     off: "cards-playing-outline" },
   sold:        { family: "mc",  on: "hand-coin",         off: "hand-coin-outline" },
+  lock:        { family: "mc",  on: "lock",               off: "lock-outline" },
+  key:         { family: "mc",  on: "key-variant",        off: "key-outline" },
 } as const;
 
 export type IconName = keyof typeof ICONS;
