@@ -83,8 +83,29 @@ export default function SignUp() {
       footer={
         <>
           <Button label="Continue" onPress={submit} loading={sending} />
+          {/* The place consent is actually given is the place the documents
+              have to be reachable from — not buried three taps into a profile
+              somebody only reaches after agreeing. */}
           <Txt variant="bodySmall" color={colors.inkFaint} center style={{ paddingHorizontal: space.md }}>
-            By continuing you agree to the Terms and the Marketplace Conduct Rules.
+            By continuing you agree to the{" "}
+            <Txt
+              variant="bodySmall"
+              color={colors.ink}
+              style={{ fontWeight: "600" }}
+              onPress={() => router.push("/legal/terms")}
+            >
+              Terms
+            </Txt>
+            {" "}and the{" "}
+            <Txt
+              variant="bodySmall"
+              color={colors.ink}
+              style={{ fontWeight: "600" }}
+              onPress={() => router.push("/legal/privacy")}
+            >
+              Privacy Policy
+            </Txt>
+            .
           </Txt>
         </>
       }

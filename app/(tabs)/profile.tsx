@@ -45,6 +45,8 @@ const ACCOUNT: Row[] = [
   { icon: "smile", label: "Your face", hint: "Pick one of the built-in avatars", to: "/avatar" },
   { icon: "credit-card", label: "Plan", to: "/plans" },
   { icon: "shield", label: "Identity verification", to: "/idcheck" },
+  { icon: "file-text", label: "Terms of use", to: "/legal/terms" },
+  { icon: "lock", label: "Privacy", to: "/legal/privacy" },
 ];
 
 /** Profile.
