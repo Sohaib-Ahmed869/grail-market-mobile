@@ -42,12 +42,20 @@ export function MarketChart({
       y: 8 + (1 - (p - min) / span) * (h - 16),
     }));
 
-    let line = `M${xy[0]!.x.toFixed(1)} ${xy[0]!.y.toFixed(1)}`;
-    for (let i = 0; i < xy.length - 1; i++) {
-      const a = xy[i]!, b = xy[i + 1]!;
+    // One path per leg, not one path for the whole line.
+    //
+    // A single colour can only say where the card ended up. Colouring each
+    // leg by its own direction says how it got there — the run up, the leg
+    // that gave it back — which is the thing a candlestick chart is actually
+    // communicating and a mono-colour line throws away.
+    const legs = xy.slice(0, -1).map((a, i) => {
+      const b = xy[i + 1]!;
       const cx = (a.x + b.x) / 2;
-      line += ` C${cx.toFixed(1)} ${a.y.toFixed(1)}, ${cx.toFixed(1)} ${b.y.toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
-    }
+      const d =
+        `M${a.x.toFixed(1)} ${a.y.toFixed(1)}` +
+        ` C${cx.toFixed(1)} ${a.y.toFixed(1)}, ${cx.toFixed(1)} ${b.y.toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
+      return { d, up: points[i + 1]! >= points[i]!, a, b, cx };
+    });
 
     // Three lines: the high, the middle and the low of what actually
     // happened. Evenly spaced gridlines at round numbers would be prettier
@@ -57,11 +65,15 @@ export function MarketChart({
       value: max - f * span,
     }));
 
-    return { line, xy, min, max, w, h, rows, last: xy[xy.length - 1]! };
+    return { legs, xy, min, max, w, h, rows, last: xy[xy.length - 1]! };
   }, [points, width, height]);
 
-  const up = points.length > 1 && points[points.length - 1]! >= points[0]!;
-  const tone = up ? colors.up : colors.down;
+  // The pill and the end dot take the LAST leg's direction, not the overall
+  // one: they mark where the price is now and which way it was going when it
+  // got there.
+  const lastUp =
+    points.length > 1 && points[points.length - 1]! >= points[points.length - 2]!;
+  const tone = lastUp ? colors.up : colors.down;
   const money = (n: number) =>
     n >= 1000 ? `${Math.round(n).toLocaleString("en-AU")}` : n.toFixed(n < 10 ? 2 : 0);
 
@@ -72,9 +84,13 @@ export function MarketChart({
           <>
             <Svg width={width} height={height}>
               <Defs>
-                <LinearGradient id={`fill-${up ? "u" : "d"}`} x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor={tone} stopOpacity={0.22} />
-                  <Stop offset="1" stopColor={tone} stopOpacity={0} />
+                <LinearGradient id="fill-up" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={colors.up} stopOpacity={0.20} />
+                  <Stop offset="1" stopColor={colors.up} stopOpacity={0} />
+                </LinearGradient>
+                <LinearGradient id="fill-down" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={colors.down} stopOpacity={0.20} />
+                  <Stop offset="1" stopColor={colors.down} stopOpacity={0} />
                 </LinearGradient>
               </Defs>
 
@@ -90,9 +106,39 @@ export function MarketChart({
                 />
               ))}
 
-              <Path d={`${geo.line} L${geo.w} ${geo.h} L0 ${geo.h} Z`} fill={`url(#fill-${up ? "u" : "d"})`} />
-              <Path d={geo.line} stroke={tone} strokeWidth={2.5} fill="none"
-                strokeLinecap="round" strokeLinejoin="round" />
+              {/* Fills first, so every stroke sits on top of every fill —
+                  drawn leg by leg, a later fill would otherwise cut across
+                  the stroke of the leg before it. */}
+              {geo.legs.map((leg, i) => (
+                <Path
+                  key={`f${i}`}
+                  d={`${leg.d} L${leg.b.x.toFixed(1)} ${geo.h} L${leg.a.x.toFixed(1)} ${geo.h} Z`}
+                  fill={leg.up ? "url(#fill-up)" : "url(#fill-down)"}
+                />
+              ))}
+              {geo.legs.map((leg, i) => (
+                <Path
+                  key={`s${i}`}
+                  d={leg.d}
+                  stroke={leg.up ? colors.up : colors.down}
+                  strokeWidth={2.5}
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ))}
+              {/* A dot at every reading. With the legs in two colours the
+                  joins are where the direction changed, and they are worth
+                  marking — that is the point the card turned. */}
+              {geo.xy.slice(1, -1).map((p, i) => (
+                <Circle
+                  key={`p${i}`}
+                  cx={p.x} cy={p.y} r={2.5}
+                  fill={colors.surface}
+                  stroke={geo.legs[i]!.up ? colors.up : colors.down}
+                  strokeWidth={1.5}
+                />
+              ))}
               <Circle cx={geo.last.x} cy={geo.last.y} r={4}
                 fill={colors.surface} stroke={tone} strokeWidth={2.5} />
             </Svg>
