@@ -16,7 +16,6 @@ export default function Movers() {
   const router = useRouter();
   const fx = useFx();
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
-  const [focus, setFocus] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,8 +49,8 @@ export default function Movers() {
                 label: p.label,
                 points: p.spark ?? [],
               }))}
-              selectedId={focus ?? pulse[0]?.cardId ?? pulse[0]?.label}
-              onSelect={setFocus}
+              selectedId={pulse[0]?.cardId ?? pulse[0]?.label}
+              label={pulse[0]?.label}
               height={200}
             />
           </View>

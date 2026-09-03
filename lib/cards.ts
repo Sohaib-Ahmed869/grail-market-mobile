@@ -72,10 +72,14 @@ export type Candle = {
  *
  *  `ohlc` is false when each bar is a single daily close — four equal values,
  *  which is a line and not a candle. */
-export async function cardCandles(catalogId: string, range = "1W"): Promise<{
-  candles: Candle[]; ranges: string[]; range: string; ohlc: boolean; grader: string | null;
+export async function cardCandles(catalogId: string, range = "W"): Promise<{
+  candles: Candle[]; ranges: string[];
+  rangeLabels: { id: string; label: string }[];
+  range: string; ohlc: boolean; grader: string | null;
 }> {
-  const empty = { candles: [], ranges: [], range, ohlc: false, grader: null };
+  const empty = {
+    candles: [], ranges: [], rangeLabels: [], range, ohlc: false, grader: null,
+  };
   try {
     const r = await get<typeof empty>(
       `/history/candles?catalogId=${encodeURIComponent(catalogId)}&range=${range}`,

@@ -68,8 +68,6 @@ export default function Home() {
     { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
-  // Which line on the comparison chart is in front.
-  const [focusMover, setFocusMover] = useState<string | null>(null);
   // The hero is built out of the collection, so it needs the pictures and the
   // line as well as the totals.
   const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
@@ -356,8 +354,8 @@ export default function Home() {
                   label: p.label,
                   points: p.spark ?? [],
                 }))}
-                selectedId={focusMover ?? pulse[0]?.cardId ?? pulse[0]?.label}
-                onSelect={setFocusMover}
+                selectedId={pulse[0]?.cardId ?? pulse[0]?.label}
+                label={pulse[0]?.label}
               />
             </View>
 

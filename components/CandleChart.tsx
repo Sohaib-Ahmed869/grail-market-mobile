@@ -26,7 +26,10 @@ export function CandleChart({
   candles: Candle[];
   ohlc: boolean;
   height?: number;
-  ranges?: string[];
+  /** Bar sizes, with the words to put on them. They name the BAR — "Weekly" —
+   *  not how far back the data goes, because the second is a claim the
+   *  history has to be able to support and the first always is. */
+  ranges?: { id: string; label: string }[];
   range?: string;
   onRange?: (r: string) => void;
   note?: string;
@@ -123,10 +126,10 @@ export function CandleChart({
       {ranges && ranges.length > 0 && (
         <View style={s.ranges}>
           {ranges.map((r) => (
-            <Pressable key={r} onPress={() => onRange?.(r)}
-              style={[s.range, r === range && s.rangeOn]}>
-              <Txt variant="button" color={r === range ? colors.onPrimary : colors.inkMuted}>
-                {r}
+            <Pressable key={r.id} onPress={() => onRange?.(r.id)}
+              style={[s.range, r.id === range && s.rangeOn]}>
+              <Txt variant="button" color={r.id === range ? colors.onPrimary : colors.inkMuted}>
+                {r.label}
               </Txt>
             </Pressable>
           ))}

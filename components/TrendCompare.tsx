@@ -1,8 +1,8 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
+import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import Svg, { Circle, Line, Path } from "react-native-svg";
 import { Txt } from "./Text";
-import { colors, radius, space, type } from "../theme";
+import { colors, space } from "../theme";
 
 export type Series = {
   id: string;
@@ -28,11 +28,14 @@ export type Series = {
  *  to be compared against, which is why they are drawn at all.
  */
 export function TrendCompare({
-  series, selectedId, onSelect, height = 168,
+  series, selectedId, label, height = 168,
 }: {
   series: Series[];
+  /** Which line is in front — the biggest mover, which is also the first row
+   *  under the chart. */
   selectedId?: string | null;
-  onSelect?: (id: string) => void;
+  /** Names the highlighted line, since there is no legend to do it. */
+  label?: string;
   height?: number;
 }) {
   const [width, setWidth] = useState(0);
@@ -91,6 +94,15 @@ export function TrendCompare({
 
   return (
     <View onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}>
+      {label && (
+        <View style={s.head}>
+          <View style={s.dot} />
+          <Txt variant="button" numberOfLines={1}>{label}</Txt>
+          <Txt variant="bodySmall" color={colors.inkFaint}>
+            against {Math.max(0, series.length - 1)} others
+          </Txt>
+        </View>
+      )}
       <View style={{ height }}>
         {geo && (
           <>
@@ -134,25 +146,9 @@ export function TrendCompare({
         )}
       </View>
 
-      {/* The legend is also the control. A separate row of swatches would be
-          a second list of the same cards. */}
-      <View style={s.legend}>
-        {series.map((sr) => {
-          const on = sr.id === selectedId;
-          return (
-            <Pressable
-              key={sr.id}
-              onPress={() => onSelect?.(sr.id)}
-              style={[s.chip, on && s.chipOn]}
-            >
-              <Txt variant="bodySmall" color={on ? colors.onPrimary : colors.inkMuted}
-                numberOfLines={1}>
-                {sr.label}
-              </Txt>
-            </Pressable>
-          );
-        })}
-      </View>
+      {/* No legend. The rows underneath this chart are already a list of
+          exactly these cards, and a row of chips above them was the same list
+          twice — which is the thing a legend is supposed to save you from. */}
     </View>
   );
 }
@@ -160,12 +156,6 @@ export function TrendCompare({
 const s = StyleSheet.create({
   axis: { position: "absolute", right: 0, width: 42, textAlign: "right", fontSize: 11 },
   base: { fontSize: 10.5 },
-  legend: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: space.md },
-  chip: {
-    paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunk,
-    borderWidth: 1, borderColor: colors.line,
-    maxWidth: 150,
-  },
-  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  head: { flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.sm },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.down },
 });

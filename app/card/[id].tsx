@@ -49,9 +49,9 @@ export default function CardPage() {
     following: 0, holding: 0, views: 0, faces: [],
   });
   const [trend, setTrend] = useState<CardTrend | null>(null);
-  const [range, setRange] = useState("1W");
+  const [range, setRange] = useState("W");
   const [bars, setBars] = useState<Awaited<ReturnType<typeof cardCandles>>>({
-    candles: [], ranges: [], range: "1W", ohlc: false, grader: null,
+    candles: [], ranges: [], rangeLabels: [], range: "W", ohlc: false, grader: null,
   });
   useEffect(() => {
     let alive = true;
@@ -227,14 +227,14 @@ export default function CardPage() {
               <CandleChart
                 candles={bars.candles}
                 ohlc={bars.ohlc}
-                ranges={bars.ranges}
+                ranges={bars.rangeLabels}
                 range={bars.range}
                 onRange={setRange}
                 height={168}
                 note={
                   bars.ohlc
-                    ? "Each bar opens where the period began and closes where it ended."
-                    : "One reading a day so far — bars become candles as the history fills in."
+                    ? "Each bar opens where the week began and closes where it ended. The wick is the high and the low."
+                    : "A daily bar is one reading, so it is drawn as the close rather than a candle."
                 }
               />
             ) : trend.spark.length > 1 ? (
