@@ -28,15 +28,18 @@ export type PreviewNote = {
 export function PhonePreview({
   notes, width = 220,
 }: { notes: PreviewNote[]; width?: number }) {
-  const h = width * 1.62;
+  // 1.92, not 1.62. A real phone is nearer 2:1 including bezels, and the
+  // shorter box left about 30pt of phone below the last card — which reads as
+  // the card sitting on the edge rather than on the screen.
+  const h = width * 1.92;
   // The stage has to be as tall as the phone, not shorter. It was 0.86 of it,
   // which cropped the phone's bottom AND let the absolutely-positioned cards
   // hang out of the box and land on the heading underneath — a container
   // smaller than what it holds does not clip in React Native, it overlaps.
   const stageH = h + 10;
-  // Below the clock, and high enough that three cards finish inside the
+  // Below the clock, and high enough that three cards finish well inside the
   // phone rather than running off the end of it.
-  const notesTop = h * 0.38;
+  const notesTop = h * 0.34;
 
   return (
     <View style={[s.stage, { width: width * 1.5, height: stageH }]} pointerEvents="none">

@@ -3,11 +3,20 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Txt } from "./Text";
 import { colors, radius, space, type } from "../theme";
 
-// The two brand gradients. Both are the SAME hue lit from above rather than
-// two colours blended — a button that fades navy into some other colour stops
-// being the brand and starts being a decoration.
-const NAVY_LIT = ["#2C3E52", colors.ink] as const;
-const GOLD_LIT = ["#C4A97A", colors.accent] as const;
+// The brand is navy AND gold, so the primary carries both — running diagonally
+// from a lit navy through the base navy into a warm bronze at the far corner.
+//
+// It stops at bronze rather than reaching the actual gold. White on #A88D60 is
+// about 2.6:1, which is unreadable; #6B5A3E is 5.3:1 and still plainly on its
+// way to gold. The corner is where the warmth belongs anyway — a gradient that
+// crosses the middle of a button puts the seam right under the label.
+const NAVY_GOLD = ["#2C3E52", colors.ink, "#6B5A3E"] as const;
+// Navy holds to nearly two thirds so the label sits entirely on it and the
+// warmth is a corner flourish. At the midpoint the two met right under the
+// text, which put a muddy olive behind the middle of the word.
+const NAVY_GOLD_STOPS = [0, 0.64, 1] as const;
+const GOLD_LIT = ["#D8BE8E", colors.accent, "#8E7245"] as const;
+const GOLD_STOPS = [0, 0.5, 1] as const;
 
 type Kind = "primary" | "secondary" | "ghost" | "accent" | "ghostLight" | "link";
 
@@ -30,7 +39,8 @@ export function Button({
   // Filled buttons are lit rather than flat. The gradient is inside, under
   // the label, so it clips to the same pill without the parent needing
   // overflow:hidden — which would also clip the shadow that lifts it.
-  const grad = kind === "primary" ? NAVY_LIT : kind === "accent" ? GOLD_LIT : null;
+  const grad = kind === "primary" ? NAVY_GOLD : kind === "accent" ? GOLD_LIT : null;
+  const stops = kind === "primary" ? NAVY_GOLD_STOPS : GOLD_STOPS;
   return (
     <Pressable
       accessibilityRole="button"
@@ -57,8 +67,11 @@ export function Button({
       {grad && !off && (
         <LinearGradient
           colors={grad}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
+          locations={stops}
+          // Diagonal. Straight down would band the button in horizontal
+          // stripes; corner to corner reads as light falling across it.
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={[StyleSheet.absoluteFill, s.grad]}
         />
       )}
