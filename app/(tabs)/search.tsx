@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { SvgUri } from "react-native-svg";
 import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
@@ -196,7 +197,7 @@ export default function Search() {
               onPress={() => router.push(`/set/${encodeURIComponent(item.setId)}` as any)}
               style={({ pressed }) => [s.setTile, pressed && { opacity: 0.75 }]}
             >
-              <SetLogo uri={item.logo} name={item.name} />
+              <SetLogo uri={item.logo ?? item.symbol} name={item.name} />
               <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>{item.name}</Txt>
               <Txt variant="bodySmall" color={colors.inkFaint}>
                 {item.total} card{item.total === 1 ? "" : "s"}
@@ -261,17 +262,34 @@ export default function Search() {
  *  Not every set has artwork, and a URL that resolves is not a URL that
  *  loads. Both failures used to end in the same place: a blank white square
  *  with a name underneath, which reads as a broken image rather than a set. */
+/** A set's picture, whatever form its catalogue publishes it in.
+ *
+ *  Three shapes arrive here. TCGdex and ygoprodeck give a raster logo.
+ *  Scryfall gives an SVG set icon, which <Image> cannot draw at all — 144
+ *  Magic sets rendered as their own name in grey until this told them apart.
+ *  Everything else gives nothing, and the name is the honest fallback. */
 function SetLogo({ uri, name }: { uri: string | null; name: string }) {
   const [failed, setFailed] = useState(false);
+  const svg = Boolean(uri && /\.svg(\?|$)/i.test(uri));
+
   return (
     <View style={s.setLogoBox}>
       {uri && !failed ? (
-        <Image
-          source={{ uri }}
-          style={s.setLogo}
-          resizeMode="contain"
-          onError={() => setFailed(true)}
-        />
+        svg ? (
+          <SvgUri
+            uri={uri}
+            width="72%"
+            height="72%"
+            onError={() => setFailed(true)}
+          />
+        ) : (
+          <Image
+            source={{ uri }}
+            style={s.setLogo}
+            resizeMode="contain"
+            onError={() => setFailed(true)}
+          />
+        )
       ) : (
         <Txt variant="h3" color={colors.inkMuted} center numberOfLines={3}>{name}</Txt>
       )}
