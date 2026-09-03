@@ -16,14 +16,16 @@ import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grad
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
 import { InterestBar } from "../../components/InterestBar";
-import { cardInterest, type Interest } from "../../lib/cards";
+import { cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
+import { PeriodStrip } from "../../components/PeriodStrip";
+import { MarketChart } from "../../components/MarketChart";
 import { Bone } from "../../components/Skeleton";
 import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
 import { follow } from "../../lib/watchlist";
 import { useToast } from "../../components/Toast";
 import { useSession } from "../../lib/session";
-import { colors, radius, space } from "../../theme";
+import { colors, radius, space, type } from "../../theme";
 
 /** A card's page, reached from a set or a search.
  *
@@ -45,6 +47,19 @@ export default function CardPage() {
   const [interest, setInterest] = useState<Interest>({
     following: 0, holding: 0, views: 0, faces: [],
   });
+  const [trend, setTrend] = useState<CardTrend | null>(null);
+  // Needs the card's NAME, so it waits for the metadata rather than firing on
+  // the id. The feed is queried by name; asking with an empty one is a paid
+  // call that cannot match anything.
+  useEffect(() => {
+    let alive = true;
+    if (!id || !meta?.name) return;
+    // No game passed: the server infers it from the catalogue id prefix,
+    // which is the same thing this screen would be guessing from.
+    cardTrend({ cardId: String(id), name: meta.name })
+      .then((t) => { if (alive) setTrend(t); });
+    return () => { alive = false; };
+  }, [id, meta?.name]);
   useEffect(() => {
     let alive = true;
     if (id) cardInterest(String(id)).then((r) => { if (alive) setInterest(r); });
@@ -159,8 +174,55 @@ export default function CardPage() {
         <CardReveal uri={meta.imageUrl} width={190} height={264} />
       </View>
 
-      <Txt variant="display" style={{ marginTop: space.lg }}>{meta.name}</Txt>
-      <Txt variant="body" color={colors.inkMuted}>{meta.setName} · #{meta.number}</Txt>
+      <Txt variant="display" center style={{ marginTop: space.lg }}>{meta.name}</Txt>
+      <Txt variant="body" color={colors.inkMuted} center>
+        {meta.setName} · #{meta.number}
+      </Txt>
+
+      {/* The price, the way a quote is shown: the number large, the change
+          beside it, the windows under it, the line under those. Everything
+          above is what the card IS; this is what it is doing. */}
+      {trend && (
+        <View style={s.quote}>
+          <Txt style={s.quotePrice}>
+            {money(trend.price)}
+          </Txt>
+          {trend.change24h != null && (
+            <View
+              style={[
+                s.quotePill,
+                { backgroundColor: trend.change24h >= 0 ? colors.upWash : colors.downWash },
+              ]}
+            >
+              <Txt
+                variant="button"
+                color={trend.change24h >= 0 ? colors.up : colors.down}
+              >
+                {trend.change24h >= 0 ? "+" : "−"}{Math.abs(trend.change24h).toFixed(2)}%
+              </Txt>
+            </View>
+          )}
+
+          <View style={{ alignSelf: "stretch" }}>
+            <PeriodStrip
+              periods={{
+                day: trend.change24h, week: trend.change7d,
+                month: trend.change30d, quarter: trend.change90d,
+              }}
+            />
+          </View>
+
+          {trend.spark.length > 1 && (
+            <View style={s.quoteChart}>
+              <MarketChart
+                points={trend.spark}
+                height={140}
+                label={`${trend.spark.length} readings · the line is coloured by each leg`}
+              />
+            </View>
+          )}
+        </View>
+      )}
 
       <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: space.xl }}>
         Price It As
@@ -313,6 +375,17 @@ function CardTrend({
 const s = StyleSheet.create({
   trendHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   hero: { alignItems: "center", marginTop: space.sm },
+  quote: {
+    alignItems: "center", marginTop: space.xl, padding: space.lg,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.outline,
+  },
+  quotePrice: { ...type.display, fontSize: 38, lineHeight: 44, letterSpacing: -1, color: colors.ink },
+  quotePill: {
+    marginTop: 6, paddingHorizontal: space.md, paddingVertical: 4,
+    borderRadius: radius.pill,
+  },
+  quoteChart: { alignSelf: "stretch", marginTop: space.md },
   art: { width: 190, height: 264, borderRadius: radius.md, backgroundColor: colors.surfaceSunk },
   artEmpty: { alignItems: "center", justifyContent: "center" },
   priceBlock: {

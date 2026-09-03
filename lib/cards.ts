@@ -38,3 +38,27 @@ export async function cardInterest(catalogId: string): Promise<Interest> {
     return empty;
   }
 }
+
+
+export type CardTrend = {
+  price: number | null;
+  change24h: number | null; change7d: number | null;
+  change30d: number | null; change90d: number | null;
+  spark: number[]; low7: number | null; high7: number | null;
+};
+
+/** What this card has done. Null when the feed does not carry it, which is a
+ *  real answer — the page shows the rest of itself and says nothing about a
+ *  trend rather than drawing a flat line. */
+export async function cardTrend(a: {
+  cardId: string; name: string; game?: string | null;
+}): Promise<CardTrend | null> {
+  const p = new URLSearchParams({ cardId: a.cardId, name: a.name });
+  if (a.game) p.set("game", a.game);
+  try {
+    const r = await get<{ trend?: CardTrend | null }>(`/market/trend?${p}`);
+    return r.trend ?? null;
+  } catch {
+    return null;
+  }
+}
