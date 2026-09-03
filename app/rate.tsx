@@ -94,6 +94,19 @@ export default function Rate() {
             completed — which is what makes them worth reading.
           </Note>
         </View>
+
+        {/* A one-star rating with no way to act on it is a dead end. This is
+            where somebody has just decided the deal went wrong, so it is where
+            the other route belongs. */}
+        <Pressable
+          onPress={() =>
+            router.push({ pathname: "/dispute/new", params: { listingId: open.listing_id } })
+          }
+          style={s.raise}
+        >
+          <Feather name="alert-triangle" size={15} color={colors.down} />
+          <Txt variant="button" color={colors.down}>Something went wrong — open a dispute</Txt>
+        </Pressable>
       </Screen>
     );
   }
@@ -167,6 +180,11 @@ const s = StyleSheet.create({
   },
   thumb: { width: 48, height: 66, borderRadius: 5, backgroundColor: colors.surfaceSunk },
   thumbEmpty: { alignItems: "center", justifyContent: "center" },
+  raise: {
+    marginTop: space.md, height: 48, flexDirection: "row", gap: space.sm,
+    alignItems: "center", justifyContent: "center",
+    borderRadius: radius.md, backgroundColor: colors.downWash,
+  },
   empty: { alignItems: "center", marginTop: space.xxl, paddingHorizontal: space.lg },
   emptyIcon: {
     width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",

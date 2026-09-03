@@ -121,7 +121,19 @@ export default function ListingDetail() {
       <Screen
         back
         footer={
-          owner ? (
+          // A sold listing has no actions left to offer — but it is exactly
+          // where somebody goes when the card never turned up.
+          l.status === "sold" ? (
+            <Pressable
+              style={s.raise}
+              onPress={() =>
+                router.push({ pathname: "/dispute/new", params: { listingId: String(id) } })
+              }
+            >
+              <Icon name="verified" size={17} color={colors.down} />
+              <Txt variant="button" color={colors.down}>Something went wrong with this sale</Txt>
+            </Pressable>
+          ) : owner ? (
             <>
               <Button
                 label="See offers"
@@ -484,6 +496,11 @@ const s = StyleSheet.create({
   },
   sellerName: { flexDirection: "row", alignItems: "center", gap: 5 },
   pair: { flexDirection: "row", gap: space.sm },
+  raise: {
+    height: 52, flexDirection: "row", gap: space.sm,
+    alignItems: "center", justifyContent: "center",
+    borderRadius: radius.md, backgroundColor: colors.downWash,
+  },
   minor: {
     flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7,
     height: 48, borderRadius: radius.md,
