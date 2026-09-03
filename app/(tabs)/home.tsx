@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { AppState, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import {
+  AppState, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -22,6 +24,7 @@ import { useSession } from "../../lib/session";
 import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
+import { MoveMap } from "../../components/MoveMap";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
@@ -46,6 +49,7 @@ const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
  */
 export default function Home() {
   const navScroll = useNavScroll();
+  const { width } = useWindowDimensions();
   const clearance = useTabBarClearance();
   const session = useSession();
   const guest = useGuest();
@@ -388,76 +392,38 @@ export default function Home() {
           title="Biggest Price Moves"
           sub="What changed most in the last seven days"
         />
-        {/* The card is the container.
+        {/* Area is the size of the move, colour is its direction.
           *
-          * This was a ranked table for about ten minutes and it read like a
-          * stock screener with Pokemon in it. The art is the reason anyone
-          * cares about these; a name and a percentage is the least
-          * interesting way to show a card. So: the artwork at full bleed, the
-          * move as a tag on top of it, the price under it. No panel, no
-          * border, nothing around the picture at all. */}
+          * This was an artwork rail, which could only say the order things
+          * were in — the biggest mover of the week was simply the leftmost
+          * card, and you had to read every percentage to find it. A treemap
+          * says both facts at once and makes the one that matters the
+          * biggest thing on the screen.
+          *
+          * Ranked by the SIZE of the move, so a 12% fall is as prominent as a
+          * 12% rise. Sorting by the signed number buries every drop at the
+          * bottom, and a drop is the one people most want to see. */}
         {pulse === undefined ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
-            contentContainerStyle={s.railInner} scrollEnabled={false}>
-            {[0, 1, 2].map((i) => (
-              <View key={i} style={{ width: 132 }}>
-                <Bone w="100%" h={184} r={14} />
-                <Bone w="70%" h={13} style={{ marginTop: space.sm }} />
-                <Bone w="45%" h={11} style={{ marginTop: 6 }} />
-              </View>
-            ))}
-          </ScrollView>
+          <View style={s.mapWrap}>
+            <Bone w="100%" h={208} r={14} />
+          </View>
         ) : pulse.length === 0 ? (
           <Empty icon="activity" title="No Big Moves"
             body="Prices held steady this week, or too few cards sold to tell." />
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
-            contentContainerStyle={s.railInner}>
-            {pulse.slice(0, 10).map((p) => {
-              const up = (p.change7d ?? 0) >= 0;
-              return (
-                <Pressable
-                  key={`${p.label}-${p.setName}`}
-                  onPress={() => p.cardId && router.push(`/card/${p.cardId}` as any)}
-                  style={({ pressed }) => [{ width: 132 }, pressed && { opacity: 0.85 }]}
-                >
-                  <View style={s.moverArt}>
-                    {p.imageUrl ? (
-                      <Image source={{ uri: p.imageUrl }} style={StyleSheet.absoluteFill}
-                        resizeMode="cover" />
-                    ) : (
-                      <Icon name="card" size={26} color={colors.inkFaint} />
-                    )}
-
-                    {/* the move, sitting on the art rather than beside it */}
-                    <View style={[s.moveTag, { backgroundColor: up ? colors.up : colors.down }]}>
-                      <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11.5 }}>
-                        {up ? "▲" : "▼"} {Math.abs(p.change7d ?? 0).toFixed(1)}%
-                      </Txt>
-                    </View>
-
-                    {/* the week, drawn along the bottom edge of the picture */}
-                    <View style={s.moverSpark} pointerEvents="none">
-                      <Spark points={p.spark} up={up} width={132} height={34} />
-                    </View>
-                  </View>
-
-                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
-                    {p.label}
-                  </Txt>
-                  <View style={s.moverFoot}>
-                    <Txt variant="bodySmall" color={colors.ink}>
-                      {money(p.price, { fx, from: "USD" })}
-                    </Txt>
-                    <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}
-                      style={{ flex: 1 }}>
-                      {p.setName ?? ""}
-                    </Txt>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
+          <View style={s.mapWrap}>
+            <MoveMap
+              width={width - GUTTER * 2}
+              height={232}
+              // Seven, not nine. Past that the tail is tiles too small to
+              // carry a word, and a board of unreadable confetti is worse at
+              // its job than a shorter one.
+              movers={pulse.slice(0, 7).map((p) => ({
+                label: p.label, change: p.change7d, cardId: p.cardId,
+              }))}
+              onPress={(m) => m.cardId && router.push(`/card/${m.cardId}` as any)}
+            />
+          </View>
         )}
 
         {/* ---- what is for sale ---------------------------------------------- */}
@@ -745,6 +711,7 @@ const s = StyleSheet.create({
   seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
   sectionBody: { paddingHorizontal: GUTTER },
   rail: { marginHorizontal: 0 },
+  mapWrap: { paddingHorizontal: GUTTER, marginTop: space.sm },
   railInner: { paddingHorizontal: GUTTER, gap: space.md },
 
   moverArt: {
