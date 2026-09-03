@@ -1,32 +1,42 @@
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
-import { MemberCard } from "../components/MemberCard";
 import { useSession } from "../lib/session";
-import { colors, space } from "../theme";
+import { colors, space, type } from "../theme";
 
-/** What the last ten minutes bought, said as things rather than as a list.
+/** What the last ten minutes bought, named rather than described.
  *
- *  The old copy described the app ("Buy, sell and message other members").
- *  These name what CHANGED — a permission that did not exist an hour ago. The
- *  difference is whether it reads as marketing or as a receipt. */
+ *  "Buy, sell and message other members" is a feature list. These are
+ *  permissions that did not exist an hour ago, which is what actually
+ *  changed. */
 const OPENS = [
   ["List cards", "With the Seller Verified badge on every one"],
   ["Make offers", "And message the person on the other end"],
   ["Keep your scans", "Saved to a collection that follows you"],
 ];
 
+/** You're in.
+ *
+ *  No illustration. A tick radiating rings, a membership card and a slab were
+ *  all tried, and every one of them was a decoration standing in for the
+ *  moment rather than being it — the screen ended up about the graphic.
+ *
+ *  What carries it instead is the person's own name at display size, and a
+ *  lot of air. The only ornament is a hairline rule and a gold word, because
+ *  a screen that says one thing should look like it is saying one thing.
+ */
 export default function Ready() {
   const router = useRouter();
   const session = useSession();
+  const first = (session?.name ?? "").trim().split(" ")[0] || null;
 
   useEffect(() => {
-    // A success tap, once. The screen already looks like something worked;
-    // this is the half of it you feel. Lazily required — no haptics on web.
+    // A success tap, once. This is the half of it you feel, and with no
+    // graphic doing the celebrating it is carrying more than it was.
     (async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -41,7 +51,7 @@ export default function Ready() {
   return (
     <Screen
       footer={
-        <Animated.View entering={FadeInDown.duration(420).delay(720)}>
+        <Animated.View entering={FadeInDown.duration(420).delay(620)}>
           <Button label="Scan your first card" onPress={() => router.replace("/(tabs)/scan")} />
           <Button
             label="Look around first"
@@ -51,29 +61,36 @@ export default function Ready() {
         </Animated.View>
       }
     >
-      <View style={s.middle}>
-        <MemberCard name={session?.name ?? "Collector"} />
+      <View style={s.body}>
+        <Animated.View entering={FadeIn.duration(420)}>
+          <Txt style={s.eyebrow} color={colors.accent}>Verified</Txt>
+        </Animated.View>
 
-        <Animated.View entering={FadeInDown.duration(440).delay(420)} style={s.copy}>
-          <Txt variant="display" center>You&rsquo;re In</Txt>
-          <Txt variant="body" color={colors.inkMuted} center style={{ marginTop: space.sm }}>
-            Verified, and ready to trade.
+        <Animated.View entering={FadeInDown.duration(520).delay(120)}>
+          <Txt style={s.huge}>
+            You&rsquo;re in{first ? "," : "."}
+          </Txt>
+          {first && <Txt style={s.huge}>{first}.</Txt>}
+        </Animated.View>
+
+        <Animated.View entering={FadeInDown.duration(460).delay(260)}>
+          <Txt variant="body" color={colors.inkMuted} style={s.sub}>
+            Your ID checked out and your plan is live. Three things opened up.
           </Txt>
         </Animated.View>
 
-        {/* Hairlines, no tiles. Three coloured squares down the left made
-            three sentences look like three buttons, and the colours were
-            doing no work — nothing here is sorted or filtered by them. */}
-        <View style={s.list}>
+        <View style={s.rule} />
+
+        <View>
           {OPENS.map(([title, body], i) => (
             <Animated.View
               key={title}
-              entering={FadeInDown.duration(400).delay(520 + i * 80)}
+              entering={FadeInDown.duration(400).delay(380 + i * 80)}
               style={[s.row, i > 0 && s.divided]}
             >
-              <View style={s.tick} />
+              <Txt style={s.n} color={colors.inkFaint}>{String(i + 1).padStart(2, "0")}</Txt>
               <View style={{ flex: 1 }}>
-                <Txt variant="button">{title}</Txt>
+                <Txt variant="h3">{title}</Txt>
                 <Txt variant="bodySmall" color={colors.inkMuted}>{body}</Txt>
               </View>
             </Animated.View>
@@ -85,12 +102,19 @@ export default function Ready() {
 }
 
 const s = StyleSheet.create({
-  middle: { flex: 1, alignItems: "center", justifyContent: "center" },
-  copy: { alignItems: "center", marginTop: space.xxl },
-  list: { marginTop: space.xl, alignSelf: "stretch" },
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  // Top-aligned with air above it, not centred. Centring a block this tall
+  // leaves it floating with nothing anchoring it to either edge.
+  body: { flex: 1, paddingTop: space.xxxl },
+  eyebrow: { ...type.button, letterSpacing: 0.2 },
+  // Bigger than `display`, and set on two lines so a long first name does not
+  // shrink the greeting to fit. This is the largest type in the app and the
+  // only place that earns it.
+  huge: { ...type.display, fontSize: 40, lineHeight: 45, letterSpacing: -1, color: colors.ink },
+  sub: { marginTop: space.md, maxWidth: 320 },
+  rule: { height: 1, backgroundColor: colors.line, marginTop: space.xxl },
+  row: { flexDirection: "row", alignItems: "center", gap: space.lg, paddingVertical: space.lg },
   divided: { borderTopWidth: 1, borderTopColor: colors.line },
-  // A gold dot, not an icon. It marks the line without pretending to
-  // illustrate it, which is all three of these needed.
-  tick: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
+  // A number, not a bullet or an icon. It is the one ornament that is also
+  // information — there are three of these and this says which.
+  n: { ...type.bodySmall, fontVariant: ["tabular-nums"] },
 });
