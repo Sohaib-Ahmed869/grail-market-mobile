@@ -1,5 +1,24 @@
-import { startVerification } from "@didit-protocol/sdk-react-native";
+import { Platform } from "react-native";
 import { get, post } from "./api";
+
+// The Didit SDK is a native module, so it is loaded at the moment it is used
+// and never at import time.
+//
+// A top-level import of it runs TurboModuleRegistry.getEnforcing while the
+// module graph is still evaluating, which on web throws before any screen
+// mounts — one unreachable native module took the whole app down, including
+// the screens that never verify anything. require() inside a function is
+// lazy in Metro, so the native side is only touched on a device.
+type Sdk = { startVerification: (token: string) => Promise<{ type: string }> };
+
+function loadSdk(): Sdk | null {
+  if (Platform.OS === "web") return null;
+  try {
+    return require("@didit-protocol/sdk-react-native") as Sdk;
+  } catch {
+    return null;
+  }
+}
 
 // Identity verification, from the app's side.
 //
@@ -40,8 +59,18 @@ export async function runVerification(userId: string): Promise<RunResult> {
     return { outcome: "failed", message: "Could not reach the server. Check your connection." };
   }
 
+  const sdk = loadSdk();
+  if (!sdk?.startVerification) {
+    return {
+      outcome: "failed",
+      message: Platform.OS === "web"
+        ? "ID checks run in the phone app — open GrailMarket on your phone to verify."
+        : "Verification could not be started on this device.",
+    };
+  }
+
   try {
-    const r = await startVerification(token);
+    const r = await sdk.startVerification(token);
     switch (r.type) {
       case "completed":
         // "completed" means the flow ended, not that it passed.

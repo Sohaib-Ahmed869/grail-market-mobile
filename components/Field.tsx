@@ -113,14 +113,19 @@ const s = StyleSheet.create({
   wrap: { gap: 7 },
   box: {
     flexDirection: "row", alignItems: "center", gap: space.md,
-    height: 54, paddingHorizontal: space.lg,
+    height: 56, paddingHorizontal: space.lg,
     borderRadius: radius.md, borderWidth: 1.5,
-    borderColor: colors.line, backgroundColor: colors.surfaceSunk,
+    borderColor: colors.fieldLine, backgroundColor: colors.field,
   },
+  // Colour and shadow only — never the border WIDTH. React Native draws
+  // borders inside the box, so 1.5 -> 2 on focus moves the edge half a point
+  // and the field visibly jumps out of line with the one under it. That is
+  // the misalignment: two fields with different stroke weights, one because
+  // it happened to have the caret.
   boxFocused: {
-    borderColor: colors.ink, backgroundColor: colors.surface,
-    shadowColor: colors.ink, shadowOpacity: 0.10, shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 }, elevation: 2,
+    borderColor: colors.fieldLineFocus, backgroundColor: colors.surface,
+    shadowColor: colors.ink, shadowOpacity: 0.12, shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 }, elevation: 3,
   },
   boxError: { borderColor: colors.down, backgroundColor: colors.downWash },
   input: { flex: 1, ...type.body, color: colors.ink, paddingVertical: 0 },

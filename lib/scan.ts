@@ -1,4 +1,4 @@
-import { API } from "./api";
+import { SCAN_API } from "./api";
 import { authHeader } from "./session";
 
 // A scan is a multipart upload, not JSON — the backend wants the original
@@ -11,6 +11,10 @@ export type ScanResult = {
   identification?: {
     name?: string; setName?: string; localId?: string; rarity?: string;
     game?: string; language?: string; cardId?: string; printing?: string;
+    // The catalogue's own render, and how close the name we read was to it.
+    // Both are shown: a match is a claim, and a claim should carry its
+    // evidence next to the photograph the person actually took.
+    imageUrl?: string | null; matchScore?: number; ocrName?: string;
   } | null;
   rejection?: { reason?: string; hint?: string } | null;
   valuation?: {
@@ -47,7 +51,7 @@ export async function scanCard(
   }
 
   try {
-    const res = await fetch(`${API}/scans`, {
+    const res = await fetch(`${SCAN_API}/scans`, {
       method: "POST",
       // Content-Type is left unset on purpose: fetch has to add the multipart
       // boundary itself, and setting it by hand produces a body the server

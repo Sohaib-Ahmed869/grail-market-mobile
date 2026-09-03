@@ -10,6 +10,7 @@ import { Bloom } from "../components/Bloom";
 import { GlassCard } from "../components/GlassCard";
 import { Mark, Lockup } from "../components/Brand";
 import { Txt } from "../components/Text";
+import { loadSession } from "../lib/session";
 import { colors, space } from "../theme";
 
 // The beats, in milliseconds from the top. Kept in one place because the
@@ -48,7 +49,15 @@ export default function Splash() {
     wipe.value = withDelay(T.reveal, withTiming(1, { duration: 720, easing: Easing.inOut(Easing.cubic) }));
     lift.value = withDelay(T.lift, withTiming(1, { duration: 620, easing: ease }));
     word.value = withDelay(T.word, withTiming(1, { duration: 560, easing: ease }));
-    const t = setTimeout(() => router.replace("/welcome"), T.leave);
+    // Where to go is a question about the keychain, asked while the animation
+    // plays so the answer is ready when it ends. A member who is already
+    // signed in should not be shown a screen offering to sign them in.
+    let signedIn = false;
+    loadSession().then((s) => { signedIn = Boolean(s); }).catch(() => {});
+    const t = setTimeout(
+      () => router.replace(signedIn ? "/(tabs)/home" : "/welcome"),
+      T.leave,
+    );
     return () => clearTimeout(t);
   }, [card, wipe, lift, word, router]);
 

@@ -43,4 +43,18 @@ export const colors = {
 
   onAccent: palette.navy,
   onPrimary: palette.white,
+
+  // Inputs need to look like inputs. A 1.5px #E3E8ED hairline on white is
+  // invisible at arm's length in daylight, which is how a form ends up
+  // looking like a list of labels with nothing to type into.
+  field: "#EDEFF2",
+  fieldLine: "#B9C1C9",
+  fieldLineFocus: palette.navy,
+
+  // The page is not flat white, but it is not blue either. The wash is the
+  // brand's own light grey resolving to white — #F2F4F7 is in the pack, and
+  // the cool blue that was here briefly belonged to some other product.
+  washTop: "#E4E8EE",
+  washMid: "#EFF1F5",
+  washBottom: "#FAFBFC",
 } as const;

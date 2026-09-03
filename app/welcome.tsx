@@ -10,6 +10,7 @@ import { Feather } from "@expo/vector-icons";
 import { Lockup } from "../components/Brand";
 import { Bloom } from "../components/Bloom";
 import { CardRibbon } from "../components/CardRibbon";
+import { enterGuest } from "../lib/guest";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { colors, radius, space } from "../theme";
@@ -97,7 +98,7 @@ export default function Welcome() {
           <Button
             label="Look around first — no account"
             kind="ghostLight"
-            onPress={() => router.replace("/(tabs)/home")}
+            onPress={async () => { await enterGuest(); router.replace("/(tabs)/home"); }}
             style={s.ghost}
           />
           <Pressable onPress={() => router.push("/signin")} hitSlop={8} style={s.signin}>

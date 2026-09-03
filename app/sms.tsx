@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { useToast } from "../components/Toast";
 import { Screen } from "../components/Screen";
 import { STUB_CODE, confirmCode, sendCode, usingStub } from "../lib/phoneauth";
 import { clearPending, getPending, setPending } from "../lib/signupsession";
@@ -25,11 +26,11 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "del"] as co
  *  the digits in a fixed place across both platforms and leaves room to show
  *  the resend timer without the layout jumping. */
 export default function SmsCode() {
+  const toast = useToast();
   const router = useRouter();
   const [code, setCode] = useState("");
   const [left, setLeft] = useState(RESEND_SECONDS);
   const [checking, setChecking] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
   const pending = getPending();
   const shown = pending?.phone ?? "your mobile";
 
@@ -46,11 +47,10 @@ export default function SmsCode() {
     let alive = true;
     (async () => {
       setChecking(true);
-      setFailure(null);
       if (!pending) {
         // deep-linked here, or the app restarted mid-flow
         setChecking(false);
-        setFailure("That code request has gone. Send a new one.");
+        toast("That code request has gone. Send a new one.", { tone: "bad" });
         return;
       }
       const r = await confirmCode(pending.session, code);
@@ -62,7 +62,7 @@ export default function SmsCode() {
         router.replace("/ladder");
       } else {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-        setFailure(r.message);
+        toast(r.message ?? "Something went wrong.", { tone: "bad" });
         setCode("");   // a wrong code clears, so the next attempt starts clean
       }
     })();
@@ -71,10 +71,9 @@ export default function SmsCode() {
 
   const resend = async () => {
     if (!pending) return;
-    setFailure(null);
     setCode("");
     const r = await sendCode(pending.phone);
-    if (!r.ok) { setFailure(r.message); return; }
+    if (!r.ok) { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
     setPending(pending.phone, r.session);
     setLeft(RESEND_SECONDS);
   };
@@ -161,8 +160,6 @@ export default function SmsCode() {
           </Txt>
           . Real codes start once Firebase billing is enabled.
         </Note>
-      ) : failure ? (
-        <Note tone="bad" icon="alert-circle">{failure}</Note>
       ) : (
         <Note icon="info">
           This is level one. It proves the number is yours and lets you save a collection —

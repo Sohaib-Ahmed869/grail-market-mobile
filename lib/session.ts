@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as SecureStore from "expo-secure-store";
 
 // The signed-in member, and the token that proves it.
@@ -5,10 +6,35 @@ import * as SecureStore from "expo-secure-store";
 // SecureStore, not AsyncStorage: this is a bearer token, and anything holding
 // it can act as the member. On iOS that means the keychain, which survives
 // reinstall-free app updates and is encrypted at rest.
+//
+// SecureStore does not exist on web — there is no keychain in a browser — and
+// calling it there THROWS. That throw was landing in the sign-in catch, which
+// reported "couldn't reach the server" about a login that had already come
+// back 201. Web falls back to localStorage: not a keychain, but the browser's
+// own origin-scoped storage, which is what a web app has.
 
 const KEY = "grailmarket.session";
+const web = Platform.OS === "web";
 
-export type Session = { token: string; userId: string; name: string; email: string };
+const store = {
+  async get(): Promise<string | null> {
+    if (web) return globalThis.localStorage?.getItem(KEY) ?? null;
+    return SecureStore.getItemAsync(KEY);
+  },
+  async set(v: string): Promise<void> {
+    if (web) { globalThis.localStorage?.setItem(KEY, v); return; }
+    await SecureStore.setItemAsync(KEY, v);
+  },
+  async del(): Promise<void> {
+    if (web) { globalThis.localStorage?.removeItem(KEY); return; }
+    await SecureStore.deleteItemAsync(KEY);
+  },
+};
+
+export type Session = {
+  token: string; userId: string; name: string; email: string;
+  avatar?: string | null;
+};
 
 let current: Session | null = null;
 const listeners = new Set<(s: Session | null) => void>();
@@ -26,7 +52,7 @@ export const onSession = (fn: (s: Session | null) => void) => {
 
 export async function loadSession(): Promise<Session | null> {
   try {
-    const raw = await SecureStore.getItemAsync(KEY);
+    const raw = await store.get();
     publish(raw ? (JSON.parse(raw) as Session) : null);
   } catch {
     publish(null);
@@ -35,12 +61,12 @@ export async function loadSession(): Promise<Session | null> {
 }
 
 export async function saveSession(s: Session): Promise<void> {
-  await SecureStore.setItemAsync(KEY, JSON.stringify(s));
+  await store.set(JSON.stringify(s));
   publish(s);
 }
 
 export async function clearSession(): Promise<void> {
-  await SecureStore.deleteItemAsync(KEY).catch(() => {});
+  await store.del().catch(() => {});
   publish(null);
 }
 

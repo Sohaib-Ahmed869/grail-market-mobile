@@ -3,8 +3,9 @@ import {
   type StyleProp, type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { PageWash } from "./PageWash";
 import { Feather } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useBack } from "../lib/nav";
 import { colors, space } from "../theme";
 
 /** The frame every non-splash screen sits in.
@@ -23,7 +24,7 @@ export function Screen({
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const router = useRouter();
+  const goBack = useBack();
 
   const body = scroll ? (
     <ScrollView
@@ -59,6 +60,8 @@ export function Screen({
 
   return (
     <SafeAreaView style={[s.safe, style]} edges={["top", "bottom"]}>
+      {/* The same ground every other screen stands on — see PageWash. */}
+      <PageWash />
       {/* Android resizes the window for the keyboard on its own
         * (softwareKeyboardLayoutMode defaults to "resize"), and a
         * KeyboardAvoidingView on top of that fights it — the layout is
@@ -72,7 +75,7 @@ export function Screen({
         {back && (
           <View style={s.bar}>
             <Pressable
-              onPress={() => router.back()}
+              onPress={goBack}
               hitSlop={12}
               accessibilityRole="button"
               accessibilityLabel="Go back"
@@ -90,7 +93,7 @@ export function Screen({
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, width: "100%", backgroundColor: colors.surface },
+  safe: { flex: 1, width: "100%", backgroundColor: colors.washBottom },
   fill: { flex: 1, width: "100%" },
   bar: { paddingHorizontal: space.lg, paddingTop: space.xs, paddingBottom: space.xs },
   backBtn: {
@@ -102,5 +105,10 @@ const s = StyleSheet.create({
   footer: {
     paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.sm,
     gap: space.sm, width: "100%", backgroundColor: colors.surface,
+    // The footer holds the primary action, so it sits on its own plane above
+    // the scrolling content rather than dissolving into it.
+    borderTopWidth: 1, borderTopColor: colors.line,
+    shadowColor: "#0B1622", shadowOpacity: 0.06, shadowRadius: 12,
+    shadowOffset: { width: 0, height: -3 }, elevation: 8,
   },
 });

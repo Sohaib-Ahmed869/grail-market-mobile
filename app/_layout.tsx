@@ -5,11 +5,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import {
-  Inter_400Regular,
-  Inter_500Medium,
-  Inter_600SemiBold,
-  Inter_700Bold,
-} from "@expo-google-fonts/inter";
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+} from "@expo-google-fonts/outfit";
+import { ToastHost } from "../components/Toast";
 import { colors } from "../theme";
 import { loadSession } from "../lib/session";
 
@@ -25,10 +26,10 @@ if (Constants.executionEnvironment !== ExecutionEnvironment.StoreClient) {
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
   });
 
   // A font that will not load must not cost the user the app. We show the UI
@@ -46,17 +47,32 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
-    <>
+    <ToastHost>
       <StatusBar style="light" />
+      {/* Transitions carry meaning, so they are not all the same.
+        *
+        * Pushing deeper — a listing, a seller, a thread — slides in from the
+        * right, which is the direction the back gesture will take it out.
+        * Things that are a decision rather than a place come up from the
+        * bottom as a sheet: the composer, the avatar picker. The splash does
+        * not animate in at all, because it IS the first frame and animating
+        * it would mean animating over the OS splash it has to match. */}
       <Stack
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: colors.surface },
-          animation: "fade",
+          contentStyle: { backgroundColor: colors.washBottom },
+          animation: "slide_from_right",
+          animationDuration: 420,
+          gestureEnabled: true,
         }}
       >
         <Stack.Screen name="index" options={{ animation: "none" }} />
+        <Stack.Screen name="(tabs)" options={{ animation: "fade", animationDuration: 340 }} />
+        <Stack.Screen name="welcome" options={{ animation: "fade" }} />
+        <Stack.Screen name="avatar" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
+        <Stack.Screen name="community/new" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
+        <Stack.Screen name="community/make" options={{ animation: "slide_from_bottom", presentation: "modal" }} />
       </Stack>
-    </>
+    </ToastHost>
   );
 }

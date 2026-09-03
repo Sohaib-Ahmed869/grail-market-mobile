@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useToast } from "../components/Toast";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
@@ -26,6 +27,7 @@ const money = (cents: number) => `A$${(cents / 100).toFixed(0)}`;
  *  number, which is the difference between reading a PCI questionnaire and
  *  not. */
 export default function Plans() {
+  const toast = useToast();
   const session = useSession();
   const userId = session?.userId ?? "";
   const router = useRouter();
@@ -34,18 +36,16 @@ export default function Plans() {
   const [chosen, setChosen] = useState<PlanId>("collector");
   const [busy, setBusy] = useState(false);
   const [waiting, setWaiting] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPlans().then((r) => { setPlans(r.plans); setConfigured(r.configured); });
   }, []);
 
   const go = async () => {
-    setFailure(null);
     setBusy(true);
     const r = await startCheckout(userId, chosen);
     setBusy(false);
-    if (r.outcome === "failed") { setFailure(r.message); return; }
+    if (r.outcome === "failed") { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
     if (r.outcome === "dismissed") return;   // backed out; nothing to say
 
     // The browser came back. That is not payment — Stripe's webhook is, so we
@@ -54,7 +54,7 @@ export default function Plans() {
     const sub = await awaitSubscription(userId);
     setWaiting(false);
     if (sub.status === "active" || sub.status === "trialing") router.replace("/ready");
-    else setFailure("We haven't seen the payment confirmed yet. It can take a moment — check Plan & billing shortly.");
+    else toast("We haven't seen the payment confirmed yet. It can take a moment — check Plan & billing shortly.", { tone: "bad" });
   };
 
   const selected = plans.find((p) => p.id === chosen);
@@ -143,11 +143,6 @@ export default function Plans() {
           </Note>
         </View>
       )}
-      {failure && (
-        <View style={{ marginTop: space.md }}>
-          <Note tone="bad" icon="alert-circle">{failure}</Note>
-        </View>
-      )}
     </Screen>
   );
 }
@@ -164,7 +159,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.accent, borderRadius: radius.sm,
     paddingHorizontal: 8, paddingVertical: 3,
   },
-  tagTxt: { fontSize: 9, letterSpacing: 0.8 },
+  tagTxt: { fontSize: 11, letterSpacing: 0.1 },
   head: { flexDirection: "row", alignItems: "center", gap: space.md },
   radio: {
     width: 22, height: 22, borderRadius: 11,

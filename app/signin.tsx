@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
-import { Screen } from "../components/Screen";
+import { useToast } from "../components/Toast";
+import { AuthShell } from "../components/AuthShell";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
@@ -21,10 +22,10 @@ import { colors, radius, space } from "../theme";
  *  anyone who joined before the rules changed. The only thing worth catching
  *  before a round trip is an address that cannot be one. */
 export default function SignIn() {
+  const toast = useToast();
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
   const [touched, setTouched] = useState<{ email?: boolean }>({});
-  const [failure, setFailure] = useState<string | null>(null);
 
   const emailBad = useMemo(() => emailError(form.email), [form.email]);
   const ready = !emailBad && form.password.length > 0;
@@ -33,17 +34,17 @@ export default function SignIn() {
 
   const submit = async () => {
     if (!ready) { setTouched({ email: true }); return; }
-    setFailure(null);
     setBusy(true);
     const r = await login(form.email.trim(), form.password);
     setBusy(false);
-    if (!r.ok) { setFailure(r.message); return; }
+    if (!r.ok) { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
     router.replace("/(tabs)/home");
   };
 
   return (
-    <Screen
-      back
+    <AuthShell
+      title="Welcome Back"
+      sub="Sign in to pick up where you left off."
       footer={
         <>
           <Button label="Sign in" onPress={submit} loading={busy} />
@@ -58,11 +59,6 @@ export default function SignIn() {
         </>
       }
     >
-      <Txt variant="display">Welcome back</Txt>
-      <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
-        Sign in to pick up where you left off.
-      </Txt>
-
       <View style={s.social}>
         <SocialButton label="Apple" icon={<AntDesign name="apple" size={17} color={colors.ink} />} />
         <SocialButton label="Google" icon={<AntDesign name="google" size={16} color="#DB4437" />} />
@@ -97,11 +93,7 @@ export default function SignIn() {
           <Txt variant="bodySmall" color={colors.ink}>Forgot password?</Txt>
         </Pressable>
       </View>
-
-      {failure && (
-        <Txt variant="bodySmall" color={colors.down} style={{ marginTop: space.md }}>{failure}</Txt>
-      )}
-    </Screen>
+    </AuthShell>
   );
 }
 
@@ -118,8 +110,8 @@ const s = StyleSheet.create({
   social: { flexDirection: "row", gap: space.md, marginTop: space.xxl },
   social1: {
     flex: 1, height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: space.sm, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.lineStrong, backgroundColor: colors.surface,
+    gap: space.sm, borderRadius: radius.md, borderWidth: 1.5,
+    borderColor: colors.fieldLine, backgroundColor: colors.surface,
   },
   divider: { flexDirection: "row", alignItems: "center", gap: space.md, marginVertical: space.xl },
   rule: { flex: 1, height: 1, backgroundColor: colors.line },

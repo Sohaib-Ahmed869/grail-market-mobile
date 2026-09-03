@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { AntDesign } from "@expo/vector-icons";
-import { Screen } from "../components/Screen";
+import { useToast } from "../components/Toast";
+import { AuthShell } from "../components/AuthShell";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Field } from "../components/Field";
@@ -23,6 +24,7 @@ import { setPending } from "../lib/signupsession";
  *  identity check later, and it is far cheaper to say so now than to reject
  *  someone after they have photographed a licence. */
 export default function SignUp() {
+  const toast = useToast();
   const router = useRouter();
   const [form, setForm] = useState<SignUpForm>({
     name: "", email: "", phone: "", password: "", confirm: "",
@@ -47,7 +49,6 @@ export default function SignUp() {
   const err = (k: ErrKey) => (touched[k] ? errors[k] ?? undefined : undefined);
 
   const [sending, setSending] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
 
   const submit = async () => {
     if (!ready) {
@@ -55,7 +56,6 @@ export default function SignUp() {
       setTouched({ name: true, email: true, phone: true, password: true, confirm: true });
       return;
     }
-    setFailure(null);
     setSending(true);
 
     // The account is created first. Without it the SMS code, the identity
@@ -65,21 +65,22 @@ export default function SignUp() {
       email: form.email.trim(), name: form.name.trim(),
       phone: form.phone.trim(), password: form.password,
     });
-    if (!acct.ok) { setSending(false); setFailure(acct.message); return; }
+    if (!acct.ok) { setSending(false); toast(acct.message ?? "Something went wrong.", { tone: "bad" }); return; }
 
     // The text goes out from here, not from the code screen. Landing on a
     // screen that says "we sent a code" before anything has been sent is how
     // people end up waiting for a message that was never going to arrive.
     const r = await sendCode(form.phone, form.country);
     setSending(false);
-    if (!r.ok) { setFailure(r.message); return; }
+    if (!r.ok) { toast(r.message ?? "Something went wrong.", { tone: "bad" }); return; }
     setPending(form.phone, r.session);
     router.push("/sms");
   };
 
   return (
-    <Screen
-      back
+    <AuthShell
+      title="Create Your Account"
+      sub="Two minutes now. You'll verify your ID before you buy or sell."
       footer={
         <>
           <Button label="Continue" onPress={submit} loading={sending} />
@@ -90,11 +91,9 @@ export default function SignUp() {
       }
     >
       <>
-        <Steps step={1} label="Your details" />
-        <Txt variant="display" style={{ marginTop: space.lg }}>Create your account</Txt>
-        <Txt variant="body" color={colors.inkMuted} style={{ marginTop: space.sm }}>
-          Two minutes now. You&rsquo;ll verify your ID before you buy or sell.
-        </Txt>
+        <View style={{ marginTop: space.lg }}>
+          <Steps step={1} label="Your details" />
+        </View>
 
         <View style={s.social}>
           <SocialButton label="Apple" icon={<AntDesign name="apple" size={17} color={colors.ink} />} />
@@ -148,12 +147,6 @@ export default function SignUp() {
           />
         </View>
 
-        {failure && (
-          <View style={{ marginTop: space.lg }}>
-            <Note tone="bad" icon="alert-circle">{failure}</Note>
-          </View>
-        )}
-
         <View style={{ marginTop: space.lg }}>
           <Note>
             Your name has to match your ID later. Mismatches are the most common reason a
@@ -161,7 +154,7 @@ export default function SignUp() {
           </Note>
         </View>
       </>
-    </Screen>
+    </AuthShell>
   );
 }
 
@@ -181,8 +174,8 @@ const s = StyleSheet.create({
   social: { flexDirection: "row", gap: space.md, marginTop: space.xxl },
   social1: {
     flex: 1, height: 52, flexDirection: "row", alignItems: "center", justifyContent: "center",
-    gap: space.sm, borderRadius: radius.md, borderWidth: 1,
-    borderColor: colors.lineStrong, backgroundColor: colors.surface,
+    gap: space.sm, borderRadius: radius.md, borderWidth: 1.5,
+    borderColor: colors.fieldLine, backgroundColor: colors.surface,
   },
   divider: { flexDirection: "row", alignItems: "center", gap: space.md, marginVertical: space.xl },
   rule: { flex: 1, height: 1, backgroundColor: colors.line },

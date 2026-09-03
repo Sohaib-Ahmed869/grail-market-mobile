@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { useToast } from "../components/Toast";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
@@ -34,23 +35,22 @@ const NEEDS = [
  *  asking, what happens to the photographs, and that the draft they were in
  *  the middle of is safe. */
 export default function IdCheck() {
+  const toast = useToast();
   const session = useSession();
   const userId = session?.userId ?? "";
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [failure, setFailure] = useState<string | null>(null);
   // Ask before offering. Someone who verified on another device — the hosted
   // flow in a browser is a supported path — should not be asked again just
   // because this screen never looked.
   const { verified, reviewing } = useIdentity(userId);
 
   const start = async () => {
-    setFailure(null);
     setBusy(true);
     const r = await runVerification(userId);
     setBusy(false);
     if (r.outcome === "finished") router.push("/idreview");
-    else if (r.outcome === "failed") setFailure(r.message);
+    else if (r.outcome === "failed") toast(r.message ?? "Something went wrong.", { tone: "bad" });
     // cancelled: they backed out on purpose, so say nothing and stay put
   };
 
@@ -111,12 +111,6 @@ export default function IdCheck() {
           we hold.
         </Note>
       </View>
-
-      {failure && (
-        <View style={{ marginTop: space.md }}>
-          <Note tone="bad" icon="alert-circle">{failure}</Note>
-        </View>
-      )}
     </Screen>
   );
 }

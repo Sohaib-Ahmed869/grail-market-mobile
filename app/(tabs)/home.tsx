@@ -1,163 +1,725 @@
-import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useState } from "react";
+import { AppState, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { Bloom } from "../../components/Bloom";
 import { Mark } from "../../components/Brand";
+import { PageWash } from "../../components/PageWash";
 import { Txt } from "../../components/Text";
+import { Avatar } from "../../components/Avatar";
+import { unreadCount } from "../../lib/messages";
+import { unreadNotifications } from "../../lib/notifications";
+import { Icon } from "../../components/Icon";
+import { watchlist, type Watch } from "../../lib/watchlist";
+import { Loader } from "../../components/Loader";
+import { Bone, SkeletonCard, SkeletonList } from "../../components/Skeleton";
+import { Spark } from "../../components/Spark";
+import { GraderBadge } from "../../components/GraderChips";
 import { useIdentity } from "../../lib/useIdentity";
 import { useSession } from "../../lib/session";
+import { useGuest } from "../../lib/guest";
+import { browse, getCollection, num, type Listing } from "../../lib/market";
+import { marketPulse, type Pulse } from "../../lib/cardmarket";
+import { money, useFx } from "../../lib/fx";
 import { colors, radius, space } from "../../theme";
 
-
+const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
 
 /** Home.
  *
- *  One number, then three ways to act on it. The prototype put the collection
- *  value in a flat card and the actions below the fold; the value is the
- *  reason someone opens the app, so it gets the dark band at the top and the
- *  actions sit on the boundary where the eye already is.
+ *  Three bands, in the order someone opens the app for: what mine is worth,
+ *  what the market is doing, what is for sale.
  *
- *  The figure is live market value, not what was paid — that was asked for
- *  directly in the meeting, and it is the difference between a ledger and a
- *  reason to open the app twice a day. */
+ *  The rebuild fixed a structural fault rather than a stylistic one. The
+ *  actions were pulled up into the navy band with a negative margin and the
+ *  content below started immediately after them, so the first section heading
+ *  sat underneath the cards — the page had no gutter between two things that
+ *  belonged to different bands. Now the actions sit inside the dark band and
+ *  the scroll begins beneath it, which means every section can be spaced the
+ *  same way and nothing overlaps at any font size.
+ */
 export default function Home() {
   const session = useSession();
+  const guest = useGuest();
   const userId = session?.userId ?? "";
   const router = useRouter();
+  const fx = useFx();
   const { verified } = useIdentity(userId);
+
+  const [collection, setCollection] = useState<
+    { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
+  >(undefined);
+  const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  const [forSale, setForSale] = useState<Listing[] | undefined>(undefined);
+  const [unread, setUnread] = useState(0);
+  const [alerts, setAlerts] = useState(0);
+  const [watched, setWatched] = useState<Watch[] | undefined>(undefined);
+
+  useFocusEffect(useCallback(() => {
+    let alive = true;
+    // The two badges refresh on a timer so the header is not lying about
+    // what is waiting while someone sits on the home screen.
+    const badges = () => {
+      if (!userId || AppState.currentState !== "active") return;
+      unreadCount().then((n) => { if (alive) setUnread(n); });
+      unreadNotifications().then((n) => { if (alive) setAlerts(n); });
+    };
+    const timer = setInterval(badges, 8000);
+    if (!userId) setCollection(null);
+    else {
+      getCollection().then((r) => {
+        if (alive) setCollection({
+          value: r.value, gain: r.gain, cost: r.cost,
+          cards: r.entries.length, priced: r.priced,
+        });
+      });
+    }
+    if (userId) {
+      unreadCount().then((n) => { if (alive) setUnread(n); });
+      unreadNotifications().then((n) => { if (alive) setAlerts(n); });
+      watchlist().then((r) => { if (alive) setWatched(r.watches); });
+    } else {
+      setWatched([]);
+    }
+    marketPulse().then((r) => { if (alive) setPulse(r); });
+    browse({ sort: "featured" }).then((r) => { if (alive) setForSale(r.listings.slice(0, 10)); });
+    return () => { alive = false; clearInterval(timer); };
+  }, [userId]));
+
+  const signedIn = Boolean(session) && !guest;
 
   return (
     <View style={s.root}>
-      <LinearGradient colors={["#22303E", colors.dark]} style={s.hero}>
-        <SafeAreaView edges={["top"]}>
-          <View style={s.bar}>
-            <View style={s.who}>
-              <Mark size={26} onDark />
-              <View>
-                <Txt variant="h3" color={colors.onDark}>{session ? `Hello, ${session.name.split(" ")[0]}` : "Welcome"}</Txt>
-                <Txt variant="bodySmall" color={colors.onDarkMuted}>
-                  Sydney · {verified ? "Verified member" : "Not yet verified"}
+      <PageWash />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
+        {/* ---- the band ---------------------------------------------------- */}
+        {/* A gradient the content stands on, not a solid block sitting on top
+            of it. The navy is still here — it has become the ink and the one
+            filled control — but a dark slab cut across the screen is the
+            heaviest possible way to start a page, and it made everything
+            below it feel like a separate document. */}
+        <LinearGradient
+          colors={["rgba(26,38,50,0.14)", "rgba(26,38,50,0.05)", "rgba(255,255,255,0)"]}
+          locations={[0, 0.55, 1]}
+          style={s.band}
+        >
+          <View style={s.bloom} pointerEvents="none">
+            <Bloom size={560} color={colors.accent} opacity={0.22} />
+          </View>
+          <SafeAreaView edges={["top"]}>
+            {/* The greeting said nothing anyone needed twice a day, and the
+                verification chip belongs on the profile where it can be acted
+                on. Search takes the space because it is the thing people open
+                the app to do; messages sit opposite because they are the
+                thing people open the app to check. */}
+            <View style={s.bar}>
+              <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={6}>
+                <Avatar name={session?.name ?? "Guest"} id={session?.avatar} size={38} ring />
+              </Pressable>
+
+              <Pressable
+                onPress={() => router.push("/(tabs)/search")}
+                style={s.search}
+              >
+                <Icon name="search" size={18} color={colors.inkFaint} />
+                <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                  Search a card, set or code
                 </Txt>
+              </Pressable>
+
+              <Pressable
+                onPress={() => (signedIn ? router.push("/notifications") : router.push("/signup"))}
+                style={s.iconBtn}
+                accessibilityLabel="Notifications"
+              >
+                <Icon name="notify" size={20} color={colors.ink} filled={alerts > 0} />
+                {alerts > 0 && (
+                  <View style={s.unread}>
+                    <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+                      {alerts > 9 ? "9+" : alerts}
+                    </Txt>
+                  </View>
+                )}
+              </Pressable>
+
+              <Pressable
+                onPress={() => (signedIn ? router.push("/messages") : router.push("/signup"))}
+                style={s.iconBtn}
+                accessibilityLabel="Messages"
+              >
+                <Icon name="messages" size={20} color={colors.ink} filled={unread > 0} />
+                {unread > 0 && (
+                  <View style={s.unread}>
+                    <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+                      {unread > 9 ? "9+" : unread}
+                    </Txt>
+                  </View>
+                )}
+              </Pressable>
+            </View>
+
+            {signedIn ? (
+              <Pressable style={s.valueCard} onPress={() => router.push("/(tabs)/portfolio")}>
+                <LinearGradient
+                  colors={["#2C3D4B", colors.dark, "#0B131B"]}
+                  locations={[0, 0.5, 1]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                {/* the light source, same as the splash */}
+                <View style={s.cardBloom} pointerEvents="none">
+                  <Bloom size={340} color={colors.accent} opacity={0.34} />
+                </View>
+                {/* the mark, very large and mostly off the edge: a watermark
+                    rather than a logo, so the card is branded without a badge
+                    sitting on it */}
+                <View style={s.watermark} pointerEvents="none">
+                  <Mark size={190} onDark />
+                </View>
+                {/* a gold rule along the top edge — the one piece of brand
+                    colour, and the thing that stops a dark rectangle reading
+                    as a placeholder */}
+                <View style={s.goldRule} pointerEvents="none" />
+
+                <View style={s.cardBody}>
+                  {/* "Live market value" is a phrase from a pricing tool, not
+                    * a sentence anyone says. What a person wants to know is
+                    * what their cards are worth if they sold them today. */}
+                  <Txt variant="h3" color={colors.onDarkMuted}>
+                    Your Cards Are Worth
+                  </Txt>
+
+                  {collection === undefined ? (
+                    <View style={{ marginTop: space.sm, gap: 8 }}>
+                      <Bone w="62%" h={34} style={{ backgroundColor: "rgba(255,255,255,0.14)" }} />
+                      <Bone w="40%" h={12} style={{ backgroundColor: "rgba(255,255,255,0.10)" }} />
+                    </View>
+                  ) : (
+                    <>
+                      {/* A dash is what a broken number looks like. An empty
+                        * collection is not an error, it is a person who has
+                        * not scanned anything yet, and the card should say
+                        * the next thing to do rather than draw a placeholder. */}
+                      {!collection || collection.cards === 0 ? (
+                        <View style={{ marginTop: space.sm }}>
+                          <Txt variant="h1" color={colors.onDark}>No Cards Yet</Txt>
+                          <Txt variant="bodySmall" color={colors.onDarkMuted} style={{ marginTop: 4 }}>
+                            Scan a card and its value starts tracking from today.
+                          </Txt>
+                          <Pressable
+                            onPress={() => router.push("/(tabs)/scan")}
+                            style={s.emptyCta}
+                          >
+                            <Icon name="scan" size={16} color={colors.dark} />
+                            <Txt variant="button" color={colors.dark}>Scan your first card</Txt>
+                          </Pressable>
+                        </View>
+                      ) : (
+                      <View style={s.valueRow}>
+                        <Txt variant="price" color={colors.onDark} style={s.bigValue}>
+                          {aud(collection.value)}
+                        </Txt>
+                        {collection.cost > 0 && collection.gain !== 0 && (
+                          <View style={[s.delta, {
+                            backgroundColor: collection.gain > 0
+                              ? "rgba(44,122,91,0.26)" : "rgba(174,74,64,0.26)",
+                          }]}>
+                            <Icon name="price" size={12}
+                              color={collection.gain > 0 ? colors.up : colors.down} />
+                            <Txt variant="bodySmall"
+                              color={collection.gain > 0 ? colors.up : colors.down}>
+                              {collection.gain > 0 ? "+" : "−"}{aud(Math.abs(collection.gain))}
+                            </Txt>
+                          </View>
+                        )}
+                      </View>
+                      )}
+
+                      {/* three facts, on a rule, instead of four buttons */}
+                      <View style={s.cardStats}>
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="h3" color={colors.onDark}>
+                            {collection ? collection.cards : 0}
+                          </Txt>
+                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
+                            {collection && collection.cards === 1 ? "card held" : "cards held"}
+                          </Txt>
+                        </View>
+                        <View style={s.statRule} />
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="h3" color={colors.onDark}>
+                            {watched ? watched.length : 0}
+                          </Txt>
+                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
+                            following
+                          </Txt>
+                        </View>
+                        <View style={s.statRule} />
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="h3" color={collection && collection.priced < collection.cards
+                            ? colors.accent : colors.onDark}>
+                            {collection ? collection.priced : 0}
+                          </Txt>
+                          <Txt variant="overline" color={colors.onDarkMuted} style={{ fontSize: 11.5 }}>
+                            priced
+                          </Txt>
+                        </View>
+                      </View>
+                    </>
+                  )}
+                </View>
+              </Pressable>
+            ) : (
+              <View style={s.valueCard}>
+                <LinearGradient
+                  colors={["#2C3D4B", colors.dark, "#0B131B"]}
+                  locations={[0, 0.5, 1]}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={s.cardBloom} pointerEvents="none">
+                  <Bloom size={340} color={colors.accent} opacity={0.34} />
+                </View>
+                <View style={s.watermark} pointerEvents="none">
+                  <Mark size={190} onDark />
+                </View>
+                <View style={s.goldRule} pointerEvents="none" />
+                <View style={s.cardBody}>
+                  <Txt variant="h1" color={colors.onDark}>Every card, priced honestly.</Txt>
+                  <Txt variant="bodySmall" color={colors.onDarkMuted} style={{ marginTop: 6 }}>
+                    Browse and search freely. Scanning, collections and selling need an
+                    account — everyone here is ID-checked.
+                  </Txt>
+                  <Pressable onPress={() => router.push("/signup")} style={s.join}>
+                    <Txt variant="button" color={colors.dark}>Create an account</Txt>
+                    <Icon name="profile" size={16} color={colors.dark} />
+                  </Pressable>
+                </View>
               </View>
-            </View>
-            <Pressable hitSlop={10} style={s.bell} accessibilityLabel="Notifications">
-              <Feather name="bell" size={18} color={colors.onDark} />
-              <View style={s.dot} />
-            </Pressable>
-          </View>
+            )}
 
-          <View style={s.valueBlock}>
-            <Txt variant="overline" color={colors.onDarkMuted}>Collection · live market value</Txt>
-            <Txt variant="price" color={colors.onDark} style={s.value}>A$5,782</Txt>
-            <View style={s.deltaRow}>
-              <Feather name="trending-up" size={13} color={colors.up} />
-              <Txt variant="bodySmall" color={colors.up}>+A$997 all time</Txt>
-              <Txt variant="bodySmall" color={colors.onDarkMuted}>· 5 cards · 1 watching</Txt>
-            </View>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+          </SafeAreaView>
+        </LinearGradient>
 
-      {/* The three actions straddle the boundary, so they read as belonging to
-          the number above rather than starting a new list below it. */}
-      <View style={s.actions}>
-        {[
-          { icon: "maximize" as const, label: "Scan a card", to: "/(tabs)/scan" },
-          { icon: "search" as const, label: "Search a code", to: "/(tabs)/search" },
-          { icon: "tag" as const, label: "Sell a card", to: "/(tabs)/portfolio" },
-        ].map((a) => (
-          <Pressable
-            key={a.label}
-            onPress={() => router.push(a.to as any)}
-            style={({ pressed }) => [s.action, pressed && { opacity: 0.7 }]}
-          >
-            <Feather name={a.icon} size={19} color={colors.ink} />
-            <Txt variant="bodySmall" color={colors.ink} center>{a.label}</Txt>
-          </Pressable>
-        ))}
-      </View>
+        {/* ---- what I am following ------------------------------------- */}
+        {signedIn && watched && watched.length > 0 && (
+          <>
+            <Section
+              title="Following"
+              sub="Cards you asked to be told about"
+              action={{ label: "Watchlist", onPress: () => router.push("/watchlist") }}
+            />
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
+              contentContainerStyle={s.railInner}>
+              {watched.slice(0, 8).map((w) => {
+                const up = (w.since ?? 0) >= 0;
+                return (
+                  <Pressable
+                    key={w.watchId}
+                    onPress={() => w.catalogId && router.push(`/card/${w.catalogId}` as any)}
+                    style={({ pressed }) => [s.watch, pressed && { opacity: 0.85 }]}
+                  >
+                    <View style={s.watchArt}>
+                      {w.imageUrl ? (
+                        <Image source={{ uri: w.imageUrl }} style={StyleSheet.absoluteFill}
+                          resizeMode="cover" />
+                      ) : (
+                        <Icon name="card" size={22} color={colors.inkFaint} />
+                      )}
+                      <View style={s.watchGrade}>
+                        <GraderBadge grader={w.grader ?? "RAW"} grade={w.grade} />
+                      </View>
+                      {/* the reason this card is here at all */}
+                      <View style={s.watchFollow}>
+                        <Icon name="watchlist" size={11} color={colors.onPrimary} filled />
+                        <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+                          {w.alertPct != null ? `${w.alertPct}%` : "Following"}
+                        </Txt>
+                      </View>
+                    </View>
 
-      <ScrollView contentContainerStyle={s.body} showsVerticalScrollIndicator={false}>
-        <View style={s.sectionHead}>
-          <View>
-            <Txt variant="h2">Market movers</Txt>
-            <Txt variant="bodySmall" color={colors.inkFaint}>
-              Biggest 7 day moves on completed sales
-            </Txt>
-          </View>
-        </View>
+                    <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
+                      {w.cardName}
+                    </Txt>
+                    <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                      {w.setName ?? ""}
+                    </Txt>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}>
-          {MOVERS.map((m) => (
-            <View key={m.name} style={s.mover}>
-              <View style={[s.thumb, { backgroundColor: m.tint }]} />
-              <Txt variant="h3" numberOfLines={1}>{m.name}</Txt>
-              <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>{m.grade}</Txt>
-              <View style={s.moverFoot}>
-                <Txt variant="h3">{m.price}</Txt>
-                <Txt variant="bodySmall" color={m.up ? colors.up : colors.down}>
-                  {m.up ? "+" : ""}{m.move}
-                </Txt>
+                    <View style={s.watchFoot}>
+                      <View style={{ flex: 1 }}>
+                        <Txt variant="h3">{money(w.value, { fx, from: "USD" })}</Txt>
+                        <Txt variant="overline" color={colors.inkFaint} style={{ fontSize: 11 }}>
+                          {w.value == null ? "not priced yet" : "market value"}
+                        </Txt>
+                      </View>
+                      {w.since != null && Math.abs(w.since) >= 0.05 && (
+                        <View style={[s.move, { backgroundColor: up ? colors.upWash : colors.downWash }]}>
+                          <Icon name="price" size={11} color={up ? colors.up : colors.down} />
+                          <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
+                            {up ? "+" : ""}{w.since.toFixed(1)}%
+                          </Txt>
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
+
+        {/* ---- what moved --------------------------------------------------- */}
+        <Section
+          title="Biggest Price Moves"
+          sub="What changed most in the last seven days"
+        />
+        {/* The card is the container.
+          *
+          * This was a ranked table for about ten minutes and it read like a
+          * stock screener with Pokemon in it. The art is the reason anyone
+          * cares about these; a name and a percentage is the least
+          * interesting way to show a card. So: the artwork at full bleed, the
+          * move as a tag on top of it, the price under it. No panel, no
+          * border, nothing around the picture at all. */}
+        {pulse === undefined ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
+            contentContainerStyle={s.railInner} scrollEnabled={false}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={{ width: 132 }}>
+                <Bone w="100%" h={184} r={14} />
+                <Bone w="70%" h={13} style={{ marginTop: space.sm }} />
+                <Bone w="45%" h={11} style={{ marginTop: 6 }} />
               </View>
-            </View>
-          ))}
-        </ScrollView>
+            ))}
+          </ScrollView>
+        ) : pulse.length === 0 ? (
+          <Empty icon="activity" title="No Big Moves"
+            body="Prices held steady this week, or too few cards sold to tell." />
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
+            contentContainerStyle={s.railInner}>
+            {pulse.slice(0, 10).map((p) => {
+              const up = (p.change7d ?? 0) >= 0;
+              return (
+                <Pressable
+                  key={`${p.label}-${p.setName}`}
+                  onPress={() => p.cardId && router.push(`/card/${p.cardId}` as any)}
+                  style={({ pressed }) => [{ width: 132 }, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={s.moverArt}>
+                    {p.imageUrl ? (
+                      <Image source={{ uri: p.imageUrl }} style={StyleSheet.absoluteFill}
+                        resizeMode="cover" />
+                    ) : (
+                      <Icon name="card" size={26} color={colors.inkFaint} />
+                    )}
+
+                    {/* the move, sitting on the art rather than beside it */}
+                    <View style={[s.moveTag, { backgroundColor: up ? colors.up : colors.down }]}>
+                      <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11.5 }}>
+                        {up ? "▲" : "▼"} {Math.abs(p.change7d ?? 0).toFixed(1)}%
+                      </Txt>
+                    </View>
+
+                    {/* the week, drawn along the bottom edge of the picture */}
+                    <View style={s.moverSpark} pointerEvents="none">
+                      <Spark points={p.spark} up={up} width={132} height={34} />
+                    </View>
+                  </View>
+
+                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
+                    {p.label}
+                  </Txt>
+                  <View style={s.moverFoot}>
+                    <Txt variant="bodySmall" color={colors.ink}>
+                      {money(p.price, { fx, from: "USD" })}
+                    </Txt>
+                    <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}
+                      style={{ flex: 1 }}>
+                      {p.setName ?? ""}
+                    </Txt>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {/* ---- what is for sale ---------------------------------------------- */}
+        <Section
+          title="Cards For Sale"
+          sub="From ID-checked sellers, each one reviewed by hand"
+          action={forSale && forSale.length > 0 ? { label: "See all", onPress: () => router.push("/market") } : undefined}
+        />
+        {forSale === undefined ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
+            contentContainerStyle={s.railInner} scrollEnabled={false}>
+            {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+          </ScrollView>
+        ) : forSale.length === 0 ? (
+          <Empty
+            icon="shopping-bag"
+            title="Nothing For Sale Yet"
+            body={signedIn
+              ? "Listings appear once a person has checked them. Your own never show here — you already own those."
+              : "Listings appear once a person has checked them."}
+            action={signedIn ? { label: "List a card", onPress: () => router.push("/(tabs)/scan") } : undefined}
+          />
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
+            contentContainerStyle={s.railInner}>
+            {forSale.map((l) => {
+              const img = l.photos?.[0]?.url ?? l.image_url;
+              const market = num(l.market_value);
+              const asking = num(l.price) ?? 0;
+              const under = market != null && asking < market;
+              return (
+                <Pressable
+                  key={l.listing_id}
+                  onPress={() => router.push(`/listing/${l.listing_id}` as any)}
+                  style={({ pressed }) => [s.card, pressed && { opacity: 0.85 }]}
+                >
+                  <View style={s.thumb}>
+                    {img ? (
+                      <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                    ) : (
+                      <Feather name="image" size={18} color={colors.inkFaint} />
+                    )}
+                    {/* on the art, not below it — the badge belongs to the card
+                        it describes, and stacking it underneath cost a line of
+                        height on every tile */}
+                    <View style={s.badgeOnArt}>
+                      <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
+                    </View>
+                    {l.featured && (
+                      <View style={s.featured}>
+                        <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+                          Featured
+                        </Txt>
+                      </View>
+                    )}
+                  </View>
+                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>{l.card_name}</Txt>
+                  <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                    {l.set_name ?? ""}
+                  </Txt>
+                  <View style={s.cardFoot}>
+                    <Txt variant="h3">{aud(asking)}</Txt>
+                    {market != null && (
+                      <View style={[s.marketPill, under ? s.underPill : s.overPill]}>
+                        <Txt variant="overline" color={under ? colors.up : colors.inkMuted}
+                          style={{ fontSize: 11.5 }}>
+                          {under ? "UNDER" : "OVER"}
+                        </Txt>
+                      </View>
+                    )}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
       </ScrollView>
     </View>
   );
 }
 
-// Placeholder until the movers endpoint exists. Shaped like the real thing so
-// wiring it is a swap, not a rewrite.
-const MOVERS = [
-  { name: "Umbreon VMAX", grade: "PSA 10", price: "A$3,940", move: "3.4%", up: true, tint: "#3B3560" },
-  { name: "Zoro Manga", grade: "Raw · ungraded", price: "A$1,860", move: "2.8%", up: true, tint: "#2F5540" },
-  { name: "Charizard", grade: "PSA 9", price: "A$2,740", move: "1.1%", up: false, tint: "#7A3B22" },
-];
+/** One heading, everywhere. Sections that each invent their own spacing are
+ *  what makes a page look assembled rather than designed. */
+function Section({
+  title, sub, action,
+}: { title: string; sub: string; action?: { label: string; onPress: () => void } }) {
+  return (
+    <View style={s.sectionHead}>
+      <View style={{ flex: 1 }}>
+        <Txt variant="h2">{title}</Txt>
+        <Txt variant="bodySmall" color={colors.inkFaint}>{sub}</Txt>
+      </View>
+      {action && (
+        <Pressable onPress={action.onPress} hitSlop={8} style={s.seeAll}>
+          <Txt variant="bodySmall" color={colors.ink}>{action.label}</Txt>
+          <Feather name="chevron-right" size={14} color={colors.ink} />
+        </Pressable>
+      )}
+    </View>
+  );
+}
+
+function Empty({
+  icon, title, body, action,
+}: {
+  icon: keyof typeof Feather.glyphMap; title: string; body: string;
+  action?: { label: string; onPress: () => void };
+}) {
+  return (
+    <View style={s.sectionBody}>
+      <View style={s.empty}>
+        <View style={s.emptyIcon}>
+          <Feather name={icon} size={20} color={colors.inkFaint} />
+        </View>
+        <Txt variant="h3" center style={{ marginTop: space.md }}>{title}</Txt>
+        <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: 4 }}>{body}</Txt>
+        {action && (
+          <Pressable onPress={action.onPress} style={s.emptyBtn}>
+            <Txt variant="button" color={colors.ink}>{action.label}</Txt>
+            <Feather name="arrow-right" size={15} color={colors.ink} />
+          </Pressable>
+        )}
+      </View>
+    </View>
+  );
+}
+
+const GUTTER = space.xl;
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.ground },
-  hero: { paddingBottom: space.xxxl },
+  root: { flex: 1, backgroundColor: colors.washBottom },
+  band: { overflow: "hidden" },
+  bloom: { position: "absolute", top: -260, right: -140, width: 560, height: 560 },
+
   bar: {
-    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
-    paddingHorizontal: space.xl, paddingTop: space.sm,
+    flexDirection: "row", alignItems: "center", gap: space.sm,
+    paddingHorizontal: GUTTER, paddingTop: space.sm,
   },
-  who: { flexDirection: "row", alignItems: "center", gap: space.md },
-  bell: {
-    width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
+  search: {
+    flex: 1, flexDirection: "row", alignItems: "center", gap: space.sm,
+    height: 44, paddingHorizontal: space.md,
+    borderRadius: radius.pill, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line,
   },
-  dot: {
-    position: "absolute", top: 9, right: 10, width: 7, height: 7,
-    borderRadius: 4, backgroundColor: colors.accent,
+  iconBtn: {
+    width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
   },
-  valueBlock: { paddingHorizontal: space.xl, marginTop: space.xl },
-  value: { marginTop: space.xs },
-  deltaRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: space.xs },
-
-  actions: {
-    flexDirection: "row", gap: space.sm,
-    marginTop: -space.xxl, marginHorizontal: space.xl,
+  unread: {
+    position: "absolute", top: 6, right: 6, minWidth: 16, height: 16, borderRadius: 8,
+    paddingHorizontal: 4, alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.down, borderWidth: 1.5, borderColor: colors.surface,
   },
-  action: {
-    flex: 1, gap: 7, paddingVertical: space.lg,
+  watch: {
+    width: 168, padding: space.md,
+    borderRadius: 20, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line,
+    shadowColor: "#0B1622", shadowOpacity: 0.05, shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 }, elevation: 2,
+  },
+  watchArt: {
+    height: 150, borderRadius: 14, overflow: "hidden",
+    backgroundColor: colors.surfaceSunk,
     alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surface, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.line,
-    shadowColor: "#0B1622", shadowOpacity: 0.06, shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 }, elevation: 3,
+  },
+  watchGrade: { position: "absolute", left: 6, bottom: 6 },
+  watchFollow: {
+    position: "absolute", right: 6, top: 6,
+    flexDirection: "row", alignItems: "center", gap: 3,
+    paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999,
+    backgroundColor: "rgba(11,22,34,0.72)",
+  },
+  watchFoot: { flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: space.sm },
+  move: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
   },
 
-  body: { paddingTop: space.xxl, paddingBottom: space.xxxl },
-  sectionHead: { paddingHorizontal: space.xl, marginBottom: space.md },
-  rail: { paddingLeft: space.xl },
-  mover: {
-    width: 150, marginRight: space.md, padding: space.md, gap: 3,
-    backgroundColor: colors.surface, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.line,
+  valueCard: {
+    marginHorizontal: GUTTER, marginTop: space.lg, marginBottom: space.xl,
+    borderRadius: 26, overflow: "hidden", backgroundColor: colors.dark,
+    shadowColor: "#0B1622", shadowOpacity: 0.28, shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 }, elevation: 12,
   },
-  thumb: { height: 96, borderRadius: radius.sm, marginBottom: space.sm },
-  moverFoot: { flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", marginTop: 3 },
+  cardBloom: { position: "absolute", right: -120, top: -150, width: 340, height: 340 },
+  watermark: { position: "absolute", right: -46, bottom: -54, opacity: 0.07 },
+  goldRule: {
+    position: "absolute", top: 0, left: 0, right: 0, height: 3,
+    backgroundColor: colors.accent, opacity: 0.85,
+  },
+  cardBody: { padding: space.xl },
+  valueRow: { flexDirection: "row", alignItems: "center", gap: space.md, marginTop: 2 },
+  bigValue: { fontSize: 40, lineHeight: 46 },
+  delta: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill,
+  },
+  cardStats: {
+    flexDirection: "row", alignItems: "center",
+    marginTop: space.xl, paddingTop: space.lg,
+    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)",
+  },
+  statRule: { width: 1, height: 26, backgroundColor: "rgba(255,255,255,0.12)" },
+  strip: {
+    flexDirection: "row", alignItems: "stretch",
+    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)",
+  },
+  stripItem: { flex: 1, alignItems: "center", gap: 6, paddingVertical: space.md },
+  stripDivider: {
+    position: "absolute", left: 0, top: "22%", bottom: "22%", width: 1,
+    backgroundColor: "rgba(255,255,255,0.10)",
+  },
+  valueFoot: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm, flexWrap: "wrap" },
+  pill: {
+    flexDirection: "row", alignItems: "center", gap: 4,
+    paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill,
+  },
+  emptyCta: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
+    height: 44, marginTop: space.lg, borderRadius: radius.md, backgroundColor: colors.accent,
+  },
+  join: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
+    height: 48, marginTop: space.lg, borderRadius: radius.md, backgroundColor: colors.accent,
+  },
+
+
+  sectionHead: {
+    flexDirection: "row", alignItems: "flex-end", gap: space.md,
+    paddingHorizontal: GUTTER, marginTop: space.xxl, marginBottom: space.md,
+  },
+  seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
+  sectionBody: { paddingHorizontal: GUTTER },
+  rail: { marginHorizontal: 0 },
+  railInner: { paddingHorizontal: GUTTER, gap: space.md },
+
+  moverArt: {
+    height: 184, borderRadius: 14, overflow: "hidden",
+    backgroundColor: colors.surfaceSunk,
+    alignItems: "center", justifyContent: "center",
+  },
+  moveTag: {
+    position: "absolute", top: 7, left: 7,
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
+  },
+  moverSpark: { position: "absolute", left: 0, right: 0, bottom: 0, opacity: 0.9 },
+  moverFoot: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 1 },
+
+  card: { width: 152 },
+  thumb: {
+    height: 200, borderRadius: 20, overflow: "hidden",
+    backgroundColor: colors.surfaceSunk, alignItems: "center", justifyContent: "center",
+  },
+  badgeOnArt: { position: "absolute", left: 6, bottom: 6 },
+  featured: {
+    position: "absolute", top: 6, left: 6,
+    paddingHorizontal: 5, paddingVertical: 2.5, borderRadius: 4, backgroundColor: colors.accent,
+  },
+  cardFoot: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 },
+  marketPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  underPill: { backgroundColor: colors.upWash },
+  overPill: { backgroundColor: colors.surfaceSunk },
+
+  empty: {
+    alignItems: "center", paddingVertical: space.xxl, paddingHorizontal: space.xl,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line, borderStyle: "dashed",
+  },
+  emptyIcon: {
+    width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.surfaceSunk,
+  },
+  emptyBtn: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    marginTop: space.lg, paddingHorizontal: space.lg, height: 42,
+    borderRadius: radius.pill, borderWidth: 1, borderColor: colors.lineStrong,
+  },
 });

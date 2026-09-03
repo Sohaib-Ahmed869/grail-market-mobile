@@ -86,7 +86,7 @@ export async function sendCode(phone: string, country: CountryCode = "AU"): Prom
   if (!e164) return fail("bad-number");
 
   if (STUB_CODE != null) {
-    console.warn(
+    console.log(
       `[phoneauth] STUB ACTIVE — no SMS sent. The code is ${STUB_CODE}. ` +
         `Set STUB_CODE to null once Firebase billing is enabled.`,
     );
