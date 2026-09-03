@@ -24,7 +24,7 @@ import { useSession } from "../../lib/session";
 import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
-import { MoveMap } from "../../components/MoveMap";
+import { MoveBars } from "../../components/MoveBars";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
@@ -391,37 +391,45 @@ export default function Home() {
         <Section
           title="Biggest Price Moves"
           sub="What changed most in the last seven days"
+          action={
+            pulse && pulse.length > 3
+              ? { label: "See all", onPress: () => router.push("/movers") }
+              : undefined
+          }
         />
-        {/* Area is the size of the move, colour is its direction.
+        {/* Bars from a shared zero, not a treemap and not a rail.
           *
-          * This was an artwork rail, which could only say the order things
-          * were in — the biggest mover of the week was simply the leftmost
-          * card, and you had to read every percentage to find it. A treemap
-          * says both facts at once and makes the one that matters the
-          * biggest thing on the screen.
+          * The rail could only say the order things were in. The treemap that
+          * replaced it said magnitude and direction at once, but paid for it
+          * with the names — below about 62pt a tile could only be a colour.
+          * This keeps every name and lets the bar carry the same two facts.
           *
-          * Ranked by the SIZE of the move, so a 12% fall is as prominent as a
-          * 12% rise. Sorting by the signed number buries every drop at the
-          * bottom, and a drop is the one people most want to see. */}
+          * Growing from a CENTRE line is the part that matters: a bar always
+          * starting at the left needs its colour read before you know which
+          * way it went, and colour alone is the one channel some people
+          * cannot use. Here the direction is the geometry. */}
         {pulse === undefined ? (
-          <View style={s.mapWrap}>
-            <Bone w="100%" h={208} r={14} />
+          <View style={s.movers}>
+            {[0, 1, 2].map((i) => <Bone key={i} h={54} r={10} />)}
           </View>
         ) : pulse.length === 0 ? (
           <Empty icon="activity" title="No Big Moves"
             body="Prices held steady this week, or too few cards sold to tell." />
         ) : (
-          <View style={s.mapWrap}>
-            <MoveMap
-              width={width - GUTTER * 2}
-              height={232}
-              // Seven, not nine. Past that the tail is tiles too small to
-              // carry a word, and a board of unreadable confetti is worse at
-              // its job than a shorter one.
-              movers={pulse.slice(0, 7).map((p) => ({
-                label: p.label, change: p.change7d, cardId: p.cardId,
+          <View style={s.movers}>
+            <MoveBars
+              rows={pulse.slice(0, 3).map((p) => ({
+                label: p.label,
+                meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
+                change: p.change7d,
+                cardId: p.cardId,
               }))}
-              onPress={(m) => m.cardId && router.push(`/card/${m.cardId}` as any)}
+              // Scaled against the whole week, not against these three. Given
+              // its own scale a shortened list redraws the same card at a
+              // different size, and the dashboard and the full screen would
+              // disagree about how big the week was.
+              max={Math.max(...pulse.map((p) => Math.abs(p.change7d ?? 0)), 1)}
+              onPress={(r) => r.cardId && router.push(`/card/${r.cardId}` as any)}
             />
           </View>
         )}
@@ -711,7 +719,7 @@ const s = StyleSheet.create({
   seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
   sectionBody: { paddingHorizontal: GUTTER },
   rail: { marginHorizontal: 0 },
-  mapWrap: { paddingHorizontal: GUTTER, marginTop: space.sm },
+  movers: { paddingHorizontal: GUTTER, marginTop: space.sm, gap: space.md },
   railInner: { paddingHorizontal: GUTTER, gap: space.md },
 
   moverArt: {

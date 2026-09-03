@@ -159,6 +159,19 @@ export type Pulse = {
 export async function marketPulse(): Promise<Pulse[]> {
   try {
     const r = await get<Pulse[]>("/market/pulse");
-    return Array.isArray(r) ? r : [];
+    // Sorted here, not left to whatever order the store returned. Every
+    // screen showing these calls the section "biggest price moves" and then
+    // takes the first few — an unsorted list made that a promise the UI
+    // broke, with a 0.4% drift leading a week that contained an 18% fall.
+    //
+    // By SIZE, so a fall ranks with a rise of the same magnitude. Ranking by
+    // the signed number would put every drop at the bottom, and a drop is
+    // the one people most want to see.
+    if (Array.isArray(r)) {
+      return [...r].sort(
+        (a, b) => Math.abs(b.change7d ?? 0) - Math.abs(a.change7d ?? 0),
+      );
+    }
+    return [];
   } catch { return []; }
 }
