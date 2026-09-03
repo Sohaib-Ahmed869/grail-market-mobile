@@ -140,7 +140,16 @@ export async function signInWithGoogle(): Promise<SocialResult> {
     // Closes the browser tab left behind when the redirect comes back.
     WebBrowser.maybeCompleteAuthSession?.();
 
-    const redirectUri = AuthSession.makeRedirectUri({ scheme: "grailmarket" });
+    // Google will not accept an arbitrary custom scheme for an iOS or Android
+    // OAuth client. For those it requires the REVERSED client id as the
+    // scheme — "com.googleusercontent.apps.123-abc:/oauth2redirect" — and
+    // rejects anything else with redirect_uri_mismatch, which is the error
+    // people spend an afternoon on. The web client is the exception and uses
+    // the ordinary app scheme.
+    const reversed = reverseClientId(clientId);
+    const redirectUri = reversed
+      ? AuthSession.makeRedirectUri({ native: `${reversed}:/oauth2redirect` })
+      : AuthSession.makeRedirectUri({ scheme: "grailmarket" });
     const discovery = {
       authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
       tokenEndpoint: "https://oauth2.googleapis.com/token",
@@ -167,6 +176,16 @@ export async function signInWithGoogle(): Promise<SocialResult> {
   } catch {
     return { ok: false, message: "Google sign-in didn't complete." };
   }
+}
+
+/** "123-abc.apps.googleusercontent.com" -> "com.googleusercontent.apps.123-abc".
+ *
+ *  Only native client ids have this form. A web client id ends the same way
+ *  but is used with a plain https or app-scheme redirect, so returning null
+ *  for anything unexpected keeps the fallback in charge. */
+export function reverseClientId(clientId: string): string | null {
+  const m = /^([A-Za-z0-9-_.]+)\.apps\.googleusercontent\.com$/.exec(clientId.trim());
+  return m ? `com.googleusercontent.apps.${m[1]}` : null;
 }
 
 /** A fresh random value tying the response to this request. */

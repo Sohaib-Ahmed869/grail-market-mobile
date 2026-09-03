@@ -38,12 +38,24 @@ if (!firebase && !(globalThis as Record<string, unknown>)[SAID]) {
 
 const NAVY = "#1A2632";
 
+/** Google's native OAuth clients redirect to the REVERSED client id, so that
+ *  has to be a URL scheme the app answers on — otherwise the browser hands
+ *  the result to nobody and the sign-in hangs on a blank tab.
+ *
+ *  Derived from the env var rather than pasted in, because the two have to
+ *  agree exactly and the failure when they do not is silent. */
+function googleScheme(): string | null {
+  const id = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
+  const m = /^([A-Za-z0-9-_.]+)\.apps\.googleusercontent\.com$/.exec(id.trim());
+  return m ? `com.googleusercontent.apps.${m[1]}` : null;
+}
+
 export default (): ExpoConfig => ({
   name: "GrailMarket",
   slug: "grail-market-mobile",
   version: "1.0.0",
   orientation: "portrait",
-  scheme: "grailmarket",
+  scheme: ["grailmarket", ...(googleScheme() ? [googleScheme()!] : [])],
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
   backgroundColor: NAVY,
