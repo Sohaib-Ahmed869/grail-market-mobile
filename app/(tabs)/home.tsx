@@ -348,6 +348,7 @@ export default function Home() {
                 meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
                 change: p.change7d,
                 cardId: p.cardId,
+                spark: p.spark,
                 // All four windows here too. Three rows is few enough that
                 // the extra line is depth rather than density, and a single
                 // figure cannot tell a spike from a trend on any screen.

@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Txt } from "./Text";
 import { PeriodStrip, type Periods } from "./PeriodStrip";
+import { MarketChart } from "./MarketChart";
 import { colors, radius, space, type } from "../theme";
 
 export type MoveRow = {
@@ -8,9 +9,10 @@ export type MoveRow = {
   meta?: string | null;
   change: number | null;
   cardId?: string | null;
-  /** The other three windows. Shown only where there is room for them — the
-   *  dashboard's top three are a glance, the full list is the detail. */
+  /** The other three windows. */
   periods?: Periods | null;
+  /** The actual price history, oldest first. */
+  spark?: number[] | null;
 };
 
 const BAR = 84;
@@ -63,11 +65,10 @@ export function MoveBars({
               ) : null}
             </View>
 
-            {/* An outlined track, not a bare bar. The border is the full
-                range the week actually covered, so a short bar reads as "a
-                small move against a big week" rather than just as a short
-                bar — without it there is nothing to measure against and the
-                length only means something next to the row above it. */}
+            {/* The gauge stays in the row — it is the net result, read at a
+                glance against the other rows. The line goes underneath, full
+                width, because an axis and a price marker need room and a
+                34pt sparkline squeezed beside a name can carry neither. */}
             <View style={s.gauge}>
               <View style={s.zero} />
               <View
@@ -84,6 +85,16 @@ export function MoveBars({
               {up ? "+" : "−"}{Math.abs(change).toFixed(1)}%
             </Txt>
             </View>
+
+            {r.spark && r.spark.length > 1 && (
+              <View style={s.chartWrap}>
+                <MarketChart
+                  points={r.spark}
+                  height={116}
+                  label={`${r.spark.length} readings · high to low across the period`}
+                />
+              </View>
+            )}
 
             {r.periods && <PeriodStrip periods={r.periods} />}
           </Pressable>
@@ -111,6 +122,7 @@ const s = StyleSheet.create({
   },
   pressed: { opacity: 0.75, borderColor: colors.ink },
   who: { flex: 1, gap: 1 },
+  chartWrap: { marginTop: space.md },
   gauge: {
     width: BAR, height: 20, justifyContent: "center",
     borderRadius: 5, borderWidth: 1, borderColor: colors.lineStrong,

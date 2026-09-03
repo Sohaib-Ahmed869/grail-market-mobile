@@ -46,6 +46,7 @@ export default function Movers() {
               meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
               change: p.change7d,
               cardId: p.cardId,
+              spark: p.spark,
               // Only here. The dashboard shows three rows as a glance; this
               // screen is what somebody opened to actually look.
               periods: {
