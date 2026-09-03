@@ -315,7 +315,7 @@ export default function Home() {
           // honest claim is the one that also conveys the tracking: it says
           // how often we look, which is the thing a live feed is actually
           // promising.
-          sub="Seven-day change · refreshed twice a day"
+          sub="Ranked on the week · refreshed twice a day"
           action={
             pulse && pulse.length > 3
               ? { label: "See all", onPress: () => router.push("/movers") }
@@ -348,6 +348,13 @@ export default function Home() {
                 meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
                 change: p.change7d,
                 cardId: p.cardId,
+                // All four windows here too. Three rows is few enough that
+                // the extra line is depth rather than density, and a single
+                // figure cannot tell a spike from a trend on any screen.
+                periods: {
+                  day: p.change24h, week: p.change7d,
+                  month: p.change30d, quarter: p.change90d,
+                },
               }))}
               // Scaled against the whole week, not against these three. Given
               // its own scale a shortened list redraws the same card at a
