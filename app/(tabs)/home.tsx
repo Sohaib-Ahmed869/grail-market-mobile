@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AppState, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,6 +22,8 @@ import { useSession } from "../../lib/session";
 import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
+import { PriceChart, RangePicker } from "../../components/PriceChart";
+import { marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
 import { colors, radius, space } from "../../theme";
 
@@ -370,6 +372,9 @@ export default function Home() {
           </>
         )}
 
+        {/* ---- the market as one line --------------------------------------- */}
+        <MarketIndex />
+
         {/* ---- what moved --------------------------------------------------- */}
         <Section
           title="Biggest Price Moves"
@@ -574,7 +579,60 @@ function Empty({
 
 const GUTTER = space.xl;
 
+/** The whole market, rebased to 100.
+ *
+ *  It answers the question the individual movers below cannot: not "which
+ *  card jumped" but "is any of this going anywhere". Absent until there is
+ *  enough history to say — an index built from four days would be noise with
+ *  a confident line through it. */
+function MarketIndex() {
+  const [days, setDays] = useState(90);
+  const [ix, setIx] = useState<Awaited<ReturnType<typeof marketIndex>> | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    setIx(undefined);
+    marketIndex(days).then((r) => { if (alive) setIx(r); });
+    return () => { alive = false; };
+  }, [days]);
+
+  if (ix === null) return null;
+  if (ix === undefined) return <Bone h={200} r={14} style={{ marginTop: space.xl }} />;
+  if (ix.points.length < 2) return null;
+
+  const first = ix.points[0]!.price;
+  const last = ix.points[ix.points.length - 1]!.price;
+  const pct = first > 0 ? ((last - first) / first) * 100 : 0;
+  const up = pct >= 0;
+
+  return (
+    <View style={s.index}>
+      <View style={s.indexHead}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="h2">The Market</Txt>
+          <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
+            {up ? "Up" : "Down"} {Math.abs(pct).toFixed(1)}% · {ix.basket} cards
+          </Txt>
+        </View>
+        <RangePicker value={days} onChange={setDays} />
+      </View>
+      <PriceChart points={ix.points} height={150} tone={up ? colors.up : colors.down} />
+      <Txt variant="bodySmall" color={colors.inkFaint}>
+        {/* Saying what it is stops it being read as dollars. */}
+        Set to 100 at the start, so this is the shape of the market rather than a
+        price. PSA 10s, the cards we see traded most.
+      </Txt>
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  index: {
+    marginTop: space.xl, padding: space.lg, gap: space.sm,
+    borderRadius: 14, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  indexHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   root: { flex: 1, backgroundColor: colors.washBottom },
   band: { overflow: "hidden" },
   bloom: { position: "absolute", top: -260, right: -140, width: 560, height: 560 },

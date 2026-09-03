@@ -13,6 +13,9 @@ import { CardMarket } from "../../components/CardMarket";
 import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
+import { PriceChart, RangePicker } from "../../components/PriceChart";
+import { Bone } from "../../components/Skeleton";
+import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
 import { follow } from "../../lib/watchlist";
 import { useToast } from "../../components/Toast";
@@ -198,6 +201,10 @@ export default function CardPage() {
         )}
       </View>
 
+      {grader !== "RAW" && grade && (
+        <CardTrend catalogId={String(id)} grader={grader} grade={grade} />
+      )}
+
       {ladder.length > 0 && (
         <View style={{ marginTop: space.xl }}>
           <Txt variant="h2">The {graderById(grader)?.mark} ladder</Txt>
@@ -230,7 +237,68 @@ export default function CardPage() {
   );
 }
 
+/** What this exact slab has done over time.
+ *
+ *  Its own component so the fetch keys off the grader and grade the page is
+ *  showing — switching from PSA 10 to BGS 9.5 is a different card as far as
+ *  price is concerned, and a chart that did not follow would quietly be
+ *  describing something else. */
+function CardTrend({
+  catalogId, grader, grade,
+}: { catalogId: string; grader: string; grade: string }) {
+  const [days, setDays] = useState(90);
+  const [h, setH] = useState<History | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    setH(undefined);
+    cardHistory({ catalogId, grader, grade, days }).then((r) => { if (alive) setH(r); });
+    return () => { alive = false; };
+  }, [catalogId, grader, grade, days]);
+
+  // Nothing at all is the common case for now, and an empty chart frame is
+  // worse than no chart — it looks broken rather than new.
+  if (h === null) return null;
+
+  const m = h?.movement;
+  const up = (m?.change ?? 0) >= 0;
+
+  return (
+    <View style={{ marginTop: space.xl }}>
+      <View style={s.trendHead}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="h2">Price Over Time</Txt>
+          {m && (
+            <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
+              {up ? "Up" : "Down"} {Math.abs(m.changePct).toFixed(1)}% over this period
+            </Txt>
+          )}
+        </View>
+        <RangePicker value={days} onChange={setDays} />
+      </View>
+
+      {h === undefined ? (
+        <Bone h={180} r={radius.lg} style={{ marginTop: space.md }} />
+      ) : (
+        <>
+          <PriceChart points={h.points} />
+          <Txt variant="bodySmall" color={colors.inkFaint}>
+            {/* The distinction that keeps this honest: how many days we drew
+                against how many we actually observed. */}
+            {h.observed} price{h.observed === 1 ? "" : "s"} recorded
+            {h.points.length > h.observed
+              ? `, carried forward across ${h.points.length} days`
+              : ""}
+            . Not a sale history — what the card was worth on each day.
+          </Txt>
+        </>
+      )}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  trendHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   hero: { alignItems: "center", marginTop: space.sm },
   art: { width: 190, height: 264, borderRadius: radius.md, backgroundColor: colors.surfaceSunk },
   artEmpty: { alignItems: "center", justifyContent: "center" },

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -6,13 +6,15 @@ import { Feather } from "@expo/vector-icons";
 import { PageWash } from "../../components/PageWash";
 import { JoinGate } from "../../components/JoinGate";
 import { useGuest } from "../../lib/guest";
-import { SkeletonList, SkeletonRow } from "../../components/Skeleton";
+import { Bone, SkeletonList, SkeletonRow } from "../../components/Skeleton";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
 import { getCollection, type Entry } from "../../lib/market";
 import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel, variantLabel } from "../../lib/grading";
 import { setDraftSeed, clearDraft } from "../../lib/selldraft";
+import { PriceChart, RangePicker } from "../../components/PriceChart";
+import { collectionHistory } from "../../lib/history";
 import { colors, radius, space } from "../../theme";
 
 const money = (n: number | null, cur = "A$") =>
@@ -95,6 +97,8 @@ export default function Portfolio() {
                   : ""}
               </Txt>
             </View>
+
+            <ValueOverTime />
 
             <View style={s.links}>
               {[
@@ -186,7 +190,62 @@ export default function Portfolio() {
   );
 }
 
+/** What the collection has been worth.
+ *
+ *  Rendered only once there is something to draw. The value card above already
+ *  answers "what is it worth now"; this answers "and is that going anywhere",
+ *  which needs at least two observations to be a claim rather than a dot. */
+function ValueOverTime() {
+  const [days, setDays] = useState(90);
+  const [h, setH] = useState<Awaited<ReturnType<typeof collectionHistory>> | undefined>(undefined);
+
+  useEffect(() => {
+    let alive = true;
+    setH(undefined);
+    collectionHistory(days).then((r) => { if (alive) setH(r); });
+    return () => { alive = false; };
+  }, [days]);
+
+  if (h === null) return null;
+  if (h === undefined) return <Bone h={210} r={radius.lg} style={{ marginTop: space.lg }} />;
+  if (h.points.length < 2) return null;
+
+  const m = h.movement;
+  const up = (m?.change ?? 0) >= 0;
+
+  return (
+    <View style={s.trend}>
+      <View style={s.trendHead}>
+        <View style={{ flex: 1 }}>
+          <Txt variant="h2">Value Over Time</Txt>
+          {m && (
+            <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
+              {up ? "Up" : "Down"} {Math.abs(m.changePct).toFixed(1)}% over this period
+            </Txt>
+          )}
+        </View>
+        <RangePicker value={days} onChange={setDays} />
+      </View>
+      <PriceChart points={h.points} height={160} />
+      {h.priced < h.total && (
+        <Txt variant="bodySmall" color={colors.inkFaint}>
+          {/* The same honesty as the total above it: a line drawn from half
+              the collection must say which half. */}
+          Based on {h.priced} of your {h.total} cards — the rest have no price
+          history yet.
+        </Txt>
+      )}
+    </View>
+  );
+}
+
 const s = StyleSheet.create({
+  trend: {
+    marginTop: space.lg, padding: space.lg, gap: space.sm,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.line,
+  },
+  trendHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   root: { flex: 1, backgroundColor: colors.washBottom },
   list: { paddingHorizontal: space.xl, paddingBottom: 130 },
   head: { paddingTop: space.sm, marginBottom: space.lg },
