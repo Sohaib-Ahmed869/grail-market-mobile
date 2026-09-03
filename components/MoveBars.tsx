@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Txt } from "./Text";
+import { PeriodStrip, type Periods } from "./PeriodStrip";
 import { colors, radius, space, type } from "../theme";
 
 export type MoveRow = {
@@ -7,6 +8,9 @@ export type MoveRow = {
   meta?: string | null;
   change: number | null;
   cardId?: string | null;
+  /** The other three windows. Shown only where there is room for them — the
+   *  dashboard's top three are a glance, the full list is the detail. */
+  periods?: Periods | null;
 };
 
 const BAR = 84;
@@ -49,6 +53,7 @@ export function MoveBars({
             onPress={() => onPress?.(r)}
             style={({ pressed }) => [s.row, pressed && s.pressed]}
           >
+            <View style={s.top}>
             <View style={s.who}>
               <Txt variant="h3" numberOfLines={1}>{r.label}</Txt>
               {r.meta ? (
@@ -78,6 +83,9 @@ export function MoveBars({
             <Txt style={[s.pct, { color: up ? colors.up : colors.down }]}>
               {up ? "+" : "−"}{Math.abs(change).toFixed(1)}%
             </Txt>
+            </View>
+
+            {r.periods && <PeriodStrip periods={r.periods} />}
           </Pressable>
         );
       })}
@@ -89,8 +97,8 @@ const s = StyleSheet.create({
   // Each row is its own bordered card rather than a band between hairlines.
   // A rule only separates; an outline says the name, the gauge and the
   // percentage are one reading of one card, which is what a row here is.
+  top: { flexDirection: "row", alignItems: "center", gap: space.md },
   row: {
-    flexDirection: "row", alignItems: "center", gap: space.md,
     paddingVertical: space.md, paddingHorizontal: space.md, marginBottom: space.sm,
     borderRadius: radius.lg, backgroundColor: colors.surface,
     // colors.outline, not colors.line. The card is white and the page behind

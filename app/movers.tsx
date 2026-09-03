@@ -27,7 +27,7 @@ export default function Movers() {
     <Screen back>
       <Txt variant="display">On The Move</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
-        Seven-day change, biggest movement first. Refreshed twice a day.
+        Biggest movement first, ranked on the week. Refreshed twice a day.
       </Txt>
 
       {pulse === undefined ? (
@@ -46,6 +46,12 @@ export default function Movers() {
               meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
               change: p.change7d,
               cardId: p.cardId,
+              // Only here. The dashboard shows three rows as a glance; this
+              // screen is what somebody opened to actually look.
+              periods: {
+                day: p.change24h, week: p.change7d,
+                month: p.change30d, quarter: p.change90d,
+              },
             }))}
             onPress={(r) =>
               r.cardId

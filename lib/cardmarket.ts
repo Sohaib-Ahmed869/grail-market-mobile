@@ -161,6 +161,7 @@ export async function cardPrice(a: {
 export type Pulse = {
   label: string; setName: string | null; game: string | null;
   price: number; change24h: number | null; change7d: number | null;
+  change30d?: number | null; change90d?: number | null;
   low7: number | null; high7: number | null; spark: number[];
   imageUrl?: string | null; cardId?: string | null;
 };
