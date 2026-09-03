@@ -287,23 +287,19 @@ export default function Home() {
               sub="Cards you asked to be told about"
               action={{ label: "Watchlist", onPress: () => router.push("/watchlist") }}
             />
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
-              contentContainerStyle={s.railInner}>
-              {watched.slice(0, 8).map((w) => {
+            <FocusRail
+              data={watched.slice(0, 8)}
+              itemWidth={196}
+              keyOf={(w) => w.watchId}
+              render={(w) => {
                 const up = (w.since ?? 0) >= 0;
                 return (
                   <Pressable
-                    key={w.watchId}
                     onPress={() => w.catalogId && router.push(`/card/${w.catalogId}` as any)}
                     style={({ pressed }) => [s.watch, pressed && { opacity: 0.85 }]}
                   >
                     <View style={s.watchArt}>
-                      {w.imageUrl ? (
-                        <Image source={{ uri: w.imageUrl }} style={StyleSheet.absoluteFill}
-                          resizeMode="cover" />
-                      ) : (
-                        <Icon name="card" size={22} color={colors.inkFaint} />
-                      )}
+                      <CardArt uri={w.imageUrl} iconSize={22} />
                       <View style={s.watchGrade}>
                         <GraderBadge grader={w.grader ?? "RAW"} grade={w.grade} />
                       </View>
@@ -341,8 +337,8 @@ export default function Home() {
                     </View>
                   </Pressable>
                 );
-              })}
-            </ScrollView>
+              }}
+            />
           </>
         )}
 
@@ -625,7 +621,7 @@ const s = StyleSheet.create({
     backgroundColor: colors.down, borderWidth: 1.5, borderColor: colors.surface,
   },
   watch: {
-    width: 168, padding: space.md,
+    padding: space.md,
     borderRadius: 20, backgroundColor: colors.surface,
     borderWidth: 1, borderColor: colors.line,
     shadowColor: "#0B1622", shadowOpacity: 0.05, shadowRadius: 14,
