@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
@@ -141,6 +142,21 @@ export default function Search() {
               onPress={() => setGame(item)}
               style={({ pressed }) => [s.gameTile, pressed && { opacity: 0.75 }]}
             >
+              {item.preview ? (
+                <Image
+                  source={{ uri: item.preview }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                />
+              ) : null}
+              {/* The scrim. Set logos are drawn to sit on white and card art
+                  is busy, so without it the name is unreadable on about half
+                  the tiles and unpredictable on the rest. */}
+              <LinearGradient
+                colors={["rgba(10,18,25,0.25)", "rgba(10,18,25,0.86)"]}
+                locations={[0.25, 1]}
+                style={StyleSheet.absoluteFill}
+              />
               <Txt variant="h2" color={colors.onDark} numberOfLines={2}>{item.name}</Txt>
               <Txt variant="bodySmall" color={colors.onDarkMuted}>
                 {item.sets ? `${item.sets} sets` : "Browse sets"}
@@ -276,8 +292,8 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: space.xl, paddingTop: space.lg },
   certWrap: { paddingHorizontal: space.xl, paddingTop: space.xl },
   gameTile: {
-    flex: 1, height: 120, padding: space.lg, justifyContent: "flex-end",
-    borderRadius: radius.lg, backgroundColor: colors.dark,
+    flex: 1, height: 132, padding: space.md, justifyContent: "flex-end",
+    borderRadius: radius.lg, backgroundColor: colors.dark, overflow: "hidden",
   },
   crumb: {
     flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.md,

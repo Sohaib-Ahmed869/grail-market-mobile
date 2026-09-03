@@ -96,7 +96,7 @@ export type SetDetail = SetSummary & {
   cards: { cardId: string; name: string; localId: string; imageUrl: string | null }[];
 };
 
-export type BrowseGame = { id: string; name: string; sets?: number };
+export type BrowseGame = { id: string; name: string; sets?: number; preview?: string | null };
 
 /** The games we can browse. Cheap — the server answers from whatever it has
  *  already cached rather than asking four catalogues to draw four tiles. */
