@@ -4,10 +4,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Bloom } from "../../components/Bloom";
-import { Mark } from "../../components/Brand";
+import { Mark, MarkWatermark } from "../../components/Brand";
 import { PageWash } from "../../components/PageWash";
 import { Txt } from "../../components/Text";
 import { Avatar } from "../../components/Avatar";
@@ -26,6 +27,8 @@ import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
 import { ValueHero } from "../../components/ValueHero";
+import { FocusRail } from "../../components/FocusRail";
+import { CardArt } from "../../components/CardArt";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory, marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
@@ -122,6 +125,9 @@ export default function Home() {
 
   return (
     <View style={s.root}>
+      {/* The band runs under the status bar, so the clock is white here even
+          though every other light screen keeps it dark. */}
+      <StatusBar style="light" />
       <PageWash />
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -129,19 +135,25 @@ export default function Home() {
         {...navScroll}
       >
         {/* ---- the band ---------------------------------------------------- */}
-        {/* A gradient the content stands on, not a solid block sitting on top
-            of it. The navy is still here — it has become the ink and the one
-            filled control — but a dark slab cut across the screen is the
-            heaviest possible way to start a page, and it made everything
-            below it feel like a separate document. */}
+        {/* The value does not sit on a card any more — it IS the top of the
+            screen. A panel on a page is a component; a header the page begins
+            with is the page being about that number, which is what a
+            dashboard is for.
+            
+            It runs under the status bar and the content arrives on a sheet
+            below it, so the two read as foreground and background rather than
+            as two blocks stacked. */}
         <LinearGradient
-          colors={["rgba(26,38,50,0.14)", "rgba(26,38,50,0.05)", "rgba(255,255,255,0)"]}
+          colors={["#25374A", colors.dark, "#0C151E"]}
           locations={[0, 0.55, 1]}
           style={s.band}
         >
           <View style={s.bloom} pointerEvents="none">
-            <Bloom size={560} color={colors.accent} opacity={0.22} />
+            <Bloom size={560} color={colors.accent} opacity={0.30} />
           </View>
+          {/* The mark, enormous and barely there. Texture for the band, not a
+              logo sitting on it. */}
+          <MarkWatermark size={330} opacity={0.05} style={s.bandMark} />
           <SafeAreaView edges={["top"]}>
             {/* The greeting said nothing anyone needed twice a day, and the
                 verification chip belongs on the profile where it can be acted
@@ -157,8 +169,8 @@ export default function Home() {
                 onPress={() => router.push("/(tabs)/search")}
                 style={s.search}
               >
-                <Icon name="search" size={18} color={colors.inkFaint} />
-                <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                <Icon name="search" size={18} color={colors.onDarkMuted} />
+                <Txt variant="bodySmall" color={colors.onDarkMuted} numberOfLines={1}>
                   Search a card, set or code
                 </Txt>
               </Pressable>
@@ -168,7 +180,7 @@ export default function Home() {
                 style={s.iconBtn}
                 accessibilityLabel="Notifications"
               >
-                <Icon name="notify" size={20} color={colors.ink} filled={alerts > 0} />
+                <Icon name="notify" size={20} color={colors.onDark} filled={alerts > 0} />
                 {alerts > 0 && (
                   <View style={s.unread}>
                     <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
@@ -196,6 +208,7 @@ export default function Home() {
 
             {signedIn ? (
               <ValueHero
+                bare
                 loading={collection === undefined}
                 empty={!collection || collection.cards === 0}
                 value={aud(collection?.value ?? 0)}
@@ -254,6 +267,17 @@ export default function Home() {
 
           </SafeAreaView>
         </LinearGradient>
+
+        {/* Everything below the value arrives on a sheet that overlaps the
+            band. The overlap is what makes the two read as foreground and
+            background rather than as two blocks stacked on each other. */}
+        <View style={s.sheet}>
+          {/* The grab handle. It is not draggable and does not pretend to be —
+              it is the mark that says "this is a surface lying over the one
+              behind it", which is the whole reason the sheet has a rounded
+              top and an overlap. Without it the join reads as two blocks
+              that happen to have different colours. */}
+          <View style={s.handle} />
 
         {/* ---- what I am following ------------------------------------- */}
         {signedIn && watched && watched.length > 0 && (
@@ -397,28 +421,22 @@ export default function Home() {
             action={signedIn ? { label: "List a card", onPress: () => router.push("/(tabs)/scan") } : undefined}
           />
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
-            contentContainerStyle={s.railInner}>
-            {forSale.map((l) => {
+          <FocusRail
+            data={forSale}
+            itemWidth={196}
+            keyOf={(l) => l.listing_id}
+            render={(l) => {
               const img = l.photos?.[0]?.url ?? l.image_url;
               const market = num(l.market_value);
               const asking = num(l.price) ?? 0;
               const under = market != null && asking < market;
               return (
                 <Pressable
-                  key={l.listing_id}
                   onPress={() => router.push(`/listing/${l.listing_id}` as any)}
-                  style={({ pressed }) => [s.card, pressed && { opacity: 0.85 }]}
+                  style={({ pressed }) => [pressed && { opacity: 0.85 }]}
                 >
-                  <View style={s.thumb}>
-                    {img ? (
-                      <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                    ) : (
-                      <Feather name="image" size={18} color={colors.inkFaint} />
-                    )}
-                    {/* on the art, not below it — the badge belongs to the card
-                        it describes, and stacking it underneath cost a line of
-                        height on every tile */}
+                  <View style={s.focusThumb}>
+                    <CardArt uri={img} iconSize={22} />
                     <View style={s.badgeOnArt}>
                       <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
                     </View>
@@ -430,7 +448,9 @@ export default function Home() {
                       </View>
                     )}
                   </View>
-                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>{l.card_name}</Txt>
+                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
+                    {l.card_name}
+                  </Txt>
                   <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
                     {l.set_name ?? ""}
                   </Txt>
@@ -447,9 +467,10 @@ export default function Home() {
                   </View>
                 </Pressable>
               );
-            })}
-          </ScrollView>
+            }}
+          />
         )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -558,22 +579,37 @@ const s = StyleSheet.create({
   },
   indexHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   root: { flex: 1, backgroundColor: colors.washBottom },
-  band: { overflow: "hidden" },
+  band: { overflow: "hidden", paddingBottom: space.xxl },
+  bandMark: { position: "absolute", right: -110, top: -30 },
+  sheet: {
+    marginTop: -space.xl,
+    borderTopLeftRadius: 26, borderTopRightRadius: 26,
+    backgroundColor: colors.washBottom,
+    paddingTop: space.sm,
+  },
+  handle: {
+    alignSelf: "center", width: 42, height: 5, borderRadius: 3,
+    backgroundColor: colors.lineStrong, marginBottom: space.md,
+  },
   bloom: { position: "absolute", top: -260, right: -140, width: 560, height: 560 },
 
   bar: {
     flexDirection: "row", alignItems: "center", gap: space.sm,
     paddingHorizontal: GUTTER, paddingTop: space.sm,
   },
+  // Glass on the navy rather than white pills. A white control on a dark band
+  // is a hole punched in it; a translucent one belongs to the surface it sits
+  // on and lets the bloom and the watermark show through.
   search: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: space.sm,
     height: 44, paddingHorizontal: space.md,
-    borderRadius: radius.pill, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.line,
+    borderRadius: radius.pill, backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.16)",
   },
   iconBtn: {
     width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.16)",
   },
   unread: {
     position: "absolute", top: 6, right: 6, minWidth: 16, height: 16, borderRadius: 8,
@@ -677,6 +713,13 @@ const s = StyleSheet.create({
   moverFoot: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 1 },
 
   card: { width: 152 },
+  // Taller than the flat rail's 200. The focused tile is the subject of the
+  // section now, and at the old height it was a thumbnail that happened to be
+  // slightly larger than its neighbours.
+  focusThumb: {
+    height: 258, borderRadius: 20, overflow: "hidden",
+    backgroundColor: colors.surfaceSunk, alignItems: "center", justifyContent: "center",
+  },
   thumb: {
     height: 200, borderRadius: 20, overflow: "hidden",
     backgroundColor: colors.surfaceSunk, alignItems: "center", justifyContent: "center",

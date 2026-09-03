@@ -27,7 +27,7 @@ export type HeroStat = { n: string; label: string };
  *  is the one action that starts everything.
  */
 export function ValueHero({
-  value, delta, art, spark, stats, loading, empty, onScan, onPress,
+  value, delta, art, spark, stats, loading, empty, onScan, onPress, bare,
 }: {
   value: string;
   /** Signed, already formatted. Null when there is no cost basis to compare. */
@@ -41,6 +41,12 @@ export function ValueHero({
   empty?: boolean;
   onScan?: () => void;
   onPress?: () => void;
+  /** Drawn straight onto a dark band rather than as a panel on a light page.
+   *
+   *  A card sitting on a header is two containers for one idea. When the
+   *  header IS the value, the panel's own gradient, corners and shadow are
+   *  all describing an edge that should not be there. */
+  bare?: boolean;
 }) {
   const reveal = useSharedValue(0);
   useEffect(() => {
@@ -57,13 +63,15 @@ export function ValueHero({
   const images = held.length >= 3 ? held.slice(0, 7) : [];
 
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={s.wrap}>
-      <LinearGradient
-        colors={["#25374A", colors.dark, "#0A1219"]}
-        locations={[0, 0.55, 1]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+    <Pressable onPress={onPress} disabled={!onPress} style={bare ? s.bare : s.wrap}>
+      {!bare && (
+        <LinearGradient
+          colors={["#25374A", colors.dark, "#0A1219"]}
+          locations={[0, 0.55, 1]}
+          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
 
       {/* ---- the collection, as the surface ------------------------------- */}
       {images.length > 0 && (
@@ -186,6 +194,7 @@ const s = StyleSheet.create({
     shadowColor: "#0B1622", shadowOpacity: 0.22, shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 }, elevation: 12,
   },
+  bare: { overflow: "visible" },
   fan: { ...StyleSheet.absoluteFillObject },
   art: {
     // Cropped by the panel's top edge, so only the head of each card shows —
