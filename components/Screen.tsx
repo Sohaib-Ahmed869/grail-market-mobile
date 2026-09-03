@@ -5,6 +5,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PageWash } from "./PageWash";
 import { Feather } from "@expo/vector-icons";
+import { BackButton } from "./BackButton";
 import { useBack } from "../lib/nav";
 import { useTabBarClearance } from "./TabBar";
 import { colors, space } from "../theme";
@@ -95,15 +96,7 @@ export function Screen({
       >
         {back && (
           <View style={s.bar}>
-            <Pressable
-              onPress={goBack}
-              hitSlop={12}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              style={({ pressed }) => [s.backBtn, pressed && { opacity: 0.6 }]}
-            >
-              <Feather name="chevron-left" size={22} color={colors.ink} />
-            </Pressable>
+            <BackButton onPress={goBack} />
           </View>
         )}
         {body}
@@ -117,11 +110,6 @@ const s = StyleSheet.create({
   safe: { flex: 1, width: "100%", backgroundColor: colors.washBottom },
   fill: { flex: 1, width: "100%" },
   bar: { paddingHorizontal: space.lg, paddingTop: space.xs, paddingBottom: space.xs },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
-  },
   content: { width: "100%", paddingHorizontal: space.xl, paddingBottom: space.xxl, flexGrow: 1 },
   footer: {
     paddingHorizontal: space.xl, paddingTop: space.md, paddingBottom: space.sm,

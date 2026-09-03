@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { FlatList, Image, Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { BackButton } from "../../components/BackButton";
 import { useBack } from "../../lib/nav";
 import { Feather } from "@expo/vector-icons";
 import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
+import { CardArt, Shimmer } from "../../components/CardArt";
 import { setDetail, type SetDetail } from "../../lib/cardmarket";
 import { colors, radius, space } from "../../theme";
 
@@ -27,9 +29,7 @@ export default function SetScreen() {
     <SafeAreaView style={s.root} edges={["top"]}>
       <PageWash />
       <View style={s.head}>
-        <Pressable onPress={goBack} hitSlop={12} style={s.back}>
-          <Feather name="chevron-left" size={22} color={colors.ink} />
-        </Pressable>
+        <BackButton onPress={goBack} />
         {set && (
           <View style={{ flex: 1 }}>
             <Txt variant="h1" numberOfLines={1}>{set.name}</Txt>
@@ -43,7 +43,14 @@ export default function SetScreen() {
       </View>
 
       {set === undefined ? (
-        <Loader fill />
+        <View style={s.skeletonGrid}>
+          {Array.from({ length: 12 }, (_, i) => (
+            <View key={i} style={s.skeletonTile}>
+              <View style={s.art}><Shimmer /></View>
+              <View style={s.skeletonLine} />
+            </View>
+          ))}
+        </View>
       ) : set === null ? (
         <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: space.xxxl }}>
           That set couldn&rsquo;t be loaded.
@@ -60,13 +67,9 @@ export default function SetScreen() {
               onPress={() => router.push(`/card/${encodeURIComponent(item.cardId)}` as any)}
               style={({ pressed }) => [s.tile, pressed && { opacity: 0.75 }]}
             >
-              {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={s.art} resizeMode="cover" />
-              ) : (
-                <View style={[s.art, s.artEmpty]}>
-                  <Feather name="image" size={16} color={colors.inkFaint} />
-                </View>
-              )}
+              <View style={s.art}>
+                <CardArt uri={item.imageUrl} iconSize={16} />
+              </View>
               <Txt variant="bodySmall" numberOfLines={1} style={{ marginTop: 4 }}>{item.name}</Txt>
               <Txt variant="overline" color={colors.inkFaint}>#{item.localId}</Txt>
             </Pressable>
@@ -83,13 +86,17 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: space.md,
     paddingHorizontal: space.lg, paddingBottom: space.md,
   },
-  back: {
-    width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
-  },
   logo: { width: 64, height: 34 },
   list: { paddingHorizontal: space.xl, paddingBottom: space.xxxl, gap: space.md },
   tile: { flex: 1 },
-  art: { width: "100%", aspectRatio: 0.72, borderRadius: radius.sm, backgroundColor: colors.surfaceSunk },
-  artEmpty: { alignItems: "center", justifyContent: "center" },
+  art: {
+    width: "100%", aspectRatio: 0.72, borderRadius: radius.sm,
+    backgroundColor: colors.surfaceSunk, overflow: "hidden",
+  },
+  skeletonGrid: {
+    flexDirection: "row", flexWrap: "wrap", gap: space.sm,
+    paddingHorizontal: space.xl, paddingTop: space.sm,
+  },
+  skeletonTile: { width: "31%", gap: 6 },
+  skeletonLine: { height: 11, borderRadius: 4, backgroundColor: colors.line, width: "80%" },
 });

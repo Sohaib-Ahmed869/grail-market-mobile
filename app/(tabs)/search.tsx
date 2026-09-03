@@ -7,6 +7,7 @@ import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { SvgUri } from "react-native-svg";
+import { CardArt, Shimmer } from "../../components/CardArt";
 import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
@@ -143,13 +144,7 @@ export default function Search() {
               onPress={() => setGame(item)}
               style={({ pressed }) => [s.gameTile, pressed && { opacity: 0.75 }]}
             >
-              {item.preview ? (
-                <Image
-                  source={{ uri: item.preview }}
-                  style={StyleSheet.absoluteFill}
-                  resizeMode="cover"
-                />
-              ) : null}
+              <CardArt uri={item.preview} iconSize={22} />
               {/* The scrim. Set logos are drawn to sit on white and card art
                   is busy, so without it the name is unreadable on about half
                   the tiles and unpredictable on the rest. */}
@@ -270,25 +265,29 @@ export default function Search() {
  *  Everything else gives nothing, and the name is the honest fallback. */
 function SetLogo({ uri, name }: { uri: string | null; name: string }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const svg = Boolean(uri && /\.svg(\?|$)/i.test(uri));
 
   return (
     <View style={s.setLogoBox}>
       {uri && !failed ? (
         svg ? (
-          <SvgUri
-            uri={uri}
-            width="72%"
-            height="72%"
-            onError={() => setFailed(true)}
-          />
+          <SvgUri uri={uri} width="72%" height="72%" onError={() => setFailed(true)} />
         ) : (
-          <Image
-            source={{ uri }}
-            style={s.setLogo}
-            resizeMode="contain"
-            onError={() => setFailed(true)}
-          />
+          <>
+            {/* Under the image, not instead of it. The name used to appear
+                for a beat and then be replaced by the logo, which reads as
+                the tile changing its mind. */}
+            {!loaded && <Shimmer />}
+            <Image
+              source={{ uri }}
+              style={s.setLogo}
+              resizeMode="contain"
+              key={uri}
+              onLoadEnd={() => setLoaded(true)}
+              onError={() => { setFailed(true); setLoaded(true); }}
+            />
+          </>
         )
       ) : (
         <Txt variant="h3" color={colors.inkMuted} center numberOfLines={3}>{name}</Txt>
@@ -336,6 +335,7 @@ const s = StyleSheet.create({
     aspectRatio: 1.5, borderRadius: radius.md, backgroundColor: colors.surfaceSunk,
     borderWidth: 1, borderColor: colors.line,
     alignItems: "center", justifyContent: "center", padding: space.md,
+    overflow: "hidden",
   },
   setLogo: { width: "100%", height: "100%" },
 });

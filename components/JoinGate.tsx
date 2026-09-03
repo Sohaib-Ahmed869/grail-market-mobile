@@ -3,6 +3,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { useRouter } from "expo-router";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Feather } from "@expo/vector-icons";
+import { BackButton } from "./BackButton";
 import { PhonePreview, type PreviewNote } from "./PhonePreview";
 import { Txt } from "./Text";
 import { Button } from "./Button";
@@ -54,15 +55,7 @@ export function JoinGate({
     <View style={s.root}>
       <SafeAreaView edges={["top"]} style={s.fill}>
         <View style={s.topBar}>
-          <Pressable
-            onPress={() => router.replace("/(tabs)/home")}
-            hitSlop={12}
-            accessibilityRole="button"
-            accessibilityLabel="Back to browsing"
-            style={({ pressed }) => [s.back, pressed && { opacity: 0.6 }]}
-          >
-            <Feather name="arrow-left" size={19} color={colors.ink} />
-          </Pressable>
+          <BackButton onPress={() => router.replace("/(tabs)/home")} />
           <Txt variant="bodySmall" color={colors.inkFaint}>Guest</Txt>
         </View>
 
@@ -102,11 +95,6 @@ const s = StyleSheet.create({
   topBar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between",
     paddingHorizontal: space.xl, paddingTop: space.xs, paddingBottom: space.sm,
-  },
-  back: {
-    width: 38, height: 38, borderRadius: 19,
-    alignItems: "center", justifyContent: "center",
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
   },
   // The heading needs air under the phone or the two read as one block. The
   // fade already softens the join; the gap is what separates the picture from
