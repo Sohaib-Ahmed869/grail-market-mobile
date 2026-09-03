@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  FlatList, Image, Pressable, StyleSheet, TextInput, View,
+  FlatList, Image, Linking, Pressable, StyleSheet, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -9,6 +9,7 @@ import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
 import { searchCards, type CardHit } from "../../lib/cards";
+import { lookup, looksLikeCode, type Lookup } from "../../lib/lookup";
 import { allSets, type SetSummary } from "../../lib/cardmarket";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
@@ -43,19 +44,29 @@ export default function Search() {
   // A search box only helps someone who already knows the name. Someone
   // holding an unfamiliar card — a Japanese print, a promo with no English on
   // it — can still recognise the set symbol and find the card in the list.
+  // What the lookup found when the term was a code or a certificate rather
+  // than a name. Null for an ordinary search.
+  const [cert, setCert] = useState<Extract<Lookup, { kind: "cert" }> | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
   const [sets, setSets] = useState<SetSummary[] | null>(null);
   useEffect(() => { allSets().then(setSets); }, []);
   const browsing = q.trim().length < 2;
 
   useEffect(() => {
     const t = q.trim();
-    if (t.length < 2) { setHits([]); setSearched(false); return; }
+    if (t.length < 2) { setHits([]); setSearched(false); setCert(null); setNote(null); return; }
     const mine = ++seq.current;
     setBusy(true);
     const timer = setTimeout(async () => {
-      const r = await searchCards(t);
+      // Anything with a digit in it goes through the lookup, which knows
+      // about set codes, collector numbers and certificate numbers. A plain
+      // name never pays for that round trip.
+      const r = looksLikeCode(t) ? await viaLookup(t) : { hits: await searchCards(t), cert: null, note: null };
       if (mine !== seq.current) return;   // a newer query has already answered
-      setHits(r);
+      setHits(r.hits);
+      setCert(r.cert);
+      setNote(r.note);
       setBusy(false);
       setSearched(true);
     }, 280);
@@ -69,7 +80,7 @@ export default function Search() {
         <Txt variant="display">Search</Txt>
         <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
           {browsing
-            ? "Search a name or a code like OP13-119, or browse a set below."
+            ? "A name, the code printed on the card, or the number on a slab. Or browse a set below."
             : "A name, or a printed code like OP13-119."}
         </Txt>
 
@@ -78,7 +89,7 @@ export default function Search() {
           <TextInput
             value={q}
             onChangeText={setQ}
-            placeholder="Charizard, Umbreon VMAX, OP13-119…"
+            placeholder="A name, a set code, or a cert number"
             placeholderTextColor={colors.inkFaint}
             autoCorrect={false}
             autoCapitalize="none"
@@ -93,7 +104,9 @@ export default function Search() {
         </View>
       </View>
 
-      {browsing ? (
+      {cert ? (
+        <CertResult cert={cert} clearance={clearance} />
+      ) : browsing ? (
         <FlatList
           {...navScroll}
           data={sets ?? []}
@@ -215,6 +228,13 @@ const s = StyleSheet.create({
   },
   input: { flex: 1, ...type.body, color: colors.ink, paddingVertical: 0 },
   list: { paddingHorizontal: space.xl, paddingTop: space.lg },
+  certWrap: { paddingHorizontal: space.xl, paddingTop: space.xl },
+  certLink: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingHorizontal: space.lg, height: 54,
+    borderRadius: radius.pill, backgroundColor: colors.surface,
+    borderWidth: 1.5, borderColor: colors.outline,
+  },
   row: {
     flexDirection: "row", alignItems: "center", gap: space.md,
     paddingVertical: space.md, borderBottomWidth: 1, borderBottomColor: colors.line,
@@ -232,3 +252,60 @@ const s = StyleSheet.create({
   },
   setLogo: { width: "100%", height: "100%" },
 });
+
+/** One shape out of the lookup, whichever branch it took.
+ *
+ *  A code that resolves to a card is shown as a result of one rather than
+ *  navigated to: the person typed something they read off a slab, and being
+ *  thrown straight onto a card page gives them no chance to see whether it is
+ *  the right one. */
+async function viaLookup(term: string): Promise<{
+  hits: CardHit[];
+  cert: Extract<Lookup, { kind: "cert" }> | null;
+  note: string | null;
+}> {
+  const r = await lookup(term);
+  if (!r) return { hits: [], cert: null, note: null };
+  if (r.kind === "cert") return { hits: [], cert: r, note: null };
+  if (r.kind === "card") return { hits: [r.card], cert: null, note: null };
+  return { hits: r.results, cert: null, note: r.note ?? null };
+}
+
+/** A certificate number, handed to the company that issued it.
+ *
+ *  We hold no grading company's data and are not going to pretend to. Their
+ *  register is the only authority on whether a slab is real, so the honest
+ *  answer to a cert number is a door to it — and when the number alone does
+ *  not say which company, all four doors rather than a guess. A PSA link with
+ *  a BGS number in it is a confident wrong answer.
+ */
+function CertResult({
+  cert, clearance,
+}: {
+  cert: Extract<Lookup, { kind: "cert" }>;
+  clearance: number;
+}) {
+  return (
+    <View style={[s.certWrap, { paddingBottom: clearance }]}>
+      <Txt variant="h2">Certificate {cert.cert}</Txt>
+      <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
+        {cert.grader
+          ? `Check it on ${cert.grader}'s own register — they are the only authority on it.`
+          : "That number doesn't say which company graded it. Try the registers below."}
+      </Txt>
+
+      <View style={{ gap: space.sm, marginTop: space.xl }}>
+        {cert.links.map((l) => (
+          <Pressable
+            key={l.grader}
+            onPress={() => Linking.openURL(l.url)}
+            style={({ pressed }) => [s.certLink, pressed && { opacity: 0.7 }]}
+          >
+            <Txt variant="button">Check with {l.grader}</Txt>
+            <Feather name="external-link" size={15} color={colors.inkMuted} />
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
