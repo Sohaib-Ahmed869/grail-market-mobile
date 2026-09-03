@@ -47,7 +47,11 @@ export default function Movers() {
               change: p.change7d,
               cardId: p.cardId,
             }))}
-            onPress={(r) => r.cardId && router.push(`/card/${r.cardId}` as any)}
+            onPress={(r) =>
+              r.cardId
+                ? router.push(`/card/${r.cardId}` as any)
+                : router.push({ pathname: "/market", params: { q: r.label } })
+            }
           />
         </View>
       )}

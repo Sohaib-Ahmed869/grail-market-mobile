@@ -395,7 +395,15 @@ export default function Home() {
               // different size, and the dashboard and the full screen would
               // disagree about how big the week was.
               max={Math.max(...pulse.map((p) => Math.abs(p.change7d ?? 0)), 1)}
-              onPress={(r) => r.cardId && router.push(`/card/${r.cardId}` as any)}
+              // A mover we cannot name in a catalogue still has a live market
+              // behind it, so it goes to the listings for that name rather
+              // than nowhere. A tap that does nothing is the same defect as a
+              // tap that opens "Card Not Found" — it just fails more quietly.
+              onPress={(r) =>
+                r.cardId
+                  ? router.push(`/card/${r.cardId}` as any)
+                  : router.push({ pathname: "/market", params: { q: r.label } })
+              }
             />
           </View>
         )}

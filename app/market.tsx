@@ -3,7 +3,7 @@ import {
   FlatList, Image, Pressable, ScrollView, StyleSheet, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useBack } from "../lib/nav";
 import { Feather } from "@expo/vector-icons";
 import { PageWash } from "../components/PageWash";
@@ -61,9 +61,16 @@ export default function Market() {
   const [grader, setGrader] = useState<string | null>(null);
   const [raw, setRaw] = useState(false);
   const [sort, setSort] = useState("featured");
-  const [open, setOpen] = useState(false);
+  // Seeded from the route, so arriving here from a price mover lands on the
+  // listings for that card rather than on the whole market with the name
+  // typed nowhere.
+  const { q: fromRoute } = useLocalSearchParams<{ q?: string }>();
+  // Open when we arrived with a term, so the reason the list is narrowed is
+  // on screen and one tap from being cleared. Seeding a hidden field and
+  // showing filtered results is how a market looks broken.
+  const [open, setOpen] = useState(Boolean(fromRoute));
   // The rest of what the scope document asks a buyer to be able to narrow by.
-  const [q, setQ] = useState("");
+  const [q, setQ] = useState(fromRoute ?? "");
   const [setName, setSetName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
   const [variant, setVariant] = useState<string | null>(null);
