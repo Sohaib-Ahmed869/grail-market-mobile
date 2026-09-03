@@ -14,6 +14,8 @@ import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
+import { InterestBar } from "../../components/InterestBar";
+import { cardInterest, type Interest } from "../../lib/cards";
 import { Bone } from "../../components/Skeleton";
 import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
@@ -39,6 +41,14 @@ export default function CardPage() {
   } | null | undefined>(undefined);
   const [grader, setGrader] = useState<GraderId>("PSA");
   const [grade, setGrade] = useState<string | null>("10");
+  const [interest, setInterest] = useState<Interest>({
+    following: 0, holding: 0, views: 0, faces: [],
+  });
+  useEffect(() => {
+    let alive = true;
+    if (id) cardInterest(String(id)).then((r) => { if (alive) setInterest(r); });
+    return () => { alive = false; };
+  }, [id]);
   const [price, setPrice] = useState<CardPrice | null | undefined>(undefined);
   const session = useSession();
   const [followed, setFollowed] = useState(false);
@@ -199,6 +209,12 @@ export default function CardPage() {
             )}
           </>
         )}
+      </View>
+
+      {/* Who else is on this card. Counted from what people actually did —
+          see components/InterestBar. */}
+      <View style={{ marginTop: space.xl }}>
+        <InterestBar interest={interest} />
       </View>
 
       {grader !== "RAW" && grade && (

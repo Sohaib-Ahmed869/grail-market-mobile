@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { CardArt } from "./CardArt";
-import { Icon } from "./Icon";
+import { Feather } from "@expo/vector-icons";
 import { Txt } from "./Text";
 import { colors, space } from "../theme";
 
@@ -49,9 +49,13 @@ export function FollowRing({
     >
       {onAdd && (
         <Pressable onPress={onAdd} style={s.item}>
+          {/* A plus, not a bookmark. The bookmark is what a followed card
+              already wears, so using it here said "saved" on the one tile in
+              the row that has nothing saved in it — and the tile's whole job
+              is to be the way to add one. */}
           <View style={[s.ring, s.addRing]}>
-            <View style={s.addInner}>
-              <Icon name="watchlist" size={22} color={colors.inkMuted} />
+            <View style={s.plus}>
+              <Feather name="plus" size={20} color={colors.onPrimary} />
             </View>
           </View>
           <Txt variant="bodySmall" color={colors.inkMuted} numberOfLines={1} style={s.label}>
@@ -123,7 +127,13 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.outline,
   },
-  addInner: { alignItems: "center", justifyContent: "center" },
+  // Filled, so the one actionable tile in a row of pictures is the one that
+  // looks like a control rather than the one that looks emptiest.
+  plus: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.ink,
+  },
   gap: {
     width: SIZE - RING * 2, height: SIZE - RING * 2, borderRadius: (SIZE - RING * 2) / 2,
     backgroundColor: colors.washBottom,

@@ -21,3 +21,20 @@ export async function searchCards(q: string): Promise<CardHit[]> {
     return [];
   }
 }
+
+
+export type Interest = { following: number; holding: number; views: number; faces: string[] };
+
+/** How many people here follow, hold or have looked at a card.
+ *
+ *  Never blocks the page: a failure answers zeros, because social proof going
+ *  quiet is a far better outcome than a card that will not open. */
+export async function cardInterest(catalogId: string): Promise<Interest> {
+  const empty: Interest = { following: 0, holding: 0, views: 0, faces: [] };
+  try {
+    const r = await get<Interest>(`/market/interest?catalogId=${encodeURIComponent(catalogId)}`);
+    return { ...empty, ...r };
+  } catch {
+    return empty;
+  }
+}
