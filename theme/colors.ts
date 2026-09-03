@@ -27,8 +27,14 @@ export const colors = {
   // temperature — the greys still belong to the navy.
   inkMuted: "#4D5863",             // body and secondary — 7.0:1
   inkFaint: "#6A737D",             // captions, placeholders — 4.7:1
-  line: "#E3E8ED",                 // hairlines
+  line: "#E3E8ED",                 // hairlines WITHIN a surface
   lineStrong: "#D2DAE2",
+  // The edge of a white thing sitting on a near-white page — a floating bar,
+  // a card in a list. `line` is 1.2:1 against both and `lineStrong` 1.3:1;
+  // neither is visible on a phone, and reaching for them for this job is a
+  // mistake that has now been made three times. This is the one to use when
+  // the border has to be seen rather than felt.
+  outline: "#B5BEC7",
 
   accent: palette.gold,
   accentWash: "#FBF7F0",           // the cream panel behind a gold moment

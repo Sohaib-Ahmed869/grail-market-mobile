@@ -213,16 +213,15 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2,
     padding: 6, borderRadius: radius.pill,
     backgroundColor: colors.surface,
-    // A defined edge, not a hairline. The bar floats over pages that are
-    // white or near-white, and a #E3E8ED border on a #FAFBFC ground is 1.2:1
-    // — the pill and the page ran into each other and it stopped reading as
-    // a separate thing sitting on top.
-    borderWidth: 1, borderColor: colors.lineStrong,
+    // colors.outline: the token for a border that has to be SEEN. This was
+    // colors.line and then colors.lineStrong, and neither was visible on a
+    // phone.
+    borderWidth: 1.5, borderColor: colors.outline,
     // the lift is what makes it read as floating rather than as a strip of
     // white someone forgot to colour
-    shadowColor: "#0B1622", shadowOpacity: 0.22, shadowRadius: 26,
-    shadowOffset: { width: 0, height: 12 }, elevation: 18,
-    ...Platform.select({ web: { boxShadow: "0 12px 26px rgba(11,22,34,0.22)" } }),
+    shadowColor: "#0B1622", shadowOpacity: 0.26, shadowRadius: 28,
+    shadowOffset: { width: 0, height: 14 }, elevation: 20,
+    ...Platform.select({ web: { boxShadow: "0 14px 28px rgba(11,22,34,0.26)" } }),
   },
   item: {
     flexDirection: "row", alignItems: "center", gap: 6,

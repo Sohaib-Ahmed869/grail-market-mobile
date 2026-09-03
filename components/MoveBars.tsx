@@ -93,11 +93,9 @@ const s = StyleSheet.create({
     flexDirection: "row", alignItems: "center", gap: space.md,
     paddingVertical: space.md, paddingHorizontal: space.md, marginBottom: space.sm,
     borderRadius: radius.lg, backgroundColor: colors.surface,
-    // #B5BEC7, not colors.line. The card is white and the page behind it is
-    // near-white, so the border has to separate it from both — and the token
-    // that was doing it managed 1.23:1 against the card and 1.12:1 against
-    // the page, which is a line that exists in the file and not on a phone.
-    borderWidth: 1.5, borderColor: "#B5BEC7",
+    // colors.outline, not colors.line. The card is white and the page behind
+    // it is near-white, so the border has to separate it from both.
+    borderWidth: 1.5, borderColor: colors.outline,
     // A little lift as well. Two nearly-white surfaces need more than a
     // stroke between them to read as one sitting on the other.
     shadowColor: "#0B1622", shadowOpacity: 0.06, shadowRadius: 10,
