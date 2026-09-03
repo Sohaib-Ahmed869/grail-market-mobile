@@ -1,44 +1,32 @@
 import { useEffect } from "react";
 import { StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
-import { Icon, type IconName } from "../components/Icon";
-import { SuccessSeal } from "../components/SuccessSeal";
-import { colors, radius, space } from "../theme";
+import { MemberCard } from "../components/MemberCard";
+import { useSession } from "../lib/session";
+import { colors, space } from "../theme";
 
 /** What the last ten minutes bought, said as things rather than as a list.
  *
  *  The old copy described the app ("Buy, sell and message other members").
  *  These name what CHANGED — a permission that did not exist an hour ago. The
- *  difference is whether somebody reads it as marketing or as a receipt. */
-const OPENS: { icon: IconName; tone: string; title: string; body: string }[] = [
-  {
-    icon: "selling", tone: colors.ink,
-    title: "You can list cards",
-    body: "With the Seller Verified badge on every one",
-  },
-  {
-    icon: "offer", tone: colors.up,
-    title: "You can make offers",
-    body: "And message the person on the other end",
-  },
-  {
-    icon: "scan", tone: colors.accent,
-    title: "Your scans are yours",
-    body: "Saved to a collection that follows you",
-  },
+ *  difference is whether it reads as marketing or as a receipt. */
+const OPENS = [
+  ["List cards", "With the Seller Verified badge on every one"],
+  ["Make offers", "And message the person on the other end"],
+  ["Keep your scans", "Saved to a collection that follows you"],
 ];
 
 export default function Ready() {
   const router = useRouter();
+  const session = useSession();
 
   useEffect(() => {
     // A success tap, once. The screen already looks like something worked;
-    // this is the half of it you feel, and it is the difference between a
-    // page and a moment. Lazily required — haptics do not exist on web.
+    // this is the half of it you feel. Lazily required — no haptics on web.
     (async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -53,7 +41,7 @@ export default function Ready() {
   return (
     <Screen
       footer={
-        <Animated.View entering={FadeInDown.duration(420).delay(760)}>
+        <Animated.View entering={FadeInDown.duration(420).delay(720)}>
           <Button label="Scan your first card" onPress={() => router.replace("/(tabs)/scan")} />
           <Button
             label="Look around first"
@@ -64,31 +52,29 @@ export default function Ready() {
       }
     >
       <View style={s.middle}>
-        <SuccessSeal size={104} />
+        <MemberCard name={session?.name ?? "Collector"} />
 
-        <Animated.View entering={FadeInDown.duration(460).delay(420)} style={s.copy}>
+        <Animated.View entering={FadeInDown.duration(440).delay(420)} style={s.copy}>
           <Txt variant="display" center>You&rsquo;re In</Txt>
           <Txt variant="body" color={colors.inkMuted} center style={{ marginTop: space.sm }}>
-            {/* Short enough not to wrap. The three cards under it already
-                say what opened up, so saying it here too left the word "up"
-                orphaned on a line of its own. */}
             Verified, and ready to trade.
           </Txt>
         </Animated.View>
 
+        {/* Hairlines, no tiles. Three coloured squares down the left made
+            three sentences look like three buttons, and the colours were
+            doing no work — nothing here is sorted or filtered by them. */}
         <View style={s.list}>
-          {OPENS.map((o, i) => (
+          {OPENS.map(([title, body], i) => (
             <Animated.View
-              key={o.title}
-              entering={FadeInDown.duration(420).delay(540 + i * 90)}
-              style={s.row}
+              key={title}
+              entering={FadeInDown.duration(400).delay(520 + i * 80)}
+              style={[s.row, i > 0 && s.divided]}
             >
-              <View style={[s.icon, { backgroundColor: o.tone }]}>
-                <Icon name={o.icon} size={16} color={colors.onPrimary} filled />
-              </View>
+              <View style={s.tick} />
               <View style={{ flex: 1 }}>
-                <Txt variant="button">{o.title}</Txt>
-                <Txt variant="bodySmall" color={colors.inkMuted}>{o.body}</Txt>
+                <Txt variant="button">{title}</Txt>
+                <Txt variant="bodySmall" color={colors.inkMuted}>{body}</Txt>
               </View>
             </Animated.View>
           ))}
@@ -100,15 +86,11 @@ export default function Ready() {
 
 const s = StyleSheet.create({
   middle: { flex: 1, alignItems: "center", justifyContent: "center" },
-  copy: { alignItems: "center", marginTop: space.md },
-  list: { marginTop: space.xxl, gap: space.sm, alignSelf: "stretch" },
-  row: {
-    flexDirection: "row", alignItems: "center", gap: space.md,
-    padding: space.md, borderRadius: radius.lg,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
-  },
-  icon: {
-    width: 34, height: 34, borderRadius: 11,
-    alignItems: "center", justifyContent: "center",
-  },
+  copy: { alignItems: "center", marginTop: space.xxl },
+  list: { marginTop: space.xl, alignSelf: "stretch" },
+  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
+  divided: { borderTopWidth: 1, borderTopColor: colors.line },
+  // A gold dot, not an icon. It marks the line without pretending to
+  // illustrate it, which is all three of these needed.
+  tick: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.accent },
 });
