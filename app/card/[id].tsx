@@ -14,6 +14,7 @@ import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
+import { CardReveal } from "../../components/CardReveal";
 import { InterestBar } from "../../components/InterestBar";
 import { cardInterest, type Interest } from "../../lib/cards";
 import { Bone } from "../../components/Skeleton";
@@ -155,11 +156,7 @@ export default function CardPage() {
       }
     >
       <View style={s.hero}>
-        {meta.imageUrl ? (
-          <Image source={{ uri: meta.imageUrl }} style={s.art} resizeMode="contain" />
-        ) : (
-          <View style={[s.art, s.artEmpty]}><Feather name="image" size={22} color={colors.inkFaint} /></View>
-        )}
+        <CardReveal uri={meta.imageUrl} width={190} height={264} />
       </View>
 
       <Txt variant="display" style={{ marginTop: space.lg }}>{meta.name}</Txt>
