@@ -31,7 +31,14 @@ yarn-error.*
 *.pem
 
 # local env files
+#
+# `.env` itself, not just `.env*.local`. Everything here is EXPO_PUBLIC_ and
+# ships in the bundle anyway, but an ignore rule that only covers the .local
+# variants is an invitation to commit the day somebody puts something in the
+# plain one. `.env.example` stays tracked — it is the documentation.
+.env
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
