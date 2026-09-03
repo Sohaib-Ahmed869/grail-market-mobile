@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View } from "react-native";
 import { Txt } from "./Text";
-import { colors, space, type } from "../theme";
+import { colors, radius, space, type } from "../theme";
 
 export type MoveRow = {
   label: string;
@@ -47,7 +47,7 @@ export function MoveBars({
           <Pressable
             key={`${r.label}-${i}`}
             onPress={() => onPress?.(r)}
-            style={({ pressed }) => [s.row, i > 0 && s.divided, pressed && { opacity: 0.6 }]}
+            style={({ pressed }) => [s.row, pressed && s.pressed]}
           >
             <View style={s.who}>
               <Txt variant="h3" numberOfLines={1}>{r.label}</Txt>
@@ -86,12 +86,28 @@ export function MoveBars({
 }
 
 const s = StyleSheet.create({
-  row: { flexDirection: "row", alignItems: "center", gap: space.md, paddingVertical: space.md },
-  divided: { borderTopWidth: 1, borderTopColor: colors.line },
+  // Each row is its own bordered card rather than a band between hairlines.
+  // A rule only separates; an outline says the name, the gauge and the
+  // percentage are one reading of one card, which is what a row here is.
+  row: {
+    flexDirection: "row", alignItems: "center", gap: space.md,
+    paddingVertical: space.md, paddingHorizontal: space.md, marginBottom: space.sm,
+    borderRadius: radius.lg, backgroundColor: colors.surface,
+    // #B5BEC7, not colors.line. The card is white and the page behind it is
+    // near-white, so the border has to separate it from both — and the token
+    // that was doing it managed 1.23:1 against the card and 1.12:1 against
+    // the page, which is a line that exists in the file and not on a phone.
+    borderWidth: 1.5, borderColor: "#B5BEC7",
+    // A little lift as well. Two nearly-white surfaces need more than a
+    // stroke between them to read as one sitting on the other.
+    shadowColor: "#0B1622", shadowOpacity: 0.06, shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 }, elevation: 2,
+  },
+  pressed: { opacity: 0.75, borderColor: colors.ink },
   who: { flex: 1, gap: 1 },
   gauge: {
     width: BAR, height: 20, justifyContent: "center",
-    borderRadius: 5, borderWidth: 1, borderColor: colors.line,
+    borderRadius: 5, borderWidth: 1, borderColor: colors.lineStrong,
     backgroundColor: colors.surfaceSunk,
     overflow: "hidden",
   },

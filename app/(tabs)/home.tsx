@@ -389,8 +389,12 @@ export default function Home() {
 
         {/* ---- what moved --------------------------------------------------- */}
         <Section
-          title="Biggest Price Moves"
-          sub="What changed most in the last seven days"
+          title="On The Move"
+          // Not "realtime". The pulse is cached for twelve hours, so the
+          // honest claim is the one that also conveys the tracking: it says
+          // how often we look, which is the thing a live feed is actually
+          // promising.
+          sub="Seven-day change · refreshed twice a day"
           action={
             pulse && pulse.length > 3
               ? { label: "See all", onPress: () => router.push("/movers") }

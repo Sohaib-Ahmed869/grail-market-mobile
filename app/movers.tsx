@@ -25,9 +25,9 @@ export default function Movers() {
 
   return (
     <Screen back>
-      <Txt variant="display">Price Moves</Txt>
+      <Txt variant="display">On The Move</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
-        The last seven days, biggest movement first.
+        Seven-day change, biggest movement first. Refreshed twice a day.
       </Txt>
 
       {pulse === undefined ? (
