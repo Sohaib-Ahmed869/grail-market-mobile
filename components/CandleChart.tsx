@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View, type LayoutChangeEvent } from "react-native";
-import Svg, { Line, Rect } from "react-native-svg";
+import Svg, { Line, Path, Rect } from "react-native-svg";
 import { Txt } from "./Text";
 import { colors, radius, space, type } from "../theme";
 
@@ -21,10 +21,17 @@ export type Candle = {
  *  under a label that says a year.
  */
 export function CandleChart({
-  candles, ohlc, height = 180, ranges, range, onRange, note,
+  candles, ohlc, height = 180, ranges, range, onRange, note, ghosts,
 }: {
   candles: Candle[];
   ohlc: boolean;
+  /** The other cards, drawn behind as faint lines.
+   *
+   *  Candles are one card by definition — an open and a close belong to one
+   *  thing, and six cards cannot share a body. The rest go behind as lines:
+   *  they are what these candles happened AGAINST, which is the only reason
+   *  to draw them at all. */
+  ghosts?: number[][];
   height?: number;
   /** Bar sizes, with the words to put on them. They name the BAR — "Weekly" —
    *  not how far back the data goes, because the second is a claim the
@@ -53,8 +60,25 @@ export function CandleChart({
     const body = Math.max(3, Math.min(slot * 0.62, 22));
     const y = (v: number) => 8 + (1 - (v - min) / span) * (h - 20);
 
+    // Ghosts are rebased onto the candles' own scale: each starts where the
+    // candles start and moves by its own percentages from there. In absolute
+    // prices a 22-cent card and a 380-dollar one cannot share an axis.
+    const base = candles[0]!.open;
+    const ghostPaths = (ghosts ?? [])
+      .filter((g) => g.length > 1 && g[0]! > 0)
+      .map((g) => {
+        const rel = g.map((v) => (v / g[0]!) * base);
+        const step = w / (rel.length - 1);
+        let d = `M0 ${y(rel[0]!).toFixed(1)}`;
+        for (let i = 1; i < rel.length; i++) {
+          const cx = (i - 1) * step + step / 2;
+          d += ` C${cx.toFixed(1)} ${y(rel[i - 1]!).toFixed(1)}, ${cx.toFixed(1)} ${y(rel[i]!).toFixed(1)}, ${(i * step).toFixed(1)} ${y(rel[i]!).toFixed(1)}`;
+        }
+        return d;
+      });
+
     return {
-      w, h, min, max, slot, body, y,
+      w, h, min, max, slot, body, y, ghostPaths,
       rows: [max, (max + min) / 2, min].map((v) => ({ v, y: y(v) })),
       bars: candles.map((c, i) => ({
         c,
@@ -68,7 +92,7 @@ export function CandleChart({
         low: y(c.low),
       })),
     };
-  }, [candles, width, height]);
+  }, [candles, ghosts, width, height]);
 
   const money = (n: number) =>
     n >= 1000 ? Math.round(n).toLocaleString("en-AU") : n.toFixed(n < 10 ? 2 : 0);
@@ -83,6 +107,12 @@ export function CandleChart({
                 <Line key={i} x1={0} y1={r.y} x2={geo.w} y2={r.y}
                   stroke={colors.line} strokeWidth={1}
                   strokeDasharray={i === 1 ? "3 4" : undefined} />
+              ))}
+
+              {/* Drawn before the bars, so a ghost never crosses a candle. */}
+              {geo.ghostPaths.map((d, i) => (
+                <Path key={`g${i}`} d={d} stroke={colors.lineStrong}
+                  strokeWidth={1.5} fill="none" opacity={0.5} strokeLinecap="round" />
               ))}
 
               {/* One reading per bar: a dash at the close, which is the only

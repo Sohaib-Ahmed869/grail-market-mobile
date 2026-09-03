@@ -26,6 +26,8 @@ import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
+import { CandleChart } from "../../components/CandleChart";
+import { cardCandles } from "../../lib/cards";
 import { TrendCompare } from "../../components/TrendCompare";
 import { ValueHero } from "../../components/ValueHero";
 import { FocusRail } from "../../components/FocusRail";
@@ -36,7 +38,8 @@ import { collectionHistory, marketIndex } from "../../lib/history";
 import { money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
-import { colors, radius, space } from "../../theme";
+import { PeriodStrip } from "../../components/PeriodStrip";
+import { colors, radius, space, type } from "../../theme";
 
 const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
 
@@ -68,6 +71,12 @@ export default function Home() {
     { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  // Candles for the leading mover. One call, cached hard on the server, and
+  // it is the same endpoint the card page uses rather than a second one.
+  const [leadRange, setLeadRange] = useState("W");
+  const [leadBars, setLeadBars] = useState<Awaited<ReturnType<typeof cardCandles>>>({
+    candles: [], ranges: [], rangeLabels: [], range: "W", ohlc: false, grader: null,
+  });
   // The hero is built out of the collection, so it needs the pictures and the
   // line as well as the totals.
   const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
@@ -76,6 +85,19 @@ export default function Home() {
   const [unread, setUnread] = useState(0);
   const [alerts, setAlerts] = useState(0);
   const [watched, setWatched] = useState<Watch[] | undefined>(undefined);
+
+  // Which mover the chart is showing. Defaults to the biggest, which is what
+  // the section is ranked on, until somebody picks another.
+  const [picked, setPicked] = useState<string | null>(null);
+  const lead =
+    pulse?.find((p) => (p.cardId ?? p.label) === picked) ?? pulse?.[0] ?? null;
+  const leadId = lead?.cardId ?? lead?.label ?? null;
+  useEffect(() => {
+    let alive = true;
+    if (!leadId) return;
+    cardCandles(leadId, leadRange).then((b) => { if (alive) setLeadBars(b); });
+    return () => { alive = false; };
+  }, [leadId, leadRange]);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -343,51 +365,109 @@ export default function Home() {
             body="Prices held steady this week, or too few cards sold to tell." />
         ) : (
           <View style={s.movers}>
-            {/* One grid, every mover on it. A chart per card answers "what
-                did this one do"; together they answer the question somebody
-                opened the app with — which of these is running and which is
-                falling. */}
+            {/* One panel, everything in it.
+              *
+              * There were three cards under this chart repeating what the
+              * chart already had, and the whole section is one idea: what is
+              * moving. So the chart carries it — the selected card in
+              * candles, every other mover behind it as a faint line, its four
+              * windows underneath, and the names as the way to switch. */}
             <View style={s.compare}>
-              <TrendCompare
-                series={pulse.slice(0, 6).map((p) => ({
-                  id: p.cardId ?? p.label,
-                  label: p.label,
-                  points: p.spark ?? [],
-                }))}
-                selectedId={pulse[0]?.cardId ?? pulse[0]?.label}
-                label={pulse[0]?.label}
-              />
-            </View>
+              <View style={s.leadHead}>
+                <View style={{ flex: 1 }}>
+                  <Txt variant="h3" numberOfLines={1}>{lead?.label}</Txt>
+                  <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                    {[lead?.setName, money(lead?.price, { fx, from: "USD" })]
+                      .filter(Boolean).join(" · ")}
+                  </Txt>
+                </View>
+                <Txt
+                  style={[
+                    s.leadPct,
+                    { color: (lead?.change7d ?? 0) >= 0 ? colors.up : colors.down },
+                  ]}
+                >
+                  {(lead?.change7d ?? 0) >= 0 ? "+" : "−"}
+                  {Math.abs(lead?.change7d ?? 0).toFixed(1)}%
+                </Txt>
+              </View>
 
-            <MoveBars
-              rows={pulse.slice(0, 3).map((p) => ({
-                label: p.label,
-                meta: [p.setName, money(p.price, { fx, from: "USD" })].filter(Boolean).join(" · "),
-                change: p.change7d,
-                cardId: p.cardId,
-                // All four windows here too. Three rows is few enough that
-                // the extra line is depth rather than density, and a single
-                // figure cannot tell a spike from a trend on any screen.
-                periods: {
-                  day: p.change24h, week: p.change7d,
-                  month: p.change30d, quarter: p.change90d,
-                },
-              }))}
-              // Scaled against the whole week, not against these three. Given
-              // its own scale a shortened list redraws the same card at a
-              // different size, and the dashboard and the full screen would
-              // disagree about how big the week was.
-              max={Math.max(...pulse.map((p) => Math.abs(p.change7d ?? 0)), 1)}
-              // A mover we cannot name in a catalogue still has a live market
-              // behind it, so it goes to the listings for that name rather
-              // than nowhere. A tap that does nothing is the same defect as a
-              // tap that opens "Card Not Found" — it just fails more quietly.
-              onPress={(r) =>
-                r.cardId
-                  ? router.push(`/card/${r.cardId}` as any)
-                  : router.push({ pathname: "/market", params: { q: r.label } })
-              }
-            />
+              {leadBars.candles.length > 0 ? (
+                <CandleChart
+                  candles={leadBars.candles}
+                  ohlc={leadBars.ohlc}
+                  ranges={leadBars.rangeLabels}
+                  range={leadBars.range}
+                  onRange={setLeadRange}
+                  height={160}
+                  ghosts={pulse
+                    .filter((p) => (p.cardId ?? p.label) !== leadId)
+                    .slice(0, 5)
+                    .map((p) => p.spark ?? [])}
+                  note={
+                    leadBars.ohlc
+                      ? "Each bar opens where the week began and closes where it ended. The wick is the high and the low."
+                      : "A daily bar is one reading, so it is drawn as the close rather than a candle."
+                  }
+                />
+              ) : (
+                <TrendCompare
+                  series={pulse.slice(0, 6).map((p) => ({
+                    id: p.cardId ?? p.label,
+                    label: p.label,
+                    points: p.spark ?? [],
+                  }))}
+                  selectedId={leadId}
+                  label={lead?.label}
+                />
+              )}
+
+              {lead && (
+                <PeriodStrip
+                  periods={{
+                    day: lead.change24h, week: lead.change7d,
+                    month: lead.change30d, quarter: lead.change90d,
+                  }}
+                />
+              )}
+
+              {/* The names are the only way to change which card is in
+                  candles now that the rows are gone, so this is a control
+                  rather than the duplicate legend it was. */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={s.picks}
+              >
+                {pulse.slice(0, 8).map((p) => {
+                  const id = p.cardId ?? p.label;
+                  const on = id === leadId;
+                  return (
+                    <Pressable
+                      key={id}
+                      onPress={() => setPicked(id)}
+                      style={[s.pick, on && s.pickOn]}
+                    >
+                      <Txt variant="bodySmall" color={on ? colors.onPrimary : colors.inkMuted}
+                        numberOfLines={1}>
+                        {p.label}
+                      </Txt>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <Pressable
+                onPress={() =>
+                  lead?.cardId
+                    ? router.push(`/card/${lead.cardId}` as any)
+                    : router.push({ pathname: "/market", params: { q: lead?.label ?? "" } })
+                }
+                style={s.openCard}
+              >
+                <Txt variant="button">Open {lead?.label}</Txt>
+                <Feather name="chevron-right" size={15} color={colors.ink} />
+              </Pressable>
+            </View>
           </View>
         )}
 
@@ -692,6 +772,20 @@ const s = StyleSheet.create({
   compare: {
     padding: space.lg, borderRadius: radius.lg,
     backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline,
+  },
+  leadHead: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.md },
+  leadPct: { ...type.h2, fontVariant: ["tabular-nums"] },
+  picks: { gap: 6, paddingTop: space.md },
+  pick: {
+    paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
+    maxWidth: 160,
+  },
+  pickOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  openCard: {
+    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
+    height: 44, marginTop: space.md, borderRadius: radius.pill,
+    borderWidth: 1.5, borderColor: colors.outline,
   },
   railInner: { paddingHorizontal: GUTTER, gap: space.md },
 
