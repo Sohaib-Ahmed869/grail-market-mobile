@@ -94,7 +94,6 @@ export default function SignUp() {
           <Steps step={1} label="Your details" />
         </View>
 
-
         <View style={s.form}>
           <Field
             label="Full name — as it appears on your ID"
