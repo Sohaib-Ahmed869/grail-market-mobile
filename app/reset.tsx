@@ -71,6 +71,7 @@ export default function Reset() {
           onChangeText={setPassword}
           error={tooShort ? "Use at least 10 characters." : undefined}
           icon="lock" secure strength={strength}
+          reserve
           autoComplete="new-password" textContentType="newPassword"
           placeholder="At least 10 characters"
         />
@@ -80,6 +81,7 @@ export default function Reset() {
           onChangeText={setAgain}
           error={mismatch ? "These don't match." : undefined}
           icon="lock" secure
+          reserve
           autoComplete="new-password" textContentType="newPassword"
           placeholder="The same password"
           returnKeyType="done" onSubmitEditing={submit}
@@ -89,4 +91,4 @@ export default function Reset() {
   );
 }
 
-const s = StyleSheet.create({ form: { gap: space.lg, marginTop: space.xxl } });
+const s = StyleSheet.create({ form: { gap: space.md, marginTop: space.xl } });

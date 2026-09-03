@@ -97,6 +97,7 @@ export default function Forgot() {
           onBlur={() => email.trim() && setTouched(true)}
           error={touched ? bad ?? undefined : undefined}
           icon="mail"
+          reserve
           keyboardType="email-address" autoCapitalize="none" autoComplete="email"
           textContentType="emailAddress" placeholder="alex@example.com.au"
           returnKeyType="send" onSubmitEditing={submit}
@@ -107,7 +108,7 @@ export default function Forgot() {
 }
 
 const s = StyleSheet.create({
-  form: { gap: space.lg, marginTop: space.xxl },
+  form: { gap: space.md, marginTop: space.xl },
   sentCard: {
     marginTop: space.xxl, padding: space.xl, alignItems: "center",
     borderRadius: radius.lg, backgroundColor: colors.accentWash,

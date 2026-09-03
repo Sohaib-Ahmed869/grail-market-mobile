@@ -1,9 +1,10 @@
 import { ScrollView, StyleSheet, View } from "react-native";
+import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import { KeyboardAvoidingView, Platform, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Bloom } from "./Bloom";
-import { Lockup } from "./Brand";
+import { Lockup, MarkIntro } from "./Brand";
 import { Txt } from "./Text";
 import { Icon } from "./Icon";
 import { useBack } from "../lib/nav";
@@ -44,10 +45,18 @@ export function AuthShell({
             <Icon name="home" size={17} color={colors.onDark} />
           </Pressable>
           <View style={s.brand}>
-            <Lockup width={186} onDark />
-            <Txt variant="bodySmall" color={colors.onDarkMuted} center style={{ marginTop: space.sm }}>
-              Australia&rsquo;s marketplace for slabs &amp; sealed
-            </Txt>
+            {/* The G turns face-up, then the name arrives under it. Two beats
+                rather than one, which is why the wordmark is delayed — a logo
+                and its name appearing together is a still image that faded in. */}
+            <MarkIntro size={52} />
+            <Animated.View entering={FadeInDown.duration(520).delay(560)}>
+              <Lockup width={172} onDark />
+            </Animated.View>
+            <Animated.View entering={FadeIn.duration(480).delay(820)}>
+              <Txt variant="bodySmall" color={colors.onDarkMuted} center style={{ marginTop: space.sm }}>
+                Australia&rsquo;s marketplace for slabs &amp; sealed
+              </Txt>
+            </Animated.View>
           </View>
         </SafeAreaView>
       </LinearGradient>
@@ -65,10 +74,12 @@ export function AuthShell({
             showsVerticalScrollIndicator={false}
             automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            <Txt variant="display">{title}</Txt>
-            <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
-              {sub}
-            </Txt>
+            <Animated.View entering={FadeInDown.duration(460).delay(240)}>
+              <Txt variant="display">{title}</Txt>
+              <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
+                {sub}
+              </Txt>
+            </Animated.View>
             {children}
           </ScrollView>
           <View style={s.footer}>{footer}</View>
@@ -90,7 +101,7 @@ const s = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.10)",
     borderWidth: 1, borderColor: "rgba(255,255,255,0.16)",
   },
-  brand: { alignItems: "center", marginTop: space.lg },
+  brand: { alignItems: "center", marginTop: space.md, gap: 2 },
   // the sheet overlaps the band, which is what gives the screen its depth
   sheet: {
     flex: 1, marginTop: -space.xxl,

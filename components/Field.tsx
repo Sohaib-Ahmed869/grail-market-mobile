@@ -15,6 +15,19 @@ type Props = TextInputProps & {
   left?: React.ReactNode;
   /** 0–3, drawn as a bar under the field. Only the password uses it. */
   strength?: number;
+  /** Sits at the right end of the LABEL row. "Forgot password?" goes here.
+   *
+   *  It used to be its own right-aligned line under the field, which is a
+   *  fourth element in a three-element stack and lines up with nothing. On
+   *  the label row it shares a baseline with the label and the row it belongs
+   *  to reads as one thing. */
+  action?: React.ReactNode;
+  /** Hold the space an error would take, so showing one does not shove every
+   *  field below it down the screen.
+   *
+   *  Off by default — most forms never error and the reserved line would be a
+   *  gap under every field for nothing. On wherever validation is live. */
+  reserve?: boolean;
 };
 
 /** A labelled input.
@@ -26,7 +39,9 @@ type Props = TextInputProps & {
  *
  *  Focus is shown by the ring AND the icon taking the accent colour, because a
  *  border alone is easy to miss on a screen held at arm's length. */
-export function Field({ label, hint, secure, error, icon, strength, left, ...rest }: Props) {
+export function Field({
+  label, hint, secure, error, icon, strength, left, action, reserve, ...rest
+}: Props) {
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(Boolean(secure));
   const input = useRef<TextInput>(null);
@@ -34,9 +49,17 @@ export function Field({ label, hint, secure, error, icon, strength, left, ...res
 
   return (
     <View style={s.wrap}>
-      <Txt variant="label" color={bad ? colors.down : focused ? colors.ink : colors.inkMuted}>
-        {label}
-      </Txt>
+      <View style={s.labelRow}>
+        <Txt
+          variant="label"
+          color={bad ? colors.down : focused ? colors.ink : colors.inkMuted}
+          style={s.label}
+          numberOfLines={1}
+        >
+          {label}
+        </Txt>
+        {action}
+      </View>
 
       {/* The whole box focuses the input, not just the 
           text itself. A field is a target the size of the box as far as
@@ -47,12 +70,19 @@ export function Field({ label, hint, secure, error, icon, strength, left, ...res
         style={[s.box, focused && s.boxFocused, bad && s.boxError]}
       >
         {left}
+        {/* A fixed-width slot, not a bare glyph. Feather characters do not
+            share an advance width — "mail" is wider than "lock" — so letting
+            them size themselves started the text at a different x in every
+            field, which is exactly the ragged left edge a stack of inputs
+            must not have. */}
         {icon && (
-          <Feather
-            name={icon}
-            size={17}
-            color={bad ? colors.down : focused ? colors.ink : colors.inkFaint}
-          />
+          <View style={s.iconSlot}>
+            <Feather
+              name={icon}
+              size={17}
+              color={bad ? colors.down : focused ? colors.ink : colors.inkFaint}
+            />
+          </View>
         )}
         <TextInput
           ref={input}
@@ -70,19 +100,27 @@ export function Field({ label, hint, secure, error, icon, strength, left, ...res
             hitSlop={12}
             accessibilityRole="button"
             accessibilityLabel={hidden ? "Show password" : "Hide password"}
+            // Same fixed slot as the leading icon, for the same reason: "eye"
+            // and "eye-off" are different widths, so toggling it nudged the
+            // right edge of the text and the caret jumped as you revealed.
+            style={s.iconSlot}
           >
-            <Feather name={hidden ? "eye" : "eye-off"} size={17} color={colors.inkFaint} />
+            <Feather
+              name={hidden ? "eye" : "eye-off"}
+              size={17}
+              color={focused ? colors.inkMuted : colors.inkFaint}
+            />
           </Pressable>
         )}
       </Pressable>
 
       {strength != null && <Strength level={strength} />}
 
-      {(error || hint) && (
-        <View style={s.foot}>
+      {(error || hint || reserve) && (
+        <View style={[s.foot, reserve && s.footReserved]}>
           {bad && <Feather name="alert-circle" size={12} color={colors.down} />}
           <Txt variant="bodySmall" color={bad ? colors.down : colors.inkFaint} style={s.footTxt}>
-            {error ?? hint}
+            {error ?? hint ?? ""}
           </Txt>
         </View>
       )}
@@ -111,9 +149,15 @@ function Strength({ level }: { level: number }) {
 
 const s = StyleSheet.create({
   wrap: { gap: 7 },
+  // baseline, not centre: the label and whatever sits opposite it are both
+  // text, and centring them leaves the two sitting at different heights the
+  // moment their sizes differ by a point.
+  labelRow: { flexDirection: "row", alignItems: "baseline", gap: space.md },
+  label: { flex: 1 },
+  iconSlot: { width: 20, alignItems: "center" },
   box: {
-    flexDirection: "row", alignItems: "center", gap: space.md,
-    height: 56, paddingHorizontal: space.lg,
+    flexDirection: "row", alignItems: "center", gap: 10,
+    height: 54, paddingHorizontal: 14,
     borderRadius: radius.md, borderWidth: 1.5,
     borderColor: colors.fieldLine, backgroundColor: colors.field,
   },
@@ -132,5 +176,8 @@ const s = StyleSheet.create({
   meter: { flexDirection: "row", gap: 5, marginTop: 1 },
   seg: { flex: 1, height: 3, borderRadius: 2 },
   foot: { flexDirection: "row", alignItems: "center", gap: 5 },
+  // One line's worth, always. The alternative is every field below this one
+  // jumping down as you tab out of it.
+  footReserved: { minHeight: 16 },
   footTxt: { flex: 1 },
 });

@@ -121,6 +121,7 @@ export default function SignUp() {
             value={form.name} onChangeText={set("name")} onBlur={blur("name")}
             error={err("name")}
             icon="user"
+            reserve
             autoCapitalize="words" autoComplete="name" textContentType="name"
             placeholder="Alex Barakat"
           />
@@ -128,6 +129,7 @@ export default function SignUp() {
             label="Email" value={form.email} onChangeText={set("email")} onBlur={blur("email")}
             error={err("email")}
             icon="mail"
+            reserve
             keyboardType="email-address" autoCapitalize="none" autoComplete="email"
             textContentType="emailAddress" placeholder="alex@example.com.au"
           />
@@ -144,6 +146,7 @@ export default function SignUp() {
             label="Password" value={form.password} onChangeText={set("password")} onBlur={blur("password")}
             error={err("password")} hint="Length beats symbols. Three words is plenty."
             icon="lock" strength={passwordStrength(form.password)}
+            reserve
             secure autoComplete="new-password" textContentType="newPassword"
             placeholder="At least 10 characters"
           />
@@ -151,6 +154,7 @@ export default function SignUp() {
             label="Confirm password" value={form.confirm} onChangeText={set("confirm")} onBlur={blur("confirm")}
             error={err("confirm")}
             icon="check-circle"
+            reserve
             secure autoComplete="new-password" textContentType="newPassword"
             placeholder="Type it again"
           />
@@ -168,5 +172,5 @@ export default function SignUp() {
 }
 
 const s = StyleSheet.create({
-  form: { gap: space.lg, marginTop: space.xxl },
+  form: { gap: space.md, marginTop: space.xl },
 });

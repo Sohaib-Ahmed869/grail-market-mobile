@@ -72,31 +72,43 @@ export default function SignIn() {
           onBlur={() => form.email.trim() && setTouched({ email: true })}
           error={touched.email ? emailBad ?? undefined : undefined}
           icon="mail"
+          reserve
           keyboardType="email-address" autoCapitalize="none" autoComplete="email"
           textContentType="emailAddress" placeholder="alex@example.com.au"
+          returnKeyType="next"
         />
         <Field
           label="Password"
           value={form.password}
           onChangeText={(v) => setForm((f) => ({ ...f, password: v }))}
           icon="lock" secure
+          reserve
           autoComplete="current-password" textContentType="password"
           placeholder="Your password"
+          returnKeyType="go" onSubmitEditing={submit}
+          // On the label row rather than a fourth line under a three-line
+          // stack: down there it right-aligned to nothing and pushed the
+          // button away from the fields it belongs to.
+          action={
+            <Pressable
+              onPress={() =>
+                router.push({ pathname: "/forgot", params: { email: form.email.trim() } })
+              }
+              hitSlop={10}
+            >
+              <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "600" }}>
+                Forgot password?
+              </Txt>
+            </Pressable>
+          }
         />
-        <Pressable
-          onPress={() => router.push({ pathname: "/forgot", params: { email: form.email.trim() } })}
-          hitSlop={8}
-          style={{ alignSelf: "flex-end" }}
-        >
-          <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "600" }}>
-            Forgot password?
-          </Txt>
-        </Pressable>
       </View>
     </AuthShell>
   );
 }
 
 const s = StyleSheet.create({
-  form: { gap: space.lg, marginTop: space.xxl },
+  // space.md, not lg: every field now carries its own reserved error line, so
+  // a 16pt gap on top of that reads as fields drifting apart.
+  form: { gap: space.md, marginTop: space.xl },
 });
