@@ -138,6 +138,29 @@ export type CardPrice = {
   slabPrice: { price: number; basis: string; confidence: string; sampleSize?: number;
                explain?: string; method?: string } | null;
   liveAsk: { median: number; low: number | null; high: number | null; count: number } | null;
+  shops: ShopQuote[] | null;
+};
+
+/** One place this card can be bought, and what it costs there.
+ *
+ *  `kind` is the part that must not be flattened away on screen. A `live` row
+ *  is a listing somebody is selling right now and the url opens it. A `market`
+ *  row is the marketplace's own published price for the product — a real
+ *  number from a real shop, but a summary of their market rather than a copy
+ *  that is definitely in stock, because neither TCGplayer nor Cardmarket lets
+ *  us read their sellers' inventory. */
+export type ShopQuote = {
+  id: "tcgplayer" | "cardmarket" | "ebay" | "grailmarket";
+  name: string;
+  kind: "live" | "market";
+  price: number;
+  currency: string;
+  basis: string;
+  low: number | null;
+  high: number | null;
+  count: number | null;
+  url: string | null;
+  updated: string | null;
 };
 
 /** The same chain a scan uses, for a card picked from a set or a search.

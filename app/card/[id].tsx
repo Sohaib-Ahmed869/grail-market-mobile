@@ -10,6 +10,7 @@ import { Note } from "../../components/Note";
 import { GraderChips } from "../../components/GraderChips";
 import { Picker } from "../../components/Picker";
 import { CardMarket } from "../../components/CardMarket";
+import { BuyAt } from "../../components/BuyAt";
 import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
@@ -362,6 +363,12 @@ export default function CardPage() {
           </View>
         </View>
       )}
+
+      {/* Where to get one. Above this the page has been answering what the
+          card is worth; this is the question that follows it. It sits before
+          CardMarket because "buy it here" is a shorter road than the sales
+          and ask history underneath. */}
+      <BuyAt shops={price?.shops} />
 
       <CardMarket
         card={{
