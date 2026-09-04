@@ -41,7 +41,19 @@ export default function Notifications() {
 
   return (
     <Screen back>
-      <Txt variant="display" style={{ marginTop: space.sm }}>Notifications</Txt>
+      {/* The list and the settings for the list, in the one place somebody
+          goes when they are wondering why they got this. */}
+      <View style={s.head}>
+        <Txt variant="display" style={{ flex: 1 }}>Notifications</Txt>
+        <Pressable
+          onPress={() => router.push("/alerts")}
+          hitSlop={10}
+          accessibilityLabel="Notification settings"
+          style={({ pressed }) => [s.gear, pressed && { opacity: 0.7 }]}
+        >
+          <Icon name="settings" size={18} color={colors.ink} />
+        </Pressable>
+      </View>
 
       {items === undefined ? (
         <View style={{ marginTop: space.xl }}>
@@ -98,6 +110,16 @@ export default function Notifications() {
 }
 
 const s = StyleSheet.create({
+  head: {
+    flexDirection: "row", alignItems: "center", gap: space.md,
+    marginTop: space.sm,
+  },
+  gear: {
+    width: 36, height: 36, borderRadius: 18,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.surface,
+    borderWidth: 1, borderColor: colors.outline,
+  },
   row: {
     flexDirection: "row", alignItems: "center", gap: space.md,
     padding: space.md, borderRadius: radius.lg,

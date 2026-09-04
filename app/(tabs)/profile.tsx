@@ -42,6 +42,7 @@ const SELLING: Row[] = [
 ];
 
 const ACCOUNT: Row[] = [
+  { icon: "bell", label: "Notifications", hint: "What's worth a buzz, and what can wait", to: "/alerts" },
   { icon: "settings", label: "Account settings", hint: "Your details, password and two-step", to: "/account" },
   { icon: "alert-triangle", label: "Disputes", hint: "Sales where something went wrong", to: "/disputes" },
   { icon: "smile", label: "Your face", hint: "Pick one of the built-in avatars", to: "/avatar" },

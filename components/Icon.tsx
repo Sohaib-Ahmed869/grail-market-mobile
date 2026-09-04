@@ -17,9 +17,21 @@ type Spec = { family: Family; on: string; off: string };
 
 const ICONS = {
   home:        { family: "ion", on: "home",              off: "home-outline" },
-  community:   { family: "mc",  on: "forum",             off: "forum-outline" },
+  // People, not speech bubbles. A forum bubble and the Messages tab's
+  // chatbubbles are the same drawing at 22pt, so the two tabs read as the same
+  // place — and the difference that matters is that one is everybody and the
+  // other is one person.
+  community:   { family: "mc",  on: "account-group",    off: "account-group-outline" },
   scan:        { family: "mc",  on: "line-scan",         off: "line-scan" },
-  watchlist:   { family: "mc",  on: "bookmark-multiple", off: "bookmark-multiple-outline" },
+  // A telescope, not a bookmark and not an eye. A bookmark says "saved for
+  // later", which is a reading list, not a price you want to be told about;
+  // an eye collides with the view count sitting on the same card page. This
+  // is watching something distant and worth having, which is the product.
+  watchlist:   { family: "ion", on: "telescope",         off: "telescope-outline" },
+  // Following ONE card: deliberately the Watchlist tab's own glyph. The button
+  // and the place it puts the card have to look like the same idea, or nobody
+  // connects "Follow" with the tab it lands in. Filled = already following.
+  follow:      { family: "ion", on: "telescope",         off: "telescope-outline" },
   collection:  { family: "mc",  on: "cards",             off: "cards-outline" },
   profile:     { family: "ion", on: "person-circle",     off: "person-circle-outline" },
 
@@ -39,6 +51,10 @@ const ICONS = {
   sold:        { family: "mc",  on: "hand-coin",         off: "hand-coin-outline" },
   lock:        { family: "mc",  on: "lock",               off: "lock-outline" },
   key:         { family: "mc",  on: "key-variant",        off: "key-outline" },
+  // Sliders, not a cog. This opens what you are told about and how loudly,
+  // which is a set of choices — a cog says "the settings screen", and there is
+  // already one of those.
+  settings:    { family: "ion", on: "options",            off: "options-outline" },
 } as const;
 
 export type IconName = keyof typeof ICONS;

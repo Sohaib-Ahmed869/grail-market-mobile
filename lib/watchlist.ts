@@ -40,3 +40,9 @@ export const unfollow = (watchId: string) =>
 
 export const registerPush = (token: string, platform: string) =>
   post<{ ok?: boolean }>("/push/register", { token, platform });
+
+/** Stop sending to this device. Called when push is turned off, so a phone
+ *  that has been silenced is not still being sent to — a token nobody reads
+ *  is a delivery that costs and cannot arrive. */
+export const forgetPush = (token: string) =>
+  post<{ ok?: boolean }>("/push/forget", { token });

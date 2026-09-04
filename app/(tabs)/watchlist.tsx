@@ -10,6 +10,7 @@ import { Note } from "../../components/Note";
 import { GraderBadge } from "../../components/GraderChips";
 import { SkeletonList, SkeletonRow } from "../../components/Skeleton";
 import { setAlert, unfollow, watchlist, type Watch } from "../../lib/watchlist";
+import { Icon } from "../../components/Icon";
 import { enablePush, pushPossible } from "../../lib/push";
 import { useToast } from "../../components/Toast";
 import { conversionNote, money, useFx } from "../../lib/fx";
@@ -67,7 +68,7 @@ export default function Watchlist() {
         </View>
       ) : rows.length === 0 ? (
         <View style={s.empty}>
-          <View style={s.emptyIcon}><Feather name="eye" size={20} color={colors.inkFaint} /></View>
+          <View style={s.emptyIcon}><Icon name="follow" size={20} color={colors.inkFaint} /></View>
           <Txt variant="h3" center style={{ marginTop: space.md }}>Nothing Followed Yet</Txt>
           <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: 4 }}>
             Open any card and tap Follow. We&rsquo;ll tell you when it moves by more than

@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { registerPush } from "./watchlist";
+import { forgetPush, registerPush } from "./watchlist";
 
 // Asking for permission to interrupt someone.
 //
@@ -86,6 +86,30 @@ export async function enablePush(): Promise<boolean> {
 }
 
 export const pushRegistered = () => registered;
+
+/** Stop sending to this device.
+ *
+ *  The OS permission is deliberately left alone. An app cannot revoke its own
+ *  notification permission, and asking somebody to go to Settings to turn one
+ *  category off is a worse answer than simply not sending — so "off" here
+ *  means the server forgets where to send, which is the part we control and
+ *  the part that actually stops the buzzing. */
+export async function disablePush(): Promise<boolean> {
+  const mod = load();
+  if (!mod || !mod.isDevice) return false;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const Constants = require("expo-constants").default;
+    const projectId =
+      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+    const token = (await mod.N.getExpoPushTokenAsync(projectId ? { projectId } : undefined)).data;
+    await forgetPush(token);
+    registered = false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type PushStatus = "unavailable" | "granted" | "denied" | "undetermined";
 
