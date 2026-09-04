@@ -11,8 +11,9 @@ import { gradeLabel, variantLabel } from "../../lib/grading";
 import { getDraft } from "../../lib/selldraft";
 import { useSession } from "../../lib/session";
 import { colors, radius, space } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (n?: number | null) => (n == null ? "—" : `A$${Math.round(n).toLocaleString()}`);
+const money = (n?: number | null) => aud(n);
 
 /** Step 4 — exactly what a buyer will see.
  *

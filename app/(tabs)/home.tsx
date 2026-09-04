@@ -35,13 +35,13 @@ import { FollowRing } from "../../components/FollowRing";
 import { CardArt } from "../../components/CardArt";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory, marketIndex } from "../../lib/history";
-import { money, useFx } from "../../lib/fx";
+import { aud, money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { PeriodStrip } from "../../components/PeriodStrip";
 import { colors, radius, space, type } from "../../theme";
 
-const aud = (n: number) => `A$${Math.round(n).toLocaleString()}`;
+
 
 /** Home.
  *

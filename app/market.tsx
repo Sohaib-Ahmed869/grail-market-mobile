@@ -13,11 +13,9 @@ import { GraderBadge } from "../components/GraderChips";
 import { browse, num, type Listing } from "../lib/market";
 import { VARIANTS } from "../lib/grading";
 import { colors, radius, space, type } from "../theme";
+import { aud } from "../lib/fx";
 
-const money = (v: string | number | null | undefined) => {
-  const n = num(v);
-  return n == null ? "—" : `A$${Math.round(n).toLocaleString()}`;
-};
+const money = (v: string | number | null | undefined) => aud(num(v));
 
 /** How long it has been up.
  *

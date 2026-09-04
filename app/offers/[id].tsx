@@ -12,11 +12,9 @@ import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
 import { num, offersFor, settleOffer, type Offer } from "../../lib/market";
 import { colors, radius, space, type } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (v: string | number | null | undefined) => {
-  const n = num(v);
-  return n == null ? "—" : `A$${Math.round(n).toLocaleString()}`;
-};
+const money = (v: string | number | null | undefined) => aud(num(v));
 
 const STATUS: Record<string, { label: string; fg: string; bg: string }> = {
   open: { label: "Open", fg: colors.info, bg: colors.infoWash },
@@ -56,7 +54,7 @@ export default function ListingOffers() {
       toast({
         accepted: "Offer accepted. Every other open offer on this card was declined.",
         declined: "Offer declined.",
-        countered: `Countered at A$${Math.round(amount ?? 0).toLocaleString()}.`,
+        countered: `Countered at ${aud(amount ?? 0)}.`,
       }[action], { tone: action === "declined" ? "info" : "good" });
     }
     setCountering(null);

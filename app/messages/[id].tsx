@@ -18,6 +18,7 @@ import {
 import { useSession } from "../../lib/session";
 import { useToast } from "../../components/Toast";
 import { colors, radius, space, type } from "../../theme";
+import { aud } from "../../lib/fx";
 
 const clock = (iso: string) =>
   new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
@@ -138,7 +139,7 @@ export default function ThreadScreen() {
             <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
               {meta.card_name}
               {meta.grader ? ` · ${meta.grader} ${meta.grade ?? ""}` : ""}
-              {" · A$"}{Math.round(Number(meta.price)).toLocaleString()}
+              {" · "}{aud(Number(meta.price))}
             </Txt>
           </View>
           <Icon name="card" size={18} color={colors.inkFaint} />

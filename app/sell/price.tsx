@@ -11,8 +11,9 @@ import { getDraft, patchDraft } from "../../lib/selldraft";
 import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
 import { colors, radius, space, type } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (n: number) => `A$${Math.round(n).toLocaleString()}`;
+const money = (n: number) => aud(n);
 
 /** Step 3 — what to ask, and how a buyer gets it.
  *

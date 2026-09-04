@@ -11,6 +11,7 @@ import { GraderBadge } from "../../components/GraderChips";
 import { useToast } from "../../components/Toast";
 import { editListing, getListing, num, type Listing } from "../../lib/market";
 import { colors, radius, space, type } from "../../theme";
+import { aud } from "../../lib/fx";
 
 const DELIVERY = [
   { id: "pickup", label: "Pickup in person" },
@@ -125,7 +126,7 @@ export default function EditListing() {
         {market != null ? (
           <>
             <Txt variant="bodySmall" color={colors.inkMuted}>
-              Market value A${Math.round(market).toLocaleString()}
+              Market value {aud(market)}
             </Txt>
             {gap != null && (
               <Txt variant="bodySmall" color={gap > 0 ? colors.down : colors.up}>

@@ -12,11 +12,9 @@ import { Note } from "../../components/Note";
 import { GraderBadge } from "../../components/GraderChips";
 import { num, sellerProfile, type Seller } from "../../lib/market";
 import { colors, radius, space } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (v: string | number | null | undefined) => {
-  const n = num(v);
-  return n == null ? "—" : `A$${Math.round(n).toLocaleString()}`;
-};
+const money = (v: string | number | null | undefined) => aud(num(v));
 
 const since = (iso: string | null | undefined) => {
   if (!iso) return "recently";

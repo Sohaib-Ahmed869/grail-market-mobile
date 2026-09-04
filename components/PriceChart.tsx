@@ -3,13 +3,13 @@ import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from "react-na
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from "react-native-svg";
 import { Txt } from "./Text";
 import { colors, radius, space } from "../theme";
+import { aud } from "../lib/fx";
 
 export type ChartPoint = { day: string; price: number };
 
-const money = (n: number) =>
-  n >= 1000
-    ? `A$${Math.round(n).toLocaleString("en-AU")}`
-    : `A$${n.toFixed(n < 10 ? 2 : 0)}`;
+// The axis, in the app's one money format. It had its own copy of the
+// cents-below-ten rule, which was right, and its own copy is how the two drift.
+const money = (n: number) => aud(n);
 
 const shortDay = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });

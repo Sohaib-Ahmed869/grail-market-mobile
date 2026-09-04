@@ -22,11 +22,12 @@ import { useTier } from "../../lib/tiers";
 import { markSold, withdrawListing } from "../../lib/market";
 import { Icon } from "../../components/Icon";
 import { colors, radius, space, type } from "../../theme";
+import { aud } from "../../lib/fx";
 
 const W = Dimensions.get("window").width;
 const money = (v: string | number | null | undefined) => {
   const n = num(v);
-  return n == null ? "—" : `A$${Math.round(n).toLocaleString()}`;
+  return aud(n);
 };
 
 function age(iso: string | null): string {

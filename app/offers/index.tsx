@@ -11,11 +11,9 @@ import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
 import { makeOffer, myOffers, num, type Offer } from "../../lib/market";
 import { colors, radius, space } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (v: string | number | null | undefined) => {
-  const n = num(v);
-  return n == null ? "—" : `A$${Math.round(n).toLocaleString()}`;
-};
+const money = (v: string | number | null | undefined) => aud(num(v));
 
 const STATUS: Record<string, { label: string; fg: string; bg: string; body: string }> = {
   open: { label: "Waiting", fg: colors.info, bg: colors.infoWash, body: "The seller hasn't answered yet." },
