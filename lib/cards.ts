@@ -51,10 +51,13 @@ export type CardTrend = {
  *  real answer — the page shows the rest of itself and says nothing about a
  *  trend rather than drawing a flat line. */
 export async function cardTrend(a: {
-  cardId: string; name: string; game?: string | null;
+  cardId: string; name: string; game?: string | null; setName?: string | null;
 }): Promise<CardTrend | null> {
   const p = new URLSearchParams({ cardId: a.cardId, name: a.name });
   if (a.game) p.set("game", a.game);
+  // The set is what separates two printings that share a name and differ by
+  // two orders of magnitude in price. Sent whenever the screen knows it.
+  if (a.setName) p.set("set", a.setName);
   try {
     const r = await get<{ trend?: CardTrend | null }>(`/market/trend?${p}`);
     return r.trend ?? null;

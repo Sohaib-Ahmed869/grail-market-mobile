@@ -24,6 +24,7 @@ import { Bone } from "../../components/Skeleton";
 import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
 import { follow } from "../../lib/watchlist";
+import { Icon } from "../../components/Icon";
 import { useToast } from "../../components/Toast";
 import { useSession } from "../../lib/session";
 import { colors, radius, space, type } from "../../theme";
@@ -66,10 +67,10 @@ export default function CardPage() {
     if (!id || !meta?.name) return;
     // No game passed: the server infers it from the catalogue id prefix,
     // which is the same thing this screen would be guessing from.
-    cardTrend({ cardId: String(id), name: meta.name })
+    cardTrend({ cardId: String(id), name: meta.name, setName: meta.setName })
       .then((t) => { if (alive) setTrend(t); });
     return () => { alive = false; };
-  }, [id, meta?.name]);
+  }, [id, meta?.name, meta?.setName]);
   useEffect(() => {
     let alive = true;
     if (id) cardInterest(String(id)).then((r) => { if (alive) setInterest(r); });
@@ -155,6 +156,14 @@ export default function CardPage() {
           <Button
             label={followed ? "Following · 10% either way" : "Follow this card"}
             kind="ghost"
+            icon={
+              <Icon
+                name="follow"
+                size={18}
+                filled={followed}
+                color={followed ? colors.accent : colors.ink}
+              />
+            }
             disabled={followed}
             loading={following}
             onPress={async () => {
@@ -191,12 +200,35 @@ export default function CardPage() {
 
       {/* The price, the way a quote is shown: the number large, the change
           beside it, the windows under it, the line under those. Everything
-          above is what the card IS; this is what it is doing. */}
+          above is what the card IS; this is what it is doing.
+       *
+       *  The NUMBER is ours and the MOVEMENT is the feed's, which is not a
+       *  compromise — it is the only combination that is true. This used to
+       *  print `trend.price`, the feed's own figure, while the block further
+       *  down printed our price chain for the same card: US$0.20 at the top
+       *  and US$8 underneath, forty times apart, because they are two
+       *  different sources and the feed had answered about a different
+       *  printing. Two figures for one card is the thing this file's header
+       *  says must never happen, and when they disagree it is ours that is
+       *  built from the grader and grade actually selected.
+       *
+       *  The percentages stay the feed's. A change over 24 hours is a claim
+       *  about a series, and ours is a point. */}
       {trend && (
         <View style={s.quote}>
-          <Txt style={s.quotePrice}>
-            {money(trend.price)}
+          <Txt variant="overline" color={colors.inkFaint}>
+            {grader === "RAW" ? "Ungraded" : `${graderById(grader)?.mark} ${gradeLabel(grader, grade)}`}
           </Txt>
+          {price === undefined ? (
+            <Bone h={40} w={140} r={radius.sm} />
+          ) : (
+            <Txt style={s.quotePrice}>
+              {/* The feed's figure only where we have none of our own — a
+                  price from somewhere is better than no price, and it is the
+                  same number the movement below was measured on. */}
+              {money(headline ?? trend.price)}
+            </Txt>
+          )}
           {trend.change24h != null && (
             <View
               style={[
@@ -271,7 +303,12 @@ export default function CardPage() {
           <Loader fill />
         ) : (
           <>
-            <Txt variant="price">{money(headline)}</Txt>
+            {/* Only when the quote above did not already say it. That block
+                renders on a trend and this one always does, so without the
+                condition the same figure appears twice a screen apart — and
+                with it, a card the feed has never heard of still shows a
+                price rather than nothing. */}
+            {!trend && <Txt variant="price">{money(headline)}</Txt>}
             {conversionNote(headline, fx) && (
               <Txt variant="bodySmall" color={colors.inkFaint}>{conversionNote(headline, fx)}</Txt>
             )}
