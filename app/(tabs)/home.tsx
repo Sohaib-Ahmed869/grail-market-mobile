@@ -28,7 +28,7 @@ import { marketPulse, type Pulse } from "../../lib/cardmarket";
 import { MoveBars } from "../../components/MoveBars";
 import { CandleChart } from "../../components/CandleChart";
 import { cardCandles } from "../../lib/cards";
-import { TrendCompare } from "../../components/TrendCompare";
+import { MarketChart } from "../../components/MarketChart";
 import { ValueHero } from "../../components/ValueHero";
 import { FocusRail } from "../../components/FocusRail";
 import { FollowRing } from "../../components/FollowRing";
@@ -392,34 +392,53 @@ export default function Home() {
                 </Txt>
               </View>
 
-              {leadBars.candles.length > 0 ? (
+              {/* Candles only once there are enough of them to be a chart.
+                *
+                * Two candles floating on a grid is not a picture of a trend,
+                * it is two rectangles — and with a fortnight of history that
+                * is all a weekly bar can ever be. The line says the same
+                * thing honestly at this sample size, and the candles arrive
+                * on their own as the weeks accumulate. */}
+              {leadBars.ohlc && leadBars.candles.length >= 5 ? (
                 <CandleChart
                   candles={leadBars.candles}
-                  ohlc={leadBars.ohlc}
-                  ranges={leadBars.rangeLabels}
-                  range={leadBars.range}
-                  onRange={setLeadRange}
+                  ohlc
                   height={160}
-                  ghosts={pulse
-                    .filter((p) => (p.cardId ?? p.label) !== leadId)
-                    .slice(0, 5)
-                    .map((p) => p.spark ?? [])}
-                  note={
-                    leadBars.ohlc
-                      ? "Each bar opens where the week began and closes where it ended. The wick is the high and the low."
-                      : "A daily bar is one reading, so it is drawn as the close rather than a candle."
-                  }
+                  note="Each bar opens where the period began and closes where it ended. The wick is the high and the low."
                 />
               ) : (
-                <TrendCompare
-                  series={pulse.slice(0, 6).map((p) => ({
-                    id: p.cardId ?? p.label,
-                    label: p.label,
-                    points: p.spark ?? [],
-                  }))}
-                  selectedId={leadId}
-                  label={lead?.label}
+                <MarketChart
+                  points={lead?.spark ?? []}
+                  height={150}
+                  label={
+                    leadBars.candles.length > 0
+                      ? `${leadBars.candles.length} ${leadBars.range === "D" ? "days" : leadBars.range === "M" ? "months" : "weeks"} recorded — candles once there are five`
+                      : undefined
+                  }
                 />
+              )}
+
+              {/* The picker sits outside the chart, so switching bar size
+                  never takes the control away with it. It did: choosing Daily
+                  dropped to the line chart, and the line chart had no picker
+                  to switch back with. */}
+              {leadBars.rangeLabels.length > 1 && (
+                <View style={s.ranges}>
+                  {leadBars.rangeLabels.map((r) => (
+                    <Pressable
+                      key={r.id}
+                      onPress={() => setLeadRange(r.id)}
+                      style={[s.rangeBtn, r.id === leadBars.range && s.rangeOn]}
+                    >
+                      <Txt
+                        variant="button"
+                        color={r.id === leadBars.range ? colors.onPrimary : colors.inkMuted}
+                      >
+                        {r.label}
+                      </Txt>
+                    </Pressable>
+                  ))}
+                </View>
               )}
 
               {lead && (
@@ -775,6 +794,12 @@ const s = StyleSheet.create({
   },
   leadHead: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.md },
   leadPct: { ...type.h2, fontVariant: ["tabular-nums"] },
+  ranges: { flexDirection: "row", gap: 6, marginTop: space.md },
+  rangeBtn: {
+    paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
+    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
+  },
+  rangeOn: { backgroundColor: colors.ink, borderColor: colors.ink },
   picks: { gap: 6, paddingTop: space.md },
   pick: {
     paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
