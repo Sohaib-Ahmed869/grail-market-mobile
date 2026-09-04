@@ -125,7 +125,15 @@ export default function Search() {
       {cert ? (
         <CertResult cert={cert} clearance={clearance} />
       ) : browsing && !game ? (
+        // The three lists below are the same element type in the same position,
+        // so without distinct keys React REUSES one instance across all three
+        // branches — and going from a two-column grid to the one-column results
+        // list then changes numColumns on a mounted list, which FlatList refuses
+        // outright ("Changing numColumns on the fly is not supported"). The key
+        // is what makes each branch its own list rather than a reconfiguration
+        // of the last one.
         <FlatList
+          key="games"
           {...navScroll}
           data={games ?? []}
           keyExtractor={(g) => g.id}
@@ -162,6 +170,7 @@ export default function Search() {
         />
       ) : browsing ? (
         <FlatList
+          key="sets"
           {...navScroll}
           data={sets ?? []}
           keyExtractor={(x) => x.setId}
@@ -203,6 +212,7 @@ export default function Search() {
         />
       ) : (
       <FlatList
+        key="cards"
         {...navScroll}
         data={hits}
         keyExtractor={(c) => c.cardId}

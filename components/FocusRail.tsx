@@ -19,11 +19,20 @@ import { space } from "../theme";
  *  device without a fast CPU.
  */
 export function FocusRail<T>({
-  data, itemWidth, gap = space.md, keyOf, render, onFocus,
+  data, itemWidth, gap = space.md, keyOf, render, onFocus, centreFirst = true,
 }: {
   data: T[];
   itemWidth: number;
   gap?: number;
+  /** Whether the first item can sit in the middle of the screen.
+   *
+   *  True for big tiles, where the rail shows one at a time and centring the
+   *  first is the only way it can ever be the chosen one. False for small
+   *  ones: the padding that centres a 96pt tile is 147pt, so the row would
+   *  open with half the screen empty before the first card. Then the rail
+   *  starts at the page margin and the item nearest the middle is the focused
+   *  one, which for a short row is the second. */
+  centreFirst?: boolean;
   keyOf: (item: T, i: number) => string;
   render: (item: T, i: number) => React.ReactNode;
   /** The index now in the middle. Fires on settle, not per frame. */
@@ -37,17 +46,30 @@ export function FocusRail<T>({
   // Side padding puts the first and last items in the CENTRE when the list is
   // scrolled to either end. Without it the first card can never be the
   // focused one, which is the card most people look at.
-  const pad = Math.max(space.xl, (width - itemWidth) / 2);
+  const pad = centreFirst ? Math.max(space.xl, (width - itemWidth) / 2) : space.xl;
+  // The scroll offset at which item i sits in the middle of the screen. With
+  // centring padding this is just i * step; without it every item is shifted
+  // by however much narrower the leading gutter is. Deriving it rather than
+  // assuming it is what lets the same component do both.
+  const centreAt = pad + itemWidth / 2 - width / 2;
+
+  // Where the list is allowed to stop. Clamped at zero and de-duplicated,
+  // because when the leading gutter is only a page margin the first item or
+  // two cannot reach the middle of the screen at all — their stop would be a
+  // negative offset, which is not a place a scroll view can rest.
+  const stops = Array.from(
+    new Set(data.map((_, i) => Math.max(0, Math.round(centreAt + i * step)))),
+  ).sort((a, b) => a - b);
 
   const onScroll = useAnimatedScrollHandler({ onScroll: (e) => { x.value = e.contentOffset.x; } });
 
   const settle = useCallback(
     (offset: number) => {
-      const i = Math.round(offset / step);
+      const i = Math.max(0, Math.round((offset - centreAt) / step));
       setFocused(i);
       onFocus?.(i);
     },
-    [step, onFocus],
+    [step, centreAt, onFocus],
   );
 
   return (
@@ -57,8 +79,9 @@ export function FocusRail<T>({
       onScroll={onScroll}
       scrollEventThrottle={16}
       // Snapping is what turns a pan into a choice. `fast` deceleration stops
-      // it drifting past the one you were aiming at.
-      snapToInterval={step}
+      // it drifting past the one you were aiming at. Offset by centreAt so the
+      // stops land on items rather than on multiples of the step.
+      snapToOffsets={stops}
       decelerationRate="fast"
       disableIntervalMomentum
       onMomentumScrollEnd={(e) => settle(e.nativeEvent.contentOffset.x)}
@@ -66,7 +89,10 @@ export function FocusRail<T>({
       contentContainerStyle={{ paddingHorizontal: pad, gap }}
     >
       {data.map((item, i) => (
-        <Focusable key={keyOf(item, i)} x={x} index={i} step={step} width={itemWidth}>
+        <Focusable
+          key={keyOf(item, i)}
+          x={x} index={i} step={step} width={itemWidth} centreAt={centreAt}
+        >
           {render(item, i)}
         </Focusable>
       ))}
@@ -75,16 +101,21 @@ export function FocusRail<T>({
 }
 
 function Focusable({
-  x, index, step, width, children,
+  x, index, step, width, centreAt, children,
 }: {
   x: SharedValue<number>;
-  index: number; step: number; width: number;
+  index: number; step: number; width: number; centreAt: number;
   children: React.ReactNode;
 }) {
+  // Worked out here, on the JS thread. The worklet below runs on the UI thread
+  // and a value it closes over is copied there once; arithmetic left inside it
+  // is arithmetic done sixty times a second.
+  const mid = centreAt + index * step;
+
   const style = useAnimatedStyle(() => {
     // Distance from centre, in items. The neighbours either side are the only
     // ones that need to move; anything further is off screen anyway.
-    const range = [(index - 1) * step, index * step, (index + 1) * step];
+    const range = [mid - step, mid, mid + step];
     return {
       transform: [
         { scale: interpolate(x.value, range, [0.86, 1, 0.86], Extrapolation.CLAMP) },

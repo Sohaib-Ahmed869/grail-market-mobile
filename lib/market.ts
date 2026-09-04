@@ -1,4 +1,4 @@
-import { get, post } from "./api";
+import { del, get, post } from "./api";
 
 export type Listing = {
   listing_id: string; card_name: string; set_name: string | null;
@@ -196,6 +196,14 @@ export async function getCollection(): Promise<{
   } catch {
     return { entries: [], value: 0, cost: 0, gain: 0, priced: 0 };
   }
+}
+
+/** Take a card out. Destructive and not undoable, so the screen confirms
+ *  first — this only reports what the server did with it. */
+export async function removeFromCollection(entryId: string) {
+  return del<{ ok?: boolean; error?: string; message?: string }>(
+    `/collection/${encodeURIComponent(entryId)}`,
+  );
 }
 
 export async function addToCollection(e: {

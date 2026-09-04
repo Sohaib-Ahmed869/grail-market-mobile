@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -9,8 +9,10 @@ import { useGuest } from "../../lib/guest";
 import { Bone, SkeletonList, SkeletonRow } from "../../components/Skeleton";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
-import { getCollection, type Entry } from "../../lib/market";
+import { getCollection, removeFromCollection, type Entry } from "../../lib/market";
 import { GraderBadge } from "../../components/GraderChips";
+import { Icon } from "../../components/Icon";
+import { useToast } from "../../components/Toast";
 import { gradeLabel, variantLabel } from "../../lib/grading";
 import { setDraftSeed, clearDraft } from "../../lib/selldraft";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
@@ -18,9 +20,9 @@ import { collectionHistory } from "../../lib/history";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
+import { aud } from "../../lib/fx";
 
-const money = (n: number | null, cur = "A$") =>
-  n == null ? "—" : `${cur}${Math.round(n).toLocaleString()}`;
+const money = (n: number | null) => aud(n);
 
 /** Collection.
  *
@@ -40,12 +42,58 @@ export default function Portfolio() {
   const router = useRouter();
   const [data, setData] = useState({ entries: [] as Entry[], value: 0, cost: 0, gain: 0, priced: 0 });
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const toast = useToast();
 
   const load = useCallback(() => {
     setBusy(true);
-    getCollection().then((d) => { setData(d); setBusy(false); });
+    getCollection().then((d) => {
+      setData(d);
+      setBusy(false);
+      // Nothing left to edit. Without this the mode survives an empty list and
+      // the next card added lands in a screen already in edit mode.
+      if (d.entries.length === 0) setEditing(false);
+    });
   }, []);
   useFocusEffect(load);
+
+  /** Take a card out.
+   *
+   *  Confirmed first, because there is no undo and no trash: the entry carries
+   *  what was paid for it, and that is not something the app can reconstruct
+   *  once it is gone. The row disappears the moment the server says the row
+   *  went, not before — an optimistic removal that then fails leaves the
+   *  screen claiming a card is gone when it is still there, and this list is
+   *  the one place someone checks what they own. */
+  const remove = useCallback((e: Entry) => {
+    const held = e.quantity ?? 1;
+    Alert.alert(
+      "Remove from collection?",
+      held > 1
+        ? `All ${held} of your ${e.cardName} come out. This cannot be undone.`
+        : `${e.cardName} comes out of your collection. This cannot be undone.`,
+      [
+        { text: "Keep it", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            const r = await removeFromCollection(e.entryId);
+            if (r.ok) {
+              // Recomputed rather than subtracted. The totals are the server's
+              // arithmetic over quantities and per-card prices, and doing that
+              // sum a second time here is how the two drift apart.
+              load();
+              toast(`${e.cardName} removed.`);
+            } else {
+              toast(r.message ?? "Could not remove that card.", { tone: "bad" });
+              load();
+            }
+          },
+        },
+      ],
+    );
+  }, [load, toast]);
 
   const up = data.gain >= 0;
 
@@ -77,7 +125,20 @@ export default function Portfolio() {
         contentContainerStyle={[s.list, { paddingBottom: clearance }]}
         ListHeaderComponent={
           <View style={s.head}>
-            <Txt variant="display">Collection</Txt>
+            <View style={s.titleRow}>
+              <Txt variant="display" style={{ flex: 1 }}>Collection</Txt>
+              {data.entries.length > 0 && (
+                <Pressable
+                  onPress={() => setEditing((v) => !v)}
+                  hitSlop={10}
+                  style={({ pressed }) => [s.edit, editing && s.editOn, pressed && { opacity: 0.7 }]}
+                >
+                  <Txt variant="button" color={editing ? colors.onPrimary : colors.ink}>
+                    {editing ? "Done" : "Edit"}
+                  </Txt>
+                </Pressable>
+              )}
+            </View>
             <View style={s.valueCard}>
               <Txt variant="overline" color={colors.inkFaint}>Live market value</Txt>
               <Txt variant="price" style={{ marginTop: 2 }}>{money(data.value)}</Txt>
@@ -108,15 +169,19 @@ export default function Portfolio() {
             <ValueOverTime />
 
             <View style={s.links}>
+              {/* The app's own icon vocabulary, not Feather's. These four go to
+                  screens whose tabs and headers wear these exact glyphs, and a
+                  different drawing for the same destination is a different
+                  destination as far as anybody scanning the row is concerned. */}
               {[
-                { icon: "eye" as const, label: "Watchlist", to: "/watchlist" },
-                { icon: "tag" as const, label: "My listings", to: "/mylistings" },
-                { icon: "inbox" as const, label: "My offers", to: "/offers" },
-                { icon: "shopping-bag" as const, label: "Market", to: "/market" },
+                { icon: "watchlist" as const, label: "Watchlist", to: "/watchlist" },
+                { icon: "selling" as const, label: "My listings", to: "/mylistings" },
+                { icon: "offer" as const, label: "My offers", to: "/offers" },
+                { icon: "market" as const, label: "Market", to: "/market" },
               ].map((x) => (
                 <Pressable key={x.label} onPress={() => router.push(x.to as any)}
                   style={({ pressed }) => [s.link, pressed && { opacity: 0.7 }]}>
-                  <Feather name={x.icon} size={16} color={colors.ink} />
+                  <Icon name={x.icon} size={17} color={colors.ink} />
                   <Txt variant="bodySmall" center>{x.label}</Txt>
                 </Pressable>
               ))}
@@ -156,7 +221,25 @@ export default function Portfolio() {
             router.push("/sell/card");
           };
           return (
-            <Pressable style={s.row} onPress={sell}>
+            <Pressable
+              style={s.row}
+              // In edit mode the row stops being a shortcut into the sell flow.
+              // A list where the same tap sometimes lists a card and sometimes
+              // does nothing is worse than one where it plainly does nothing,
+              // and the remove control is right there.
+              onPress={editing ? undefined : sell}
+              disabled={editing}
+            >
+              {editing && (
+                <Pressable
+                  onPress={() => remove(item)}
+                  hitSlop={10}
+                  style={({ pressed }) => [s.remove, pressed && { opacity: 0.6 }]}
+                  accessibilityLabel={`Remove ${item.cardName} from your collection`}
+                >
+                  <Feather name="minus" size={16} color={colors.onPrimary} />
+                </Pressable>
+              )}
               {item.imageUrl ? (
                 <Image source={{ uri: item.imageUrl }} style={s.thumb} resizeMode="cover" />
               ) : (
@@ -189,6 +272,11 @@ export default function Portfolio() {
                   </Txt>
                 )}
               </View>
+              {/* Nothing to tap here while editing, so the chevron that says
+                  "this row goes somewhere" would be a lie. */}
+              {!editing && (
+                <Feather name="chevron-right" size={16} color={colors.inkFaint} />
+              )}
             </Pressable>
           );
         }}
@@ -256,6 +344,20 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.washBottom },
   list: { paddingHorizontal: space.xl },
   head: { paddingTop: space.sm, marginBottom: space.lg },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: space.md },
+  edit: {
+    paddingHorizontal: space.lg, paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface,
+  },
+  editOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  // Red, round and to the LEFT of the artwork, which is where the same control
+  // sits in every list on the platform that has one.
+  remove: {
+    width: 24, height: 24, borderRadius: 12,
+    alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.down,
+  },
   valueCard: {
     marginTop: space.lg, padding: space.lg, borderRadius: radius.lg,
     backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
