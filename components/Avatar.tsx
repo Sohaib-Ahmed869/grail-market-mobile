@@ -20,8 +20,18 @@ import { colors } from "../theme";
 
 const INK = "#16202B";
 
-function Eyes({ kind }: { kind: Face["eyes"] }) {
+function Eyes({ kind }: { kind: Face["eyes"] | "closed" }) {
   switch (kind) {
+    // A blink is the same face with its eyes shut, not a different face. Two
+    // shallow arcs read as closed at every size the grid is used at; a filled
+    // line reads as a scowl once it is 20pt in a comment row.
+    case "closed":
+      return (
+        <G stroke={INK} strokeWidth={4.5} strokeLinecap="round" fill="none">
+          <Path d="M31 48 q6 5 12 0" />
+          <Path d="M57 48 q6 5 12 0" />
+        </G>
+      );
     case "happy":
       return (
         <G stroke={INK} strokeWidth={4.5} strokeLinecap="round" fill="none">
@@ -134,9 +144,12 @@ function Chest({ kind }: { kind: Face["chest"] }) {
 
 /** Someone's face, at whatever size the screen needs. */
 export function Avatar({
-  name, id, size = 40, ring = false,
+  name, id, size = 40, ring = false, eyes,
 }: {
   name: string; id?: string | null; size?: number; ring?: boolean;
+  /** Override the preset's eyes for a moment. Only AnimatedAvatar uses this,
+   *  to blink; the face is otherwise entirely decided by its preset. */
+  eyes?: Face["eyes"] | "closed";
 }) {
   const a = avatarFor(id, name || "?");
 
@@ -182,7 +195,7 @@ export function Avatar({
           d="M50 16 q26 0 26 28 0 16 -8 24 12 6 12 20 v12 H20 v-12 q0 -14 12 -20 -8 -8 -8 -24 0 -28 26 -28 z"
           fill={`url(#${gid})`} stroke={INK} strokeWidth={3.5} strokeLinejoin="round"
         />
-        <Eyes kind={a.eyes} />
+        <Eyes kind={eyes ?? a.eyes} />
         <Mouth kind={a.mouth} />
         <Chest kind={a.chest} />
       </Svg>

@@ -6,6 +6,7 @@ import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Avatar } from "../components/Avatar";
+import { AnimatedAvatar } from "../components/AnimatedAvatar";
 import { AVATARS } from "../lib/avatars";
 import { chooseAvatar } from "../lib/auth";
 import { useSession } from "../lib/session";
@@ -23,6 +24,9 @@ export default function AvatarPicker() {
   const session = useSession();
   const [picked, setPicked] = useState<string | null>(session?.avatar ?? null);
   const [busy, setBusy] = useState(false);
+  // Local and unsaved on purpose: this is a demonstration of what the face
+  // does when pressed, not a score anybody keeps.
+  const [loved, setLoved] = useState(0);
 
   const save = async () => {
     setBusy(true);
@@ -39,10 +43,26 @@ export default function AvatarPicker() {
       </Txt>
 
       <View style={s.preview}>
-        <Avatar name={session?.name ?? "You"} id={picked} size={92} />
+        {/* The big one breathes and blinks, and presses back. This is the
+            screen where somebody is deciding whether they like a face, so it
+            is the screen where the face should be doing something. The grid
+            below stays still on purpose — twelve of these all bobbing at once
+            is a disco, not a picker. */}
+        <AnimatedAvatar
+          name={session?.name ?? "You"}
+          id={picked}
+          size={92}
+          onHeart={() => setLoved((n) => n + 1)}
+          hearted={loved > 0}
+          hearts={loved}
+          accessibilityLabel="Try this face"
+        />
         <Txt variant="h2" style={{ marginTop: space.md }}>{session?.name ?? "You"}</Txt>
         <Txt variant="bodySmall" color={colors.inkFaint}>
           {AVATARS.find((a) => a.id === picked)?.label ?? "Picked from your name"}
+        </Txt>
+        <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: 2 }}>
+          {loved > 0 ? "They liked that" : "Tap the face"}
         </Txt>
       </View>
 

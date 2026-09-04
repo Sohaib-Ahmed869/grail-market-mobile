@@ -46,6 +46,10 @@ const ICONS = {
   verified:    { family: "mc",  on: "shield-check",      off: "shield-check-outline" },
   photo:       { family: "mc",  on: "camera",            off: "camera-outline" },
   star:        { family: "ion", on: "star",              off: "star-outline" },
+  // Affection, not approval. `star` is already the rating on a seller and
+  // `follow` is the telescope — a heart is the third thing, the one people
+  // press because they like a face rather than because they rate it.
+  heart:       { family: "ion", on: "heart",             off: "heart-outline" },
   bell:        { family: "mc",  on: "bell-ring",         off: "bell-outline" },
   card:        { family: "mc",  on: "cards-playing",     off: "cards-playing-outline" },
   sold:        { family: "mc",  on: "hand-coin",         off: "hand-coin-outline" },
