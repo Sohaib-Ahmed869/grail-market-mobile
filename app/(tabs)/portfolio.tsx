@@ -141,7 +141,16 @@ export default function Portfolio() {
             </View>
             <View style={s.valueCard}>
               <Txt variant="overline" color={colors.inkFaint}>Live market value</Txt>
-              <Txt variant="price" style={{ marginTop: 2 }}>{money(data.value)}</Txt>
+              {/* Nothing priced is not a collection worth nothing.
+                *
+                * A total is a sum OF something, and when every card in it is
+                * unpriced there is nothing to sum — "A$0.00" then states the
+                * holding is worthless, which is the confident wrong answer in
+                * the largest type on the screen. A dash says we do not know,
+                * and the line underneath says how many. */}
+              <Txt variant="price" style={{ marginTop: 2 }}>
+                {data.entries.length > 0 && data.priced === 0 ? "—" : money(data.value)}
+              </Txt>
               {/* Same rule as the dashboard: without a recorded cost there is
                 * no gain to report, and showing the whole value as profit is
                 * the most flattering possible lie. */}
@@ -160,9 +169,11 @@ export default function Portfolio() {
               )}
               <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: space.sm }}>
                 {data.entries.length} card{data.entries.length === 1 ? "" : "s"}
-                {data.priced < data.entries.length
-                  ? ` · ${data.priced} priced, ${data.entries.length - data.priced} we can't value yet`
-                  : ""}
+                {data.priced === 0 && data.entries.length > 0
+                  ? " · none of them priced yet"
+                  : data.priced < data.entries.length
+                    ? ` · ${data.priced} priced, ${data.entries.length - data.priced} we can't value yet`
+                    : ""}
               </Txt>
             </View>
 
@@ -269,6 +280,21 @@ export default function Portfolio() {
                 {gain != null && (
                   <Txt variant="bodySmall" color={gain >= 0 ? colors.up : colors.down}>
                     {gain >= 0 ? "+" : ""}{money(gain)}
+                  </Txt>
+                )}
+                {/* A dash on its own reads as "worth nothing". Say which of
+                    the three it is, and where it is the owner's to fix, say
+                    the thing they can do — the row already opens the editor. */}
+                {item.value == null && item.unpriced && (
+                  <Txt
+                    variant="bodySmall"
+                    color={item.unpriced === "grade" ? colors.accent : colors.inkFaint}
+                  >
+                    {item.unpriced === "grade"
+                      ? "Add the grade"
+                      : item.unpriced === "sales"
+                        ? "No sales at this grade"
+                        : "No price yet"}
                   </Txt>
                 )}
               </View>

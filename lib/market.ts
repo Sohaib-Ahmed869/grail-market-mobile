@@ -186,6 +186,14 @@ export type Entry = {
   grader: string | null; grade: string | null; variant: string | null;
   quantity: number;
   paid: number | null; value: number | null; addedAt: string;
+  /** Why there is no value, when there is none.
+   *
+   *  "grade" is the owner's to fix — we know the grading company but not the
+   *  rung, and a slab whose grade we do not have is unpriceable rather than
+   *  ungraded. "sales" and "price" are ours: no sale at that rung, or no price
+   *  for the card at all. One blank for all three is what made a collection
+   *  read as broken rather than incomplete. */
+  unpriced: "grade" | "sales" | "price" | null;
 };
 
 export async function getCollection(): Promise<{
