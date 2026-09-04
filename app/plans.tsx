@@ -14,7 +14,15 @@ import { useSession } from "../lib/session";
 import { colors, radius, space } from "../theme";
 
 
-const money = (cents: number) => `A$${(cents / 100).toFixed(0)}`;
+/** Whole dollars where the price is whole, cents where it is not.
+ *
+ *  This was `toFixed(0)`, which is right for A$5 and A$10 and silently wrong
+ *  the first time a plan is priced at A$10.99 — it would read A$11 on the one
+ *  screen in the app where the number is a promise about a charge. */
+const money = (cents: number, currency = "AUD") => {
+  const symbol = currency === "AUD" ? "A$" : currency === "USD" ? "US$" : `${currency} `;
+  return `${symbol}${cents % 100 === 0 ? cents / 100 : (cents / 100).toFixed(2)}`;
+};
 
 /** Pick a plan.
  *
@@ -82,14 +90,20 @@ export default function Plans() {
 
       <View style={s.list}>
         {plans.map((p) => {
-          const on = p.id === chosen;
+          // `available` is false when Stripe holds no active price for the
+          // plan — which happens the moment somebody edits a price in the
+          // dashboard, because that archives the old one. Checkout would be
+          // refused outright, so the card does not pretend to be for sale.
+          const sellable = p.available !== false;
+          const on = p.id === chosen && sellable;
           return (
             <Pressable
               key={p.id}
-              onPress={() => setChosen(p.id)}
+              onPress={() => sellable && setChosen(p.id)}
+              disabled={!sellable}
               accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              style={[s.card, on && s.cardOn]}
+              accessibilityState={{ selected: on, disabled: !sellable }}
+              style={[s.card, on && s.cardOn, !sellable && s.cardOff]}
             >
               {p.popular && (
                 <View style={s.tag}>
@@ -105,8 +119,10 @@ export default function Plans() {
                   <Txt variant="bodySmall" color={colors.inkMuted}>{p.blurb}</Txt>
                 </View>
                 <View style={s.price}>
-                  <Txt variant="h2">{money(p.amountCents)}</Txt>
-                  <Txt variant="bodySmall" color={colors.inkFaint}>per month</Txt>
+                  <Txt variant="h2">{sellable ? money(p.amountCents, p.currency) : "—"}</Txt>
+                  <Txt variant="bodySmall" color={colors.inkFaint}>
+                    {sellable ? "per month" : "unavailable"}
+                  </Txt>
                 </View>
               </View>
 
@@ -153,6 +169,7 @@ const s = StyleSheet.create({
     borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.line,
     backgroundColor: colors.surface, padding: space.lg,
   },
+  cardOff: { opacity: 0.45 },
   cardOn: { borderColor: colors.ink },
   tag: {
     position: "absolute", top: -10, right: space.lg,

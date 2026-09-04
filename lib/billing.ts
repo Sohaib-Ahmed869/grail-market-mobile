@@ -5,7 +5,14 @@ export type PlanId = "starter" | "collector" | "dealer";
 
 export type Plan = {
   id: PlanId; name: string; blurb: string;
-  amountCents: number; listings: number | null;
+  /** What Stripe charges, resolved live — not a constant on either side. */
+  amountCents: number;
+  currency?: string;
+  /** False when Stripe has no active price for this plan. Checkout would be
+   *  refused, so the plan is shown as unavailable rather than offered at a
+   *  figure that cannot be honoured. */
+  available?: boolean;
+  listings: number | null;
   perks: string[]; popular?: boolean;
 };
 
