@@ -339,6 +339,7 @@ export default function ListingDetail() {
         market={market}
         signedIn={Boolean(session)}
         gate={tier?.gates.offer ?? null}
+        have={tier?.have ?? null}
         onNeedsSignIn={() => { setOffering(false); router.push("/signup"); }}
         onHasAccount={() => { setOffering(false); router.push("/signin"); }}
       />
@@ -352,11 +353,12 @@ export default function ListingDetail() {
  *  offer 20% under the ask can still be over the odds, and a buyer who only
  *  sees the discount has no way to know that. */
 function OfferSheet({
-  open, onClose, listingId, asking, market, signedIn, gate, onNeedsSignIn, onHasAccount,
+  open, onClose, listingId, asking, market, signedIn, gate, have, onNeedsSignIn, onHasAccount,
 }: {
   open: boolean; onClose: () => void; listingId: string;
   asking: number; market: number | null; signedIn: boolean;
   gate: import("../../lib/tiers").Gate | null;
+  have: import("../../lib/tiers").Tier["have"] | null;
   onNeedsSignIn: () => void; onHasAccount: () => void;
 }) {
   const toast = useToast();
@@ -446,7 +448,7 @@ function OfferSheet({
 
             {gate && !gate.ok && (
               <View style={{ marginTop: space.lg }}>
-                <GateNotice gate={gate} action="Making an offer" onDone={onClose} />
+                <GateNotice gate={gate} action="Making an offer" have={have ?? undefined} onDone={onClose} />
               </View>
             )}
 

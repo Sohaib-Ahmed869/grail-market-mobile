@@ -49,17 +49,32 @@ export function TierLadder({ tier }: { tier: Tier | null }) {
  *  Shown BEFORE the action, never after: a gate that fires on the last screen
  *  of the sell flow has already cost someone ten minutes of photography. */
 export function GateNotice({
-  gate, action, onDone,
+  gate, action, have, onDone,
 }: {
   gate: Gate;
   /** what they were trying to do, in their words */
   action: string;
+  /** What the member already has, so the button can send them to the thing
+   *  they are actually missing. Optional only so older callers still compile;
+   *  pass it wherever the tier is in hand. */
+  have?: Tier["have"];
   onDone?: () => void;
 }) {
   const router = useRouter();
   if (gate.ok) return null;
 
-  const where = gate.need === 1 ? "/plans" : gate.need === 2 ? "/idcheck" : "/idcheck";
+  // Level 1 needs TWO things — a phone and a payment method — and this used to
+  // send everyone to /plans for it. Someone who had already subscribed and was
+  // only missing a phone number was told "Confirm your phone number" and then
+  // handed the subscription screen they had just paid on, which reads as the
+  // app having lost their money. The destination now follows the same fact the
+  // sentence above it is derived from.
+  const where =
+    gate.need === 1
+      ? have && have.payment && !have.phone
+        ? "/sms"
+        : "/plans"
+      : "/idcheck";
 
   return (
     <View style={s.gate}>

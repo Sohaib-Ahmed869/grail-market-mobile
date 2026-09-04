@@ -121,7 +121,7 @@ export default function SellCard() {
         * minutes of photography has already cost someone the ten minutes. */}
       {tier && !tier.gates.sell.ok && (
         <View style={{ marginTop: space.lg }}>
-          <GateNotice gate={tier.gates.sell} action="Listing a card" />
+          <GateNotice gate={tier.gates.sell} action="Listing a card" have={tier.have} />
         </View>
       )}
 
