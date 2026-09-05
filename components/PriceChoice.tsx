@@ -49,7 +49,22 @@ export type AskSide = {
   cappedByStale?: boolean | null;
 } | null;
 
-export type PriceSide = "ours" | "asks";
+export type PriceSide = "sold" | "ours" | "asks";
+
+/** What copies of this exact card and grade actually changed hands for.
+ *
+ *  The strongest evidence there is, and the only one of the three that is a
+ *  fact rather than an inference. Where it exists it leads. */
+export type SoldSide = {
+  /** the figure to lead with — our weighted read of the sales */
+  price: number;
+  count?: number | null;
+  median?: number | null;
+  low?: number | null;
+  high?: number | null;
+  asOf?: string | null;
+  method?: string | null;
+} | null;
 
 const months = (days: number) =>
   days >= 60 ? `${Math.round(days / 30)} months` : `${days} days`;
@@ -72,8 +87,9 @@ function whyOurs(p: NonNullable<OurPrice>): string {
 }
 
 export function PriceChoice({
-  ours, asks, currency = "USD", picked, onPick,
+  sold, ours, asks, currency = "USD", picked, onPick,
 }: {
+  sold?: SoldSide;
   ours: OurPrice;
   asks: AskSide;
   currency?: string;
@@ -81,15 +97,46 @@ export function PriceChoice({
   onPick: (side: PriceSide) => void;
 }) {
   const fx = useFx();
-  if (!ours && !asks) return null;
+  if (!sold && !ours && !asks) return null;
 
-  const both = Boolean(ours && asks);
+  const both = [sold, ours, asks].filter(Boolean).length > 1;
 
   return (
     <View style={{ marginTop: space.lg, gap: space.sm }}>
       <Txt variant="overline" color={colors.inkFaint}>
-        {both ? "Two ways to read this card" : "What this card is worth"}
+        {both ? "Where this number comes from" : "What this card is worth"}
       </Txt>
+
+      {/* Sales first, always. It is the only one of the three that is a fact
+          rather than an inference, and burying it under an estimate is how a
+          screen with nine recorded sales on it said "no sale on record". */}
+      {sold && (
+        <Side
+          key="sold"
+          title="What it sold for"
+          sub={
+            sold.count
+              ? `${sold.count} completed sale${sold.count === 1 ? "" : "s"} at this grade`
+              : "Completed sales at this grade"
+          }
+          amount={sold.price}
+          currency={currency}
+          fx={fx}
+          selected={picked === "sold"}
+          selectable={both}
+          onPress={() => onPick("sold")}
+          why="What copies of this exact card and grade actually changed hands for. The strongest evidence we have."
+          facts={[
+            sold.median != null ? ["Median", money(sold.median, { fx, from: currency })] : null,
+            sold.low != null && sold.high != null
+              ? ["Range", `${money(sold.low, { fx, from: currency })} – ${money(sold.high, { fx, from: currency })}`]
+              : null,
+            sold.asOf
+              ? ["Updated", new Date(sold.asOf).toLocaleDateString("en-AU", { day: "numeric", month: "short" })]
+              : null,
+          ]}
+        />
+      )}
 
       {ours && (
         <Side

@@ -48,7 +48,15 @@ export type ScanResult = {
       cappedByStale?: boolean | null;
     } | null;
     tcgplayer?: { market?: number | null } | null;
-    pricesByGrader?: Record<string, Record<string, { price: number; sampleSize?: number }>> | null;
+    /** The store's own sold rows, per grader and grade. price/sampleSize were
+     *  the only two fields ever named here, so the screen could not show the
+     *  count, the spread or how fresh the sales were — the things that turn a
+     *  figure into a claim somebody can check. */
+    pricesByGrader?: Record<string, Record<string, {
+      price: number; sampleSize?: number; count?: number;
+      low?: number; high?: number; median?: number;
+      asOf?: string; confidence?: string; method?: string;
+    }>> | null;
     currency?: string;
   } | null;
   ocrNames?: string[];

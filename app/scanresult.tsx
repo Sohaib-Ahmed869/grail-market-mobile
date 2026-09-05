@@ -236,9 +236,7 @@ export default function ScanResult() {
   // to ours: a valuation is an answer to "what is it worth", and the median
   // ask is an answer to "what are people hoping for". Only ours should be the
   // default, and only the seller should be able to change it.
-  const [side, setSide] = useState<PriceSide>("ours");
-  const chosen = side === "asks" && ask?.median != null ? ask.median : price?.price ?? null;
-  const headline = chosen ?? ask?.median ?? v?.tcgplayer?.market ?? null;
+  const [side, setSide] = useState<PriceSide | null>(null);
 
   // The store's own row for the grade on screen — count, range, and when it
   // was last refreshed. It is what turns a price into a claim with evidence.
@@ -251,6 +249,32 @@ export default function ScanResult() {
           median?: number; asOf?: string; confidence?: string }
       | null;
   }, [v, form.grader, form.grade]);
+
+  // What copies of this exact card and grade actually sold for. `gradePoint`
+  // is the store's own row and has been on this screen all along as a footnote
+  // — "Sales ranged X to Y" under an estimate that ignored it. It is the
+  // strongest evidence we hold, so it leads.
+  const sold = useMemo(() => {
+    if (!gradePoint || gradePoint.price == null) return null;
+    return {
+      price: gradePoint.price,
+      count: gradePoint.count ?? gradePoint.sampleSize ?? null,
+      median: gradePoint.median ?? null,
+      low: gradePoint.low ?? null,
+      high: gradePoint.high ?? null,
+      asOf: gradePoint.asOf ?? null,
+    };
+  }, [gradePoint]);
+
+  // Sales beat our estimate, our estimate beats asks. The seller may override
+  // it; until they do, the default is the best evidence available.
+  const fallback: PriceSide = sold ? "sold" : price ? "ours" : "asks";
+  const picked = side ?? fallback;
+  const chosen =
+    picked === "sold" ? sold?.price ?? null
+    : picked === "asks" ? ask?.median ?? null
+    : price?.price ?? null;
+  const headline = chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
 
   const ladder = useMemo(() => {
     const g = form.grader || v?.slabGrader;
@@ -483,10 +507,11 @@ export default function ScanResult() {
           * person has been failing to sell one at that for ten months", and
           * those call for opposite decisions. */}
         <PriceChoice
+          sold={sold}
           ours={price ? { ...price, low: price.low ?? null, high: price.high ?? null } : null}
           asks={ask}
           currency={v?.currency ?? "USD"}
-          picked={side}
+          picked={picked}
           onPick={setSide}
         />
 
@@ -501,13 +526,6 @@ export default function ScanResult() {
           </View>
         )}
 
-        {gradePoint && (gradePoint.low != null || gradePoint.high != null) && (
-          <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: space.sm }}>
-            Sales ranged {money(gradePoint.low)} to {money(gradePoint.high)}
-            {gradePoint.median != null ? ` · median ${money(gradePoint.median)}` : ""}
-            {gradePoint.asOf ? ` · updated ${new Date(gradePoint.asOf).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : ""}
-          </Txt>
-        )}
       </View>
 
       {price?.explain && (
