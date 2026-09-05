@@ -4,26 +4,28 @@
  *  fine for a base URL and is exactly why no key may ever travel this way. */
 import { authHeader } from "./session";
 
-/** Two backends, because neither one can do everything.
+/** One backend, on AWS.
  *
- *  Render runs the current API — auth, identity, billing, listings, offers,
- *  the collection — but has no vision service, so a scan there answers
- *  "vision service unreachable".
+ *  This was split in two. Render ran the current API — auth, identity,
+ *  billing, listings — while the AWS box ran the vision pipeline and an older
+ *  build of everything else, so the app talked to whichever could answer.
  *
- *  The AWS box runs the vision pipeline, and an OLD build of everything else:
- *  /auth, /collection, /listings and /identity all 404 there. Pointing the
- *  whole app at it is what made every button that needed one of those do
- *  nothing at all — a 404 with no error surface looks exactly like a dead
- *  control.
+ *  That split is what made photographs impossible to fix: uploads went to
+ *  Render, the S3 credentials were on AWS, and each side looked correctly
+ *  configured from where its owner was standing. Two homes for one API is two
+ *  places for the environment to disagree.
  *
- *  So the split is explicit: scans go to the box that can see, everything
- *  else goes to the box that is current. */
-export const API =
-  process.env.EXPO_PUBLIC_API_URL ?? "https://grail-market-backend.onrender.com";
+ *  Both now point at the AWS box, which holds the credentials, the vision
+ *  service and the same Neon database. It requires nginx there to proxy the
+ *  whole API rather than only /scans — if /listings 404s, that is the reason
+ *  and not this line. */
+const AWS_API = "https://grailmarket.duckdns.org";
 
-/** Only /scans. The vision service lives here and nowhere else. */
-export const SCAN_API =
-  process.env.EXPO_PUBLIC_SCAN_URL ?? "https://grailmarket.duckdns.org";
+export const API = process.env.EXPO_PUBLIC_API_URL ?? AWS_API;
+
+/** Scans go to the same place now. Kept as its own export because the vision
+ *  service is a separate process behind that host and may move again. */
+export const SCAN_API = process.env.EXPO_PUBLIC_SCAN_URL ?? AWS_API;
 
 export async function post<T>(path: string, body: unknown, headers: Record<string, string> = {}) {
   const res = await fetch(`${API}${path}`, {
