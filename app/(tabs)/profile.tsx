@@ -20,6 +20,9 @@ import { colors, radius, space } from "../../theme";
 
 type Row = {
   icon: keyof typeof Feather.glyphMap; label: string; hint?: string; to: string;
+  /** Query for the destination. A "?" inside `to` is a path segment as far as
+   *  the router is concerned, so it belongs here instead. */
+  params?: Record<string, string>;
 };
 
 
@@ -48,7 +51,7 @@ const SELLING: Row[] = [
 
 const HELP: Row[] = [
   { icon: "life-buoy", label: "Get help", to: "/support" },
-  { icon: "flag", label: "Report something", to: "/support/new?kind=report" },
+  { icon: "flag", label: "Report something", to: "/support/new", params: { kind: "report" } },
   { icon: "alert-triangle", label: "Disputes", to: "/disputes" },
 ];
 
@@ -177,9 +180,9 @@ export default function Profile() {
           ))}
         </View>
 
-        <Section title="Trading" rows={SELLING} onPress={(r) => router.push(r.to as any)} />
-        <Section title="Help" rows={HELP} onPress={(r) => router.push(r.to as any)} />
-        <Section title="Account" rows={ACCOUNT} onPress={(r) => router.push(r.to as any)} />
+        <Section title="Trading" rows={SELLING} onPress={(r) => router.push((r.params ? { pathname: r.to, params: r.params } : r.to) as never)} />
+        <Section title="Help" rows={HELP} onPress={(r) => router.push((r.params ? { pathname: r.to, params: r.params } : r.to) as never)} />
+        <Section title="Account" rows={ACCOUNT} onPress={(r) => router.push((r.params ? { pathname: r.to, params: r.params } : r.to) as never)} />
 
         {/* Legal was two full rows with chevrons, competing with the things
             people came here to do. It is a footnote, and it reads as one. */}
