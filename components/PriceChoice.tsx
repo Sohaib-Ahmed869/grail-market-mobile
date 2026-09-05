@@ -49,7 +49,7 @@ export type AskSide = {
   cappedByStale?: boolean | null;
 } | null;
 
-export type PriceSide = "sold" | "ours" | "asks";
+export type PriceSide = "ours" | "asks";
 
 /** What copies of this exact card and grade actually changed hands for.
  *
@@ -104,17 +104,14 @@ const months = (days: number) =>
 
 /** Plain words for how a figure was reached. `method` is written for us; this
  *  is written for the person holding the card. */
-function whyOurs(p: NonNullable<OurPrice>): string {
-  if (p.basis === "observed") {
-    const n = p.sampleSize ?? 0;
-    // The same sales as the card above, read differently: recent ones count
-    // for more and obvious outliers are dropped. That is why the two figures
-    // differ, and the difference is the whole reason to show both.
+function whyOurs(p: NonNullable<OurPrice>, sold?: SoldSide): string {
+  const n = sold?.count ?? p.sampleSize ?? 0;
+  if (p.basis === "observed" || sold) {
     return n > 0
-      ? `The same ${n} sale${n === 1 ? "" : "s"}, weighted towards the recent ones and with outliers dropped.`
-      : "Completed sales of this card and grade, weighted towards the recent ones.";
+      ? `Built from ${n} completed sale${n === 1 ? "" : "s"} of this exact card and grade, ` +
+        `weighted towards the recent ones with outliers dropped.`
+      : "Built from completed sales of this exact card and grade.";
   }
-  const n = p.sampleSize ?? 0;
   return (
     `No completed sale is on record for this card at this grade, so this is ` +
     `estimated from ${n > 0 ? `${n} live ` : ""}asking prices — discounted, because ` +
@@ -135,16 +132,11 @@ export function PriceChoice({
   const fx = useFx();
   if (!sold && !ours && !asks) return null;
 
-  // Two cards showing one number is not two sources, it is the same claim
-  // twice with different headings — and it makes the screen look like it is
-  // padding. Where our weighted figure lands on the sale median exactly there
-  // is nothing extra to say, so only the sale is shown.
-  const soldAmount = sold ? sold.median ?? sold.price : null;
-  const oursIsEcho =
-    Boolean(sold && ours) && soldAmount != null && Math.abs(ours!.price - soldAmount) < 0.01;
-  const showOurs = ours && !oursIsEcho;
-
-  const both = [sold, showOurs ? ours : null, asks].filter(Boolean).length > 1;
+  // The sales are EVIDENCE FOR our valuation, not a rival to it. Giving them
+  // their own card made the screen offer a choice between our number and the
+  // number ours is computed from, which is not a choice anybody has. They now
+  // sit inside "What it's worth" as the working behind it.
+  const both = Boolean(ours && asks);
 
   return (
     <View style={{ marginTop: space.lg, gap: space.sm }}>
@@ -152,53 +144,7 @@ export function PriceChoice({
         {both ? "Where this number comes from" : "What this card is worth"}
       </Txt>
 
-      {/* Sales first, always. It is the only one of the three that is a fact
-          rather than an inference, and burying it under an estimate is how a
-          screen with nine recorded sales on it said "no sale on record". */}
-      {sold && (
-        <Side
-          key="sold"
-          title="What it sold for"
-          sub={
-            sold.count
-              ? `Middle of ${sold.count} completed sale${sold.count === 1 ? "" : "s"} at this grade`
-              : "Completed sales at this grade"
-          }
-          // The plain MEDIAN of real sales, deliberately — not our weighted
-          // read of the same sales, which is the card below. Showing our
-          // figure in both places printed one number twice and called it two
-          // sources.
-          amount={sold.median ?? sold.price}
-          currency={currency}
-          fx={fx}
-          selected={picked === "sold"}
-          selectable={both}
-          onPress={() => onPick("sold")}
-          why={
-            "The middle price copies of this exact card and grade actually " +
-            "changed hands for — unweighted, unadjusted, exactly what the " +
-            "sales say."
-          }
-          facts={[
-            sold.low != null && sold.high != null
-              ? ["Range", `${money(sold.low, { fx, from: currency })} – ${money(sold.high, { fx, from: currency })}`]
-              : null,
-            sold.lastSaleDate && when(sold.lastSaleDate)
-              ? ["Last sold", when(sold.lastSaleDate)!]
-              : null,
-            sold.asOf
-              ? ["Checked", new Date(sold.asOf).toLocaleDateString("en-AU", { day: "numeric", month: "short" })]
-              : null,
-          ]}
-          warn={
-            sold.lastSaleDate && Date.now() - new Date(sold.lastSaleDate).getTime() > 180 * 86400000
-              ? "Nothing at this grade has sold in over six months, so this is a stale reading of a thin market."
-              : null
-          }
-        />
-      )}
-
-      {showOurs && ours && (
+      {ours && (
         <Side
           key="ours"
           title="What it's worth"
@@ -209,14 +155,36 @@ export function PriceChoice({
           selected={picked === "ours"}
           selectable={both}
           onPress={() => onPick("ours")}
-          why={whyOurs(ours)}
+          why={whyOurs(ours, sold)}
           facts={[
-            ours.confidence ? ["Confidence", String(ours.confidence)] : null,
-            ours.sampleSize != null ? ["Sales counted", String(ours.sampleSize)] : null,
-            ours.low != null && ours.high != null
-              ? ["Range", `${money(ours.low, { fx, from: currency })} – ${money(ours.high, { fx, from: currency })}`]
+            // The sales ARE the working. Shown here rather than on a card of
+            // their own, because "what it sold for" is not an alternative to
+            // "what it's worth" — it is the reason for it.
+            sold?.median != null
+              ? ["Sales middle", money(sold.median, { fx, from: currency })]
               : null,
+            sold?.count != null
+              ? ["Sales counted", String(sold.count)]
+              : ours.sampleSize != null
+                ? ["Sales counted", String(ours.sampleSize)]
+                : null,
+            (sold?.low ?? ours.low) != null && (sold?.high ?? ours.high) != null
+              ? [
+                  "Range",
+                  `${money(sold?.low ?? ours.low, { fx, from: currency })} – ${money(sold?.high ?? ours.high, { fx, from: currency })}`,
+                ]
+              : null,
+            sold?.lastSaleDate && when(sold.lastSaleDate)
+              ? ["Last sold", when(sold.lastSaleDate)!]
+              : null,
+            ours.confidence ? ["Confidence", String(ours.confidence)] : null,
           ]}
+          warn={
+            sold?.lastSaleDate &&
+            Date.now() - new Date(sold.lastSaleDate).getTime() > 180 * 86400000
+              ? "Nothing at this grade has sold in over six months, so this is a stale reading of a thin market."
+              : null
+          }
         />
       )}
 

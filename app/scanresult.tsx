@@ -300,12 +300,10 @@ export default function ScanResult() {
 
   // Sales beat our estimate, our estimate beats asks. The seller may override
   // it; until they do, the default is the best evidence available.
-  const fallback: PriceSide = sold ? "sold" : price ? "ours" : "asks";
+  const fallback: PriceSide = price || sold ? "ours" : "asks";
   const picked = side ?? fallback;
   const chosen =
-    picked === "sold" ? sold?.price ?? null
-    : picked === "asks" ? ask?.median ?? null
-    : price?.price ?? null;
+    picked === "asks" ? ask?.median ?? null : price?.price ?? sold?.price ?? null;
   const headline = chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
 
   const ladder = useMemo(() => {
