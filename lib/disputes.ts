@@ -1,5 +1,5 @@
 import { get, post, apiMessage } from "./api";
-import { uploadPhoto } from "./market";
+import { uploadViaSignedUrl } from "./market";
 
 export type Reason = { code: string; label: string; side: "buyer" | "seller" | "both" };
 export type Status = "open" | "answered" | "resolved" | "withdrawn";
@@ -90,7 +90,10 @@ export async function attach(
         uris.map(async (uri, i) => {
           const slot = uploads[i];
           if (!slot) return null;
-          return (await uploadPhoto(slot.uploadUrl, uri)) ? slot.publicUrl : null;
+          // Disputes still presign, because their evidence goes under a
+          // different prefix and the web console uploads them too. Left as it
+          // was rather than changed blind — see uploadPhoto's note.
+          return (await uploadViaSignedUrl(slot.uploadUrl, uri)) ? slot.publicUrl : null;
         }),
       );
       urls = done.filter((u): u is string => u != null);

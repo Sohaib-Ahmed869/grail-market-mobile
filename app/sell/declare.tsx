@@ -84,17 +84,25 @@ export default function SellDeclare() {
       const shots = draft.photos ?? [];
       if (shots.length) {
         setStep(`Uploading ${shots.length} photo${shots.length === 1 ? "" : "s"}`);
-        const signed = await photoUrls(listingId, shots.map((p) => p.angle));
-        const uploads = signed.uploads ?? [];
+        // Straight to our API, one at a time. No presign round trip, and the
+        // failure is now visible: a photograph that does not land is counted
+        // and reported rather than silently dropped, which is how a listing
+        // reached the review queue with none of them.
         const done: { angle: string; url: string }[] = [];
-        for (const [i, u] of uploads.entries()) {
-          const local = shots.find((p) => p.angle === u.angle);
-          if (!local) continue;
-          setStep(`Uploading photo ${i + 1} of ${uploads.length}`);
-          if (await uploadPhoto(u.uploadUrl, local.url)) done.push({ angle: u.angle, url: u.publicUrl });
+        for (const [i, local] of shots.entries()) {
+          setStep(`Uploading photo ${i + 1} of ${shots.length}`);
+          const url = await uploadPhoto(listingId, local.angle, local.url);
+          if (url) done.push({ angle: local.angle, url });
         }
         if (done.length) await savePhotos(listingId, done);
-        else if (!uploads.length) toast("Photos could not be uploaded. The listing was still created — add them from My listings.", { tone: "bad" });
+        if (done.length < shots.length) {
+          toast(
+            done.length === 0
+              ? "No photographs could be uploaded. The listing was saved as a draft — add them from My listings."
+              : `${shots.length - done.length} of ${shots.length} photographs could not be uploaded.`,
+            { tone: "bad" },
+          );
+        }
       }
 
       // 3. Into the queue. Nothing reaches a buyer without a human looking.

@@ -1,4 +1,5 @@
-import { del, get, post } from "./api";
+import { API, del, get, post } from "./api";
+import { authHeader } from "./session";
 
 export type Listing = {
   listing_id: string; card_name: string; set_name: string | null;
@@ -81,7 +82,15 @@ export async function createDraft(d: DraftIn) {
  *  The bytes never pass through our API — it only signs the URL. Ten images
  *  and a video would otherwise occupy a request slot each on the box that also
  *  runs the scan pipeline. */
-export async function uploadPhoto(uploadUrl: string, uri: string): Promise<boolean> {
+/** The old presigned-PUT upload, kept for the dispute-evidence path.
+ *
+ *  It carries the SAME defect as the listing upload did — RN's Blob makes an
+ *  empty or throwing body for a local file URI — so dispute photographs are
+ *  as unreliable today as listing photographs were. Fixing it properly means
+ *  a multipart endpoint under the disputes prefix, the way `uploadPhoto`
+ *  below now works. Left explicit rather than quietly renamed, so the next
+ *  person reads this instead of rediscovering it from a support ticket. */
+export async function uploadViaSignedUrl(uploadUrl: string, uri: string): Promise<boolean> {
   try {
     const blob = await (await fetch(uri)).blob();
     const r = await fetch(uploadUrl, {
@@ -91,6 +100,39 @@ export async function uploadPhoto(uploadUrl: string, uri: string): Promise<boole
     });
     return r.ok;
   } catch { return false; }
+}
+
+/** Send one photograph to our API, which puts it in the bucket.
+ *
+ *  This used to presign an S3 URL and PUT to it directly, building the body
+ *  with `await (await fetch(uri)).blob()`. React Native's Blob is partial:
+ *  for a local file URI that either throws or produces a body that uploads
+ *  empty, and both fail silently here. Ten photographs failed, the listing
+ *  stayed a draft, and a $11,340 Charizard never reached the review queue —
+ *  with the app reporting only "photos could not be uploaded".
+ *
+ *  Multipart with `{ uri, name, type }` is the shape React Native actually
+ *  supports, and it is the same one lib/scan.ts has used successfully all
+ *  along. The presigned path still exists on the server for the browser. */
+export async function uploadPhoto(
+  listingId: string, angle: string, uri: string,
+): Promise<string | null> {
+  try {
+    const body = new FormData();
+    body.append("angle", angle);
+    body.append("file", {
+      uri, name: `${angle}.jpg`, type: "image/jpeg",
+    } as unknown as Blob);
+    const r = await fetch(`${API}/listings/${encodeURIComponent(listingId)}/photo`, {
+      method: "POST",
+      // No Content-Type: fetch has to set the multipart boundary itself.
+      headers: { ...authHeader() },
+      body,
+    });
+    if (!r.ok) return null;
+    const j = (await r.json()) as { url?: string; error?: string };
+    return j.url ?? null;
+  } catch { return null; }
 }
 
 export async function photoUrls(listingId: string, angles: string[]) {
