@@ -323,6 +323,34 @@ export default function ListingDetail() {
           {l.seller_id && <Feather name="chevron-right" size={18} color={colors.inkFaint} />}
         </Pressable>
 
+        {/* A report belongs where the thing being reported is. Filing it from
+            here carries the listing and the seller with it, so trust and
+            safety open a case that already names both — rather than a ticket
+            saying "a seller" that somebody has to chase. Hidden on your own
+            listing, where it would only ever be a misclick. */}
+        {!owner && l.seller_id && (
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/support/new",
+                params: {
+                  kind: "report",
+                  listingId: String(id),
+                  aboutUserId: String(l.seller_id),
+                  about: `${l.card_name ?? "this card"} · this seller`,
+                  subject: `Problem with ${l.card_name ?? "a listing"}`,
+                },
+              } as never)
+            }
+            style={({ pressed }) => [s.report, pressed && { opacity: 0.7 }]}
+          >
+            <Feather name="flag" size={13} color={colors.inkFaint} />
+            <Txt variant="bodySmall" color={colors.inkFaint}>
+              Report this listing or seller
+            </Txt>
+          </Pressable>
+        )}
+
         <View style={{ marginTop: space.lg }}>
           <Note icon="info">
             Payment is arranged directly between the two of you — we don't hold the money.
@@ -493,6 +521,14 @@ const s = StyleSheet.create({
     borderRadius: radius.md, backgroundColor: colors.surfaceSunk,
   },
   deliveryRow: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: 6 },
+  report: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: space.sm,
+    marginTop: space.lg,
+    paddingVertical: space.md,
+  },
   seller: {
     flexDirection: "row", alignItems: "center", gap: space.md, marginTop: space.xl,
     paddingTop: space.lg, borderTopWidth: 1, borderTopColor: colors.line,

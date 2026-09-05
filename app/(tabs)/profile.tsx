@@ -9,7 +9,6 @@ import { useGuest } from "../../lib/guest";
 import { Txt } from "../../components/Text";
 import { Avatar } from "../../components/Avatar";
 import { VerifiedShield } from "../../components/VerifiedBadge";
-import { TierLadder } from "../../components/TierGate";
 import { useTier, TIER_NAMES } from "../../lib/tiers";
 import { useSession } from "../../lib/session";
 import { signOut } from "../../lib/auth";
@@ -23,33 +22,41 @@ type Row = {
   icon: keyof typeof Feather.glyphMap; label: string; hint?: string; to: string;
 };
 
-const TALKING: Row[] = [
-  { icon: "message-circle", label: "Messages", hint: "Buyers and sellers, about a card", to: "/messages" },
+
+/* Four tiles instead of four rows.
+ *
+ * These are the things opened daily, and as full-width rows with a sentence
+ * each they took a third of the screen to say four words. A tile is one word
+ * and a tap target, and the row underneath it goes to the things opened
+ * monthly. */
+const QUICK: { icon: keyof typeof Feather.glyphMap; label: string; to: string }[] = [
+  { icon: "message-circle", label: "Messages", to: "/messages" },
+  { icon: "eye", label: "Watchlist", to: "/watchlist" },
+  { icon: "tag", label: "Listings", to: "/mylistings" },
+  { icon: "inbox", label: "Offers", to: "/offers" },
 ];
 
-const COMMUNITY: Row[] = [
-  { icon: "message-square", label: "Community", hint: "Pulls, grades, prices and arguments", to: "/community" },
-];
-
-const COLLECTING: Row[] = [
-  { icon: "eye", label: "Watchlist", hint: "Cards you follow, and when to be told", to: "/watchlist" },
-];
-
+/* The rest, grouped by errand and WITHOUT hints.
+ *
+ * Every row carried a line of explanation, which doubled its height and made
+ * fourteen rows read as twenty-eight. A label that needs a sentence is the
+ * wrong label; these are all one word or two. */
 const SELLING: Row[] = [
-  { icon: "tag", label: "My listings", hint: "Live, in review and sold", to: "/mylistings" },
-  { icon: "inbox", label: "My offers", hint: "What you've offered on other cards", to: "/offers" },
-  { icon: "star", label: "Rate a deal", hint: "Both sides rate once it's changed hands", to: "/rate" },
+  { icon: "message-square", label: "Community", to: "/community" },
+  { icon: "star", label: "Rate a deal", to: "/rate" },
+];
+
+const HELP: Row[] = [
+  { icon: "life-buoy", label: "Get help", to: "/support" },
+  { icon: "flag", label: "Report something", to: "/support/new?kind=report" },
+  { icon: "alert-triangle", label: "Disputes", to: "/disputes" },
 ];
 
 const ACCOUNT: Row[] = [
-  { icon: "bell", label: "Notifications", hint: "What's worth a buzz, and what can wait", to: "/alerts" },
-  { icon: "settings", label: "Account settings", hint: "Your details, password and two-step", to: "/account" },
-  { icon: "alert-triangle", label: "Disputes", hint: "Sales where something went wrong", to: "/disputes" },
-  { icon: "smile", label: "Your face", hint: "Pick one of the built-in avatars", to: "/avatar" },
-  { icon: "credit-card", label: "Plan", to: "/plans" },
+  { icon: "bell", label: "Notifications", to: "/alerts" },
   { icon: "shield", label: "Identity verification", to: "/idcheck" },
-  { icon: "file-text", label: "Terms of use", to: "/legal/terms" },
-  { icon: "lock", label: "Privacy", to: "/legal/privacy" },
+  { icon: "credit-card", label: "Plan", to: "/plans" },
+  { icon: "settings", label: "Account settings", to: "/account" },
 ];
 
 /** Profile.
@@ -152,17 +159,39 @@ export default function Profile() {
           </Pressable>
         </View>
 
-        <Txt variant="h2" style={{ marginTop: space.xxl }}>What You Can Do</Txt>
-        <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 2 }}>
-          Each level opens the next thing. Friction lands where the risk is.
-        </Txt>
-        <TierLadder tier={tier} />
+        {/* The four things opened daily, as tiles. The whole ladder used to
+            live here — a screenful explaining the tier system on a page
+            somebody opened to reach their messages. The Level tile above
+            already goes there, so it is one tap away instead of always
+            underfoot. */}
+        <View style={s.quick}>
+          {QUICK.map((q) => (
+            <Pressable
+              key={q.label}
+              onPress={() => router.push(q.to as any)}
+              style={({ pressed }) => [s.tile, pressed && { backgroundColor: colors.surfaceSunk }]}
+            >
+              <Feather name={q.icon} size={19} color={colors.ink} />
+              <Txt variant="bodySmall" style={{ marginTop: 6 }}>{q.label}</Txt>
+            </Pressable>
+          ))}
+        </View>
 
-        <Section title="Messages" rows={TALKING} onPress={(r) => router.push(r.to as any)} />
-        <Section title="Collecting" rows={COLLECTING} onPress={(r) => router.push(r.to as any)} />
-        <Section title="Community" rows={COMMUNITY} onPress={(r) => router.push(r.to as any)} />
-        <Section title="Selling" rows={SELLING} onPress={(r) => router.push(r.to as any)} />
+        <Section title="Trading" rows={SELLING} onPress={(r) => router.push(r.to as any)} />
+        <Section title="Help" rows={HELP} onPress={(r) => router.push(r.to as any)} />
         <Section title="Account" rows={ACCOUNT} onPress={(r) => router.push(r.to as any)} />
+
+        {/* Legal was two full rows with chevrons, competing with the things
+            people came here to do. It is a footnote, and it reads as one. */}
+        <View style={s.legal}>
+          <Pressable onPress={() => router.push("/legal/terms")}>
+            <Txt variant="bodySmall" color={colors.inkFaint}>Terms of use</Txt>
+          </Pressable>
+          <Txt variant="bodySmall" color={colors.inkFaint}>·</Txt>
+          <Pressable onPress={() => router.push("/legal/privacy")}>
+            <Txt variant="bodySmall" color={colors.inkFaint}>Privacy</Txt>
+          </Pressable>
+        </View>
 
         <Pressable onPress={out} style={s.out}>
           <Feather name="log-out" size={15} color={colors.down} />
@@ -222,6 +251,26 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface,
   },
   row: { flexDirection: "row", alignItems: "center", gap: space.md, padding: space.lg },
+  quick: {
+    flexDirection: "row",
+    gap: space.sm,
+    marginTop: space.xl,
+  },
+  tile: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: space.lg,
+    borderRadius: radius.md,
+    backgroundColor: colors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.line,
+  },
+  legal: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: space.sm,
+    marginTop: space.xxl,
+  },
   out: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
     height: 50, marginTop: space.xxl, borderRadius: radius.pill,
