@@ -49,7 +49,7 @@ export type AskSide = {
   cappedByStale?: boolean | null;
 } | null;
 
-export type PriceSide = "ours" | "asks";
+export type PriceSide = "sold" | "ours" | "asks";
 
 /** What copies of this exact card and grade actually changed hands for.
  *
@@ -132,17 +132,59 @@ export function PriceChoice({
   const fx = useFx();
   if (!sold && !ours && !asks) return null;
 
-  // The sales are EVIDENCE FOR our valuation, not a rival to it. Giving them
-  // their own card made the screen offer a choice between our number and the
-  // number ours is computed from, which is not a choice anybody has. They now
-  // sit inside "What it's worth" as the working behind it.
-  const both = Boolean(ours && asks);
+  // The sale median is EVIDENCE for our valuation — usually. When our figure
+  // is a weighting of those same sales, the two are one claim and showing
+  // both is padding; the median stays folded into the card below.
+  //
+  // They are not always the same claim. Where no sale can be trusted at this
+  // grade our valuation is built off the ASKS instead — on this Charizard
+  // US$17,421 against a sale median of US$10,250 — and then they are genuinely
+  // different answers. Folding the median away there left the seller pricing
+  // against a figure they never chose and could not see.
+  const soldAmount = sold ? sold.median ?? sold.price : null;
+  const divergent =
+    Boolean(sold && ours) &&
+    soldAmount != null &&
+    Math.abs(ours!.price - soldAmount) / Math.max(soldAmount, 1) > 0.02;
+
+  const both = [divergent ? sold : null, ours, asks].filter(Boolean).length > 1;
 
   return (
     <View style={{ marginTop: space.lg, gap: space.sm }}>
       <Txt variant="overline" color={colors.inkFaint}>
         {both ? "Where this number comes from" : "What this card is worth"}
       </Txt>
+
+      {divergent && sold && (
+        <Side
+          key="sold"
+          title="What it sold for"
+          sub={
+            sold.count
+              ? `Middle of ${sold.count} completed sale${sold.count === 1 ? "" : "s"} at this grade`
+              : "Completed sales at this grade"
+          }
+          amount={soldAmount!}
+          currency={currency}
+          fx={fx}
+          selected={picked === "sold"}
+          selectable={both}
+          onPress={() => onPick("sold")}
+          why={
+            "The middle price copies of this exact card and grade actually " +
+            "changed hands for — unweighted, exactly what the sales say."
+          }
+          facts={[
+            sold.count != null ? ["Sales counted", String(sold.count)] : null,
+            sold.low != null && sold.high != null
+              ? ["Range", `${money(sold.low, { fx, from: currency })} – ${money(sold.high, { fx, from: currency })}`]
+              : null,
+            sold.lastSaleDate && when(sold.lastSaleDate)
+              ? ["Last sold", when(sold.lastSaleDate)!]
+              : null,
+          ]}
+        />
+      )}
 
       {ours && (
         <Side

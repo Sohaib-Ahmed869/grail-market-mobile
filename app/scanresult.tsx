@@ -302,8 +302,16 @@ export default function ScanResult() {
   // it; until they do, the default is the best evidence available.
   const fallback: PriceSide = price || sold ? "ours" : "asks";
   const picked = side ?? fallback;
+  // Exactly the figure the chosen card SHOWS. The sold card leads with the
+  // median, and this read `sold.price` — the weighted figure — so picking
+  // "what it sold for" displayed 10,250 and handed the sell flow 10,500. A
+  // number you chose and a number you are given must not be two numbers.
   const chosen =
-    picked === "asks" ? ask?.median ?? null : price?.price ?? sold?.price ?? null;
+    picked === "asks"
+      ? ask?.median ?? null
+      : picked === "sold"
+        ? sold?.median ?? sold?.price ?? null
+        : price?.price ?? sold?.median ?? sold?.price ?? null;
   const headline = chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
 
   const ladder = useMemo(() => {
