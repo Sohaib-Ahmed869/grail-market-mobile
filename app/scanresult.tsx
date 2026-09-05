@@ -7,6 +7,7 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Note } from "../components/Note";
+import { PriceChoice, type PriceSide } from "../components/PriceChoice";
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
@@ -230,7 +231,14 @@ export default function ScanResult() {
 
   const price = v?.slabPrice ?? null;
   const ask = v?.liveAsk ?? null;
-  const headline = price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
+
+  // Which of the two figures the seller has chosen to price against. Defaults
+  // to ours: a valuation is an answer to "what is it worth", and the median
+  // ask is an answer to "what are people hoping for". Only ours should be the
+  // default, and only the seller should be able to change it.
+  const [side, setSide] = useState<PriceSide>("ours");
+  const chosen = side === "asks" && ask?.median != null ? ask.median : price?.price ?? null;
+  const headline = chosen ?? ask?.median ?? v?.tcgplayer?.market ?? null;
 
   // The store's own row for the grade on screen — count, range, and when it
   // was last refreshed. It is what turns a price into a claim with evidence.
@@ -467,38 +475,31 @@ export default function ScanResult() {
 
       <View style={s.priceBlock}>
         <Txt variant="overline" color={colors.inkFaint}>
-          {price ? "Estimated value" : ask ? "Current asking price" : "Market price"}
-          {form.grader ? ` · ${form.grader} ${form.grade ?? ""}` : " · ungraded"}
+          {form.grader ? `${form.grader} ${form.grade ?? ""}` : "Ungraded"}
         </Txt>
-        <Txt variant="price">{money(headline)}</Txt>
-        {conversionNote(headline, fx, v?.currency ?? "USD") && (
-          <Txt variant="bodySmall" color={colors.inkFaint}>
-            {conversionNote(headline, fx, v?.currency ?? "USD")}
-          </Txt>
-        )}
+        {/* Both figures, labelled, with their sources on them — and the
+          * seller picks. One number with no provenance was the whole problem:
+          * "A$24,184" can mean "three copies sold for about that" or "one
+          * person has been failing to sell one at that for ten months", and
+          * those call for opposite decisions. */}
+        <PriceChoice
+          ours={price ? { ...price, low: price.low ?? null, high: price.high ?? null } : null}
+          asks={ask}
+          currency={v?.currency ?? "USD"}
+          picked={side}
+          onPick={setSide}
+        />
 
-        {/* The evidence, beside the number rather than a tap away. A figure
-          * from three sales and a figure from thirty are different claims and
-          * only one of them should be acted on without checking. */}
-        <View style={s.evidence}>
-          {price && (
-            <>
-              <Evidence
-                label="Based on"
-                value={price.basis === "observed" ? "Completed sales" : price.method ?? price.basis}
-              />
-              <Evidence label="Sales counted" value={price.sampleSize ? String(price.sampleSize) : "—"} />
-              <Evidence label="Confidence" value={String(price.confidence)} />
-            </>
-          )}
-          {!price && ask && (
-            <>
-              <Evidence label="Based on" value="Asking prices" />
-              <Evidence label="Live listings" value={String(ask.count)} />
-              <Evidence label="Confidence" value="asks, not sales" />
-            </>
-          )}
-        </View>
+        {/* Neither source had anything. Say so rather than showing a dash and
+          * letting it read as "worthless". */}
+        {!price && !ask && (
+          <View style={{ marginTop: space.md }}>
+            <Note icon="info">
+              No sale and no live listing for this card at this grade yet, so we
+              are not putting a number on it. A missing price is not a low one.
+            </Note>
+          </View>
+        )}
 
         {gradePoint && (gradePoint.low != null || gradePoint.high != null) && (
           <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: space.sm }}>

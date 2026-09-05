@@ -31,8 +31,22 @@ export type ScanResult = {
   valuation?: {
     slabGrader?: string | null; slabGrade?: number | null; certNumber?: string | null;
     slabPrice?: { price: number; basis: string; confidence: string; sampleSize?: number | null;
+                  // The band the estimate sits in. The API has always sent these;
+                  // the type simply never named them, so the screen could not show
+                  // the reader how wide the answer actually is.
+                  low?: number | null; high?: number | null;
                   explain?: string; method?: string } | null;
-    liveAsk?: { median: number; low: number | null; high: number | null; count: number } | null;
+    liveAsk?: {
+      median: number; low: number | null; high: number | null; count: number;
+      /** how many came back BEFORE narrowing to this card and grade — the
+       *  difference between the two is what the filters did, and saying it is
+       *  what lets a reader judge the sample rather than trust it. */
+      total?: number | null;
+      /** the dearest ask has sat this long unsold, so it is a ceiling on the
+       *  market rather than a reading of it */
+      staleCeilingDays?: number | null;
+      cappedByStale?: boolean | null;
+    } | null;
     tcgplayer?: { market?: number | null } | null;
     pricesByGrader?: Record<string, Record<string, { price: number; sampleSize?: number }>> | null;
     currency?: string;
