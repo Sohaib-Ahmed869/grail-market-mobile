@@ -64,7 +64,40 @@ export type SoldSide = {
   high?: number | null;
   asOf?: string | null;
   method?: string | null;
+  /** when a copy at THIS grade last changed hands. A price with no date is a
+   *  number; a price with a date is evidence. */
+  lastSaleDate?: string | null;
 } | null;
+
+/** Which printing this is, and what the others go for.
+ *
+ *  Holofoil and Reverse Holofoil are separate markets — on one Charizard they
+ *  are three times apart — so naming the printing is part of naming the card. */
+export type PrintingsInfo = {
+  primary: string | null;
+  available: string[];
+  byPrinting: Record<string, { marketPrice: number | null; lowPrice: number | null }>;
+} | null;
+
+/** How often a copy trades at all. */
+export type Velocity = {
+  dailyAverage?: number | null;
+  weeklyAverage?: number | null;
+  monthlyTotal?: number | null;
+} | null;
+
+const when = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const days = Math.round((Date.now() - d.getTime()) / 86400000);
+  const on = d.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  // Both the date and the distance from today. "12 Jun" alone makes the reader
+  // do the arithmetic, and the arithmetic is the part that matters.
+  return days <= 0 ? `today (${on})`
+    : days === 1 ? `yesterday (${on})`
+    : days < 60 ? `${days} days ago (${on})`
+    : `${Math.round(days / 30)} months ago (${on})`;
+};
 
 const months = (days: number) =>
   days >= 60 ? `${Math.round(days / 30)} months` : `${days} days`;
@@ -74,9 +107,12 @@ const months = (days: number) =>
 function whyOurs(p: NonNullable<OurPrice>): string {
   if (p.basis === "observed") {
     const n = p.sampleSize ?? 0;
+    // The same sales as the card above, read differently: recent ones count
+    // for more and obvious outliers are dropped. That is why the two figures
+    // differ, and the difference is the whole reason to show both.
     return n > 0
-      ? `What ${n} copy${n === 1 ? "" : "s"} of this exact card and grade actually sold for.`
-      : "Completed sales of this exact card and grade.";
+      ? `The same ${n} sale${n === 1 ? "" : "s"}, weighted towards the recent ones and with outliers dropped.`
+      : "Completed sales of this card and grade, weighted towards the recent ones.";
   }
   const n = p.sampleSize ?? 0;
   return (
@@ -99,7 +135,16 @@ export function PriceChoice({
   const fx = useFx();
   if (!sold && !ours && !asks) return null;
 
-  const both = [sold, ours, asks].filter(Boolean).length > 1;
+  // Two cards showing one number is not two sources, it is the same claim
+  // twice with different headings — and it makes the screen look like it is
+  // padding. Where our weighted figure lands on the sale median exactly there
+  // is nothing extra to say, so only the sale is shown.
+  const soldAmount = sold ? sold.median ?? sold.price : null;
+  const oursIsEcho =
+    Boolean(sold && ours) && soldAmount != null && Math.abs(ours!.price - soldAmount) < 0.01;
+  const showOurs = ours && !oursIsEcho;
+
+  const both = [sold, showOurs ? ours : null, asks].filter(Boolean).length > 1;
 
   return (
     <View style={{ marginTop: space.lg, gap: space.sm }}>
@@ -116,29 +161,44 @@ export function PriceChoice({
           title="What it sold for"
           sub={
             sold.count
-              ? `${sold.count} completed sale${sold.count === 1 ? "" : "s"} at this grade`
+              ? `Middle of ${sold.count} completed sale${sold.count === 1 ? "" : "s"} at this grade`
               : "Completed sales at this grade"
           }
-          amount={sold.price}
+          // The plain MEDIAN of real sales, deliberately — not our weighted
+          // read of the same sales, which is the card below. Showing our
+          // figure in both places printed one number twice and called it two
+          // sources.
+          amount={sold.median ?? sold.price}
           currency={currency}
           fx={fx}
           selected={picked === "sold"}
           selectable={both}
           onPress={() => onPick("sold")}
-          why="What copies of this exact card and grade actually changed hands for. The strongest evidence we have."
+          why={
+            "The middle price copies of this exact card and grade actually " +
+            "changed hands for — unweighted, unadjusted, exactly what the " +
+            "sales say."
+          }
           facts={[
-            sold.median != null ? ["Median", money(sold.median, { fx, from: currency })] : null,
             sold.low != null && sold.high != null
               ? ["Range", `${money(sold.low, { fx, from: currency })} – ${money(sold.high, { fx, from: currency })}`]
               : null,
+            sold.lastSaleDate && when(sold.lastSaleDate)
+              ? ["Last sold", when(sold.lastSaleDate)!]
+              : null,
             sold.asOf
-              ? ["Updated", new Date(sold.asOf).toLocaleDateString("en-AU", { day: "numeric", month: "short" })]
+              ? ["Checked", new Date(sold.asOf).toLocaleDateString("en-AU", { day: "numeric", month: "short" })]
               : null,
           ]}
+          warn={
+            sold.lastSaleDate && Date.now() - new Date(sold.lastSaleDate).getTime() > 180 * 86400000
+              ? "Nothing at this grade has sold in over six months, so this is a stale reading of a thin market."
+              : null
+          }
         />
       )}
 
-      {ours && (
+      {showOurs && ours && (
         <Side
           key="ours"
           title="What it's worth"
@@ -275,7 +335,71 @@ function Side({
   );
 }
 
+/** Which printing this card is, and how often one trades.
+ *
+ *  Two facts that change how every figure above should be read, and neither
+ *  was on the screen. The printing because holo and reverse holo are different
+ *  markets; the velocity because a median over sales that stopped a year ago
+ *  is a historical note, not a price. */
+export function PrintingAndLiquidity({
+  printings, velocity, currency = "USD",
+}: {
+  printings: PrintingsInfo;
+  velocity: Velocity;
+  currency?: string;
+}) {
+  const fx = useFx();
+  if (!printings && !velocity) return null;
+
+  const others = printings
+    ? printings.available.filter((x) => x !== printings.primary)
+    : [];
+  const monthly = velocity?.monthlyTotal ?? null;
+
+  return (
+    <View style={st.strip}>
+      {printings?.primary && (
+        <View style={{ gap: 2 }}>
+          <Txt variant="overline" color={colors.inkFaint}>Printing</Txt>
+          <Txt variant="body" style={{ fontWeight: "600" }}>{printings.primary}</Txt>
+          {/* What the OTHER printings go for, because the commonest way to be
+              wrong about this card is to be holding a different one. */}
+          {others.map((o) => {
+            const m = printings.byPrinting[o]?.marketPrice;
+            return (
+              <Txt key={o} variant="bodySmall" color={colors.inkFaint}>
+                {o}: {m != null ? money(m, { fx, from: currency }) : "no price"}
+              </Txt>
+            );
+          })}
+        </View>
+      )}
+
+      {monthly != null && (
+        <View style={{ gap: 2 }}>
+          <Txt variant="overline" color={colors.inkFaint}>How often it trades</Txt>
+          <Txt variant="body" style={{ fontWeight: "600" }}>
+            {monthly === 0
+              ? "Not this month"
+              : `${monthly === 1 ? "1 sale" : `${monthly} sales`} a month`}
+          </Txt>
+          <Txt variant="bodySmall" color={colors.inkFaint}>
+            {monthly === 0
+              ? "A price on a card nobody is buying is a guess with a decimal point."
+              : "More trades means a firmer price."}
+          </Txt>
+        </View>
+      )}
+    </View>
+  );
+}
+
 const st = StyleSheet.create({
+  strip: {
+    flexDirection: "row", flexWrap: "wrap", gap: space.xxl,
+    marginTop: space.md, padding: space.lg,
+    backgroundColor: colors.surfaceSunk, borderRadius: radius.md,
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.md,

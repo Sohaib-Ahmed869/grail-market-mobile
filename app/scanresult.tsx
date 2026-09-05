@@ -7,7 +7,7 @@ import { Txt } from "../components/Text";
 import { Button } from "../components/Button";
 import { Card } from "../components/Card";
 import { Note } from "../components/Note";
-import { PriceChoice, type PriceSide } from "../components/PriceChoice";
+import { PriceChoice, PrintingAndLiquidity, type PriceSide } from "../components/PriceChoice";
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
@@ -246,7 +246,7 @@ export default function ScanResult() {
     if (!g || !grade) return null;
     return (v?.pricesByGrader?.[g]?.[grade] ?? null) as
       | { price: number; sampleSize?: number; count?: number; low?: number; high?: number;
-          median?: number; asOf?: string; confidence?: string }
+          median?: number; asOf?: string; confidence?: string; lastSaleDate?: string | null }
       | null;
   }, [v, form.grader, form.grade]);
 
@@ -263,6 +263,7 @@ export default function ScanResult() {
       low: gradePoint.low ?? null,
       high: gradePoint.high ?? null,
       asOf: gradePoint.asOf ?? null,
+      lastSaleDate: gradePoint.lastSaleDate ?? null,
     };
   }, [gradePoint]);
 
@@ -513,6 +514,14 @@ export default function ScanResult() {
           currency={v?.currency ?? "USD"}
           picked={picked}
           onPick={setSide}
+        />
+
+        {/* Which printing, and how often one trades. Both change how every
+            figure above should be read. */}
+        <PrintingAndLiquidity
+          printings={v?.printings ?? null}
+          velocity={v?.velocity ?? null}
+          currency={v?.currency ?? "USD"}
         />
 
         {/* Neither source had anything. Say so rather than showing a dash and

@@ -56,7 +56,19 @@ export type ScanResult = {
       price: number; sampleSize?: number; count?: number;
       low?: number; high?: number; median?: number;
       asOf?: string; confidence?: string; method?: string;
+      /** when a copy at this grade last changed hands */
+      lastSaleDate?: string | null;
     }>> | null;
+    /** which printings exist and what each is worth — holo is not reverse holo */
+    printings?: {
+      primary: string | null;
+      available: string[];
+      byPrinting: Record<string, { marketPrice: number | null; lowPrice: number | null }>;
+    } | null;
+    /** how often a copy trades at all */
+    velocity?: {
+      dailyAverage?: number | null; weeklyAverage?: number | null; monthlyTotal?: number | null;
+    } | null;
     currency?: string;
   } | null;
   ocrNames?: string[];
