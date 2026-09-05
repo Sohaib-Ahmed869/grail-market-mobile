@@ -57,6 +57,17 @@ export type Sale = {
 export type SalesAnswer = {
   sales: Sale[]; itemised: number; known: number | null;
   lastSaleAt: string | null; note: string | null;
+  /** What the sales we cannot itemise add up to.
+   *
+   *  The provider reports totals rather than rows, so `sales` is often empty
+   *  while `known` is nine. Saying "no sale on record" in that case
+   *  contradicts the valuation directly above it, which was computed FROM
+   *  those nine. This is what lets the panel show the evidence instead of
+   *  denying it exists. */
+  aggregate?: {
+    price: number | null; median: number | null; low: number | null;
+    high: number | null; confidence: string | null; asOf: string | null;
+  } | null;
 };
 
 /** Confirmed sales we can actually itemise.

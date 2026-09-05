@@ -223,8 +223,17 @@ export function PriceChoice({
       {asks && (
         <Side
           key="asks"
-          title="What people are asking"
-          sub="Live listings elsewhere"
+          // When the figure has been pulled down to the cheapest long-unsold
+          // ask, it is NOT the median any more and calling it one is a lie
+          // with a number on it: the screen read "Median ask A$24,184" above
+          // three listings of 24,184 / 32,245 / 41,646, whose median is
+          // 32,245. Name the thing it actually is.
+          title={asks.cappedByStale ? "What people are asking" : "What people are asking"}
+          sub={
+            asks.cappedByStale
+              ? "Capped to the cheapest ask nobody has taken"
+              : "Middle of live listings elsewhere"
+          }
           amount={asks.median}
           currency={currency}
           fx={fx}
@@ -232,8 +241,12 @@ export function PriceChoice({
           selectable={both}
           onPress={() => onPick("asks")}
           why={
-            `The middle of what sellers want today — not what anyone has paid. ` +
-            `Asks run high, because the copies priced at market sell and leave.`
+            asks.cappedByStale
+              ? `Not the middle of the asks — the cheapest one that has sat unsold, ` +
+                `which is the tightest ceiling the live market can give us. Nobody ` +
+                `has paid this; somebody has failed to get it.`
+              : `The middle of what sellers want today — not what anyone has paid. ` +
+                `Asks run high, because the copies priced at market sell and leave.`
           }
           facts={[
             asks.count != null
@@ -249,9 +262,12 @@ export function PriceChoice({
               : null,
           ]}
           warn={
+            // Name the listing this is actually about. The old copy said "the
+            // DEAREST asks have sat unsold", while the listing it had capped
+            // to was the CHEAPEST one on the page.
             asks.cappedByStale && asks.staleCeilingDays != null
-              ? `The dearest of these has sat unsold for ${months(asks.staleCeilingDays)}, ` +
-                `so it is treated as a ceiling rather than a price.`
+              ? `This is the cheapest ask still standing after ${months(asks.staleCeilingDays)} ` +
+                `unsold, so it is a ceiling on the market rather than a reading of it.`
               : null
           }
         />

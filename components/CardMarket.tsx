@@ -101,12 +101,44 @@ export function CardMarket({ card }: { card: CardRef }) {
             </View>
           )}
         </View>
+      ) : sales?.known && sales.known > 0 ? (
+        /* We have the sales, we just cannot list them one by one. Saying "no
+           sale on record" here flatly contradicted the valuation above, which
+           was computed from exactly these. Show what they add up to. */
+        <View style={s.group}>
+          <View style={s.saleRow}>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Txt variant="h3">
+                {sales.known} completed sale{sales.known === 1 ? "" : "s"} at this grade
+              </Txt>
+              {sales.aggregate?.median != null && (
+                <Txt variant="bodySmall" color={colors.inkMuted}>
+                  Middle price {aud(sales.aggregate.median, "USD")}
+                  {sales.aggregate.low != null && sales.aggregate.high != null
+                    ? ` · ranged ${aud(sales.aggregate.low, "USD")} to ${aud(sales.aggregate.high, "USD")}`
+                    : ""}
+                </Txt>
+              )}
+              {sales.lastSaleAt && (
+                <Txt variant="bodySmall" color={colors.inkFaint}>
+                  Last one sold {day(sales.lastSaleAt)}
+                </Txt>
+              )}
+            </View>
+          </View>
+          <View style={{ padding: space.md }}>
+            <Txt variant="bodySmall" color={colors.inkFaint}>
+              {sales.note ??
+                "Our price source reports totals rather than individual sales, so we can show what they add up to but not list them one by one."}
+            </Txt>
+          </View>
+        </View>
       ) : (
         <View style={{ marginTop: space.md }}>
           <Note icon="info">
             {sales === null
               ? "This server build can't itemise sales yet — the figure above still comes from completed sales, we just can't list them row by row here."
-              : "No itemised sale on record for this exact card and grade."}
+              : "No sale on record for this exact card and grade."}
           </Note>
         </View>
       )}
@@ -122,7 +154,14 @@ export function CardMarket({ card }: { card: CardRef }) {
       ) : asks && asks.listings.length > 0 ? (
         <>
           <View style={s.stats}>
-            <Stat label="Median ask" value={aud(asks.medianAsk)} strong />
+            {/* Only a median when it IS one. Once the stale ceiling has pulled
+                it down to the cheapest long-unsold ask, "Median ask" over a
+                figure below every other listing on the page is simply false. */}
+            <Stat
+              label={asks.cappedByStale ? "Ceiling" : "Median ask"}
+              value={aud(asks.medianAsk)}
+              strong
+            />
             <Stat label="Lowest" value={aud(asks.askLow)} />
             <Stat label="Highest" value={aud(asks.askHigh)} />
           </View>
@@ -135,8 +174,9 @@ export function CardMarket({ card }: { card: CardRef }) {
           {asks.cappedByStale && asks.staleCeilingDays != null && (
             <View style={{ marginTop: space.sm }}>
               <Note tone="accent" icon="clock">
-                The highest asks have sat unsold for {Math.round(asks.staleCeilingDays / 30)} months,
-                so they are treated as a ceiling rather than a price.
+                This is the cheapest ask still standing after{" "}
+                {Math.round(asks.staleCeilingDays / 30)} months unsold, so it caps the
+                market rather than describing it. Nobody paid this — somebody failed to get it.
               </Note>
             </View>
           )}

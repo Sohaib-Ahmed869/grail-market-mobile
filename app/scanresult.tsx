@@ -11,6 +11,7 @@ import { PriceChoice, PrintingAndLiquidity, type PriceSide } from "../components
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
+import { liveAsks, type LiveAsks } from "../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
 import { getLastScan, getLastShots, setLastScan } from "../lib/lastscan";
@@ -230,7 +231,37 @@ export default function ScanResult() {
   };
 
   const price = v?.slabPrice ?? null;
-  const ask = v?.liveAsk ?? null;
+  // ONE ask, from the same call the panel below uses.
+  //
+  // The choice block read `valuation.liveAsk` off the scan payload while
+  // "Asking Now" fetched /market/listings separately, so on a card where the
+  // scan carried no asks the seller was offered a "choice" between our
+  // valuation and our other valuation — and the actual asking price, A$24,184
+  // against our A$14,576, sat two scrolls further down where it could not be
+  // compared or chosen. Two sources for one number is how that happens.
+  const [fetchedAsks, setFetchedAsks] = useState<LiveAsks | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (v?.liveAsk || !form.name) return;
+    liveAsks({
+      name: form.name, setName: form.setName || null, number: form.number || null,
+      grader: form.grader || null, grade: form.grade || null,
+      game: scan?.identification?.game ?? null,
+    }).then((r) => { if (alive) setFetchedAsks(r); });
+    return () => { alive = false; };
+  }, [v?.liveAsk, form.name, form.setName, form.number, form.grader, form.grade, scan?.identification?.game]);
+
+  const ask = v?.liveAsk ?? (fetchedAsks?.medianAsk != null
+    ? {
+        median: fetchedAsks.medianAsk,
+        low: fetchedAsks.askLow,
+        high: fetchedAsks.askHigh,
+        count: fetchedAsks.matched,
+        total: fetchedAsks.total,
+        staleCeilingDays: fetchedAsks.staleCeilingDays,
+        cappedByStale: fetchedAsks.cappedByStale,
+      }
+    : null);
 
   // Which of the two figures the seller has chosen to price against. Defaults
   // to ours: a valuation is an answer to "what is it worth", and the median
@@ -550,14 +581,30 @@ export default function ScanResult() {
             Each grade priced from its own sales. Never converted between companies.
           </Txt>
           <View style={s.ladder}>
-            {ladder.map((row) => {
+            {ladder.map((row, i) => {
               const here = String(v?.slabGrade) === row.grade;
+              // A higher grade cannot be worth less than the rung beneath it.
+              // Where it is, the sample is too thin or has an outlier in it —
+              // our pricing already detects this and backs off the figure, and
+              // the ladder was still drawing it as fact under a heading that
+              // says "each grade priced from its own sales".
+              const below = ladder[i - 1];
+              const inverted = below != null && row.price < below.price;
               return (
                 <View key={row.grade} style={[s.rung, here && s.rungHere]}>
                   <Txt variant="h3" style={{ width: 92 }} numberOfLines={1}>
                     {gradeLabel(form.grader || v?.slabGrader, row.grade) || row.grade}
                   </Txt>
-                  <Txt variant="body" style={{ flex: 1 }}>{money(row.price)}</Txt>
+                  <View style={{ flex: 1 }}>
+                    <Txt variant="body" color={inverted ? colors.inkMuted : colors.ink}>
+                      {money(row.price)}
+                    </Txt>
+                    {inverted && (
+                      <Txt variant="bodySmall" color={colors.down}>
+                        below the grade under it — too few sales to trust
+                      </Txt>
+                    )}
+                  </View>
                   <Txt variant="bodySmall" color={colors.inkFaint}>
                     {row.sampleSize ? `${row.sampleSize} sales` : "—"}
                   </Txt>
