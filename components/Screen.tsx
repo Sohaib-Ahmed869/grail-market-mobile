@@ -54,10 +54,6 @@ export function Screen({
       // the bottom become unreachable.
       style={s.fill}
       contentContainerStyle={[s.content, bottom != null && { paddingBottom: bottom }]}
-      onLayout={(e) =>
-        console.log("[screen] viewport h =", Math.round(e.nativeEvent.layout.height))
-      }
-      onContentSizeChange={(_w, h) => console.log("[screen] content h =", Math.round(h))}
       showsVerticalScrollIndicator={false}
       // "handled" lets a tap reach a button without first dismissing the
       // keyboard, so moving between fields takes one tap rather than two.
