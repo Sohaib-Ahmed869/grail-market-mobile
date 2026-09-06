@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Image, ScrollView, StyleSheet, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -25,7 +26,19 @@ export default function SellPreview() {
   const router = useRouter();
   const d = getDraft();
   const session = useSession();
-  if (!d) { router.replace("/sell/card"); return null; }
+  /* Navigating out of a screen that has nothing to show.
+   *
+   * This called router.replace() during RENDER, which updates the navigation
+   * container while React is drawing this component — React says so by name:
+   * "Cannot update a component (NavigationContainerInner) while rendering a
+   * different component (SellDeclare)". Rendering has to be free of side
+   * effects; the redirect belongs in an effect, after the paint.
+   *
+   * Still returns null immediately, so the empty screen never flashes. */
+  useEffect(() => {
+    if (!d) router.replace("/sell/card");
+  }, [d, router]);
+  if (!d) return null;
 
   const photos = d.photos ?? [];
   const verified = photos.length >= 10;
