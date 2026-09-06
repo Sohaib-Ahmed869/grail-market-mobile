@@ -104,6 +104,16 @@ const months = (days: number) =>
 
 /** Plain words for how a figure was reached. `method` is written for us; this
  *  is written for the person holding the card. */
+/** When our figure IS the ask, say so in the ask's own terms. */
+function whyFromAsks(a: NonNullable<AskSide>): string {
+  return (
+    `No sale at this grade can be trusted — the recorded ones contradict the ` +
+    `grades either side of them — so this is the live asking market instead. ` +
+    `${a.cappedByStale ? "Capped to the cheapest ask nobody has taken." : "The middle of what sellers want."} ` +
+    `Nobody has paid this.`
+  );
+}
+
 function whyOurs(p: NonNullable<OurPrice>, sold?: SoldSide): string {
   const n = sold?.count ?? p.sampleSize ?? 0;
   if (p.basis === "observed" || sold) {
@@ -147,7 +157,21 @@ export function PriceChoice({
     soldAmount != null &&
     Math.abs(ours!.price - soldAmount) / Math.max(soldAmount, 1) > 0.02;
 
-  const both = [divergent ? sold : null, ours, asks].filter(Boolean).length > 1;
+  // Our valuation is sometimes the ask ITSELF. Where no sale at this grade can
+  // be trusted — an inverted ladder, a lone outlier — the chain falls back to
+  // the median ask, and then "What it's worth" and "What people are asking"
+  // are one number under two headings. On this Charizard both read A$24,184,
+  // and a choice between a figure and itself is not a choice.
+  //
+  // The ask card is the one folded away, because "what is it worth" is the
+  // question the screen exists to answer. Its evidence is not lost: the count,
+  // the spread and the unsold-ceiling warning move onto the card that stays,
+  // and whyOurs says the figure came from asks rather than sales.
+  const asksEcho =
+    Boolean(ours && asks) && Math.abs(ours!.price - asks!.median) < 0.01;
+  const showAsks = asks && !asksEcho;
+
+  const both = [divergent ? sold : null, ours, showAsks ? asks : null].filter(Boolean).length > 1;
 
   return (
     <View style={{ marginTop: space.lg, gap: space.sm }}>
@@ -197,7 +221,7 @@ export function PriceChoice({
           selected={picked === "ours"}
           selectable={both}
           onPress={() => onPick("ours")}
-          why={whyOurs(ours, sold)}
+          why={asksEcho ? whyFromAsks(asks!) : whyOurs(ours, sold)}
           facts={[
             // The sales ARE the working. Shown here rather than on a card of
             // their own, because "what it sold for" is not an alternative to
@@ -220,8 +244,24 @@ export function PriceChoice({
               ? ["Last sold", when(sold.lastSaleDate)!]
               : null,
             ours.confidence ? ["Confidence", String(ours.confidence)] : null,
+            // The folded-away ask card's evidence, so hiding it costs nothing.
+            asksEcho && asks?.count != null
+              ? [
+                  "From",
+                  asks.total != null && asks.total > asks.count
+                    ? `${asks.count} of ${asks.total} listings`
+                    : `${asks.count} listing${asks.count === 1 ? "" : "s"}`,
+                ]
+              : null,
+            asksEcho && asks?.low != null && asks?.high != null
+              ? ["Lowest / highest", `${money(asks.low, { fx, from: currency })} – ${money(asks.high, { fx, from: currency })}`]
+              : null,
           ]}
           warn={
+            asksEcho && asks?.cappedByStale && asks.staleCeilingDays != null
+              ? `This is the cheapest ask still standing after ${months(asks.staleCeilingDays)} ` +
+                `unsold. Nobody has paid it; somebody has failed to get it.`
+              :
             sold?.lastSaleDate &&
             Date.now() - new Date(sold.lastSaleDate).getTime() > 180 * 86400000
               ? "Nothing at this grade has sold in over six months, so this is a stale reading of a thin market."
@@ -230,7 +270,7 @@ export function PriceChoice({
         />
       )}
 
-      {asks && (
+      {showAsks && asks && (
         <Side
           key="asks"
           // When the figure has been pulled down to the cheapest long-unsold

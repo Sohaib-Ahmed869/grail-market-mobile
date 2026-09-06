@@ -314,7 +314,12 @@ export default function ScanResult() {
   // Sales beat our estimate, our estimate beats asks. The seller may override
   // it; until they do, the default is the best evidence available.
   const fallback: PriceSide = price || sold ? "ours" : "asks";
-  const picked = side ?? fallback;
+  // Our valuation is sometimes the ask itself, and PriceChoice folds the
+  // duplicate card away. A selection pointing at a card that is no longer on
+  // screen would price against an option nobody can see.
+  const asksHidden = price != null && ask?.median != null &&
+    Math.abs(price.price - ask.median) < 0.01;
+  const picked = (side === "asks" && asksHidden ? "ours" : side) ?? fallback;
   // Exactly the figure the chosen card SHOWS. The sold card leads with the
   // median, and this read `sold.price` — the weighted figure — so picking
   // "what it sold for" displayed 10,250 and handed the sell flow 10,500. A
