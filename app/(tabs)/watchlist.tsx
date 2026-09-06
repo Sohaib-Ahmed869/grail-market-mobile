@@ -45,6 +45,8 @@ export default function Watchlist() {
   }, []);
   useFocusEffect(load);
 
+  const refresh = useCallback(async () => setRows((await watchlist()).watches), []);
+
   const drop = (w: Watch) =>
     Alert.alert("Stop following?", `${w.cardName} comes off your watchlist.`, [
       { text: "Keep", style: "cancel" },
@@ -56,7 +58,7 @@ export default function Watchlist() {
     ]);
 
   return (
-    <Screen tabBar {...navScroll}>
+    <Screen tabBar {...navScroll} onRefresh={refresh}>
       <Txt variant="display" style={{ marginTop: space.sm }}>Watchlist</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
         Cards you don&rsquo;t own but want to know about.

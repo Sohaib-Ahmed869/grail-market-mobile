@@ -40,6 +40,8 @@ export default function MyOffers() {
   }, []);
   useFocusEffect(load);
 
+  const refresh = useCallback(async () => setRows((await myOffers()).offers), []);
+
   const takeCounter = async (o: Offer) => {
     setBusy(o.offer_id);
     await makeOffer(o.listing_id, num(o.amount) ?? 0, "Accepting your counter.");
@@ -48,7 +50,7 @@ export default function MyOffers() {
   };
 
   return (
-    <Screen back>
+    <Screen onRefresh={refresh} back>
       <Txt variant="display" style={{ marginTop: space.sm }}>My Offers</Txt>
 
       {rows == null ? (

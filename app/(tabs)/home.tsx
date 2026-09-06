@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  AppState, Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions,
+  AppState, Image, Pressable, RefreshControl, ScrollView, StyleSheet, View,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -71,6 +72,42 @@ export default function Home() {
     { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+
+  /* Pull to refresh the whole dashboard.
+   *
+   * Every panel here loads on its own, so refreshing means asking all of them
+   * again together and holding the wheel until the slowest one answers —
+   * stopping at the first is a spinner that lies about the panels still
+   * loading behind it. allSettled, because one dead endpoint must not leave
+   * the wheel turning over five that came back. */
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.allSettled([
+        marketPulse().then(setPulse),
+        getCollection().then((r) => {
+          setHeldArt(
+            [...r.entries]
+              .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+              .map((e) => e.imageUrl)
+              .filter(Boolean)
+              .slice(0, 6),
+          );
+          setCollection({
+            value: r.value, gain: r.gain, cost: r.cost,
+            cards: r.entries.length, priced: r.priced,
+          });
+        }),
+        watchlist().then((r) => setWatched(r.watches)),
+        browse({ sort: "featured" }).then((r) => setForSale(r.listings.slice(0, 10))),
+        unreadCount().then(setUnread),
+        unreadNotifications().then(setAlerts),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
   // Candles for the leading mover. One call, cached hard on the server, and
   // it is the same endpoint the card page uses rather than a second one.
   const [leadRange, setLeadRange] = useState("W");
@@ -156,6 +193,9 @@ export default function Home() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: clearance }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.inkFaint} />
+        }
         {...navScroll}
       >
         {/* ---- the band ---------------------------------------------------- */}

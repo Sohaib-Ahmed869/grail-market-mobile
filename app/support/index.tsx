@@ -36,9 +36,12 @@ export default function SupportList() {
     }, []),
   );
 
+  const refresh = useCallback(async () => setTickets(await myTickets()), []);
+
   return (
     <Screen
       back
+      onRefresh={refresh}
       footer={<Button label="Get help" onPress={() => router.push("/support/new")} />}
     >
       <Txt variant="display" style={{ marginTop: space.sm }}>Help</Txt>

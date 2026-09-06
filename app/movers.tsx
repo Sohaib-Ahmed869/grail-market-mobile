@@ -25,8 +25,13 @@ export default function Movers() {
     }, []),
   );
 
+  /* Pull to refresh. Awaited, so the spinner stops when the data lands rather
+     than on a timer — a spinner that stops early says "done" about a request
+     still in flight. */
+  const refresh = useCallback(async () => setPulse(await marketPulse()), []);
+
   return (
-    <Screen back>
+    <Screen back onRefresh={refresh}>
       <Txt variant="display">On The Move</Txt>
       <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
         Biggest movement first, ranked on the week. Refreshed twice a day.

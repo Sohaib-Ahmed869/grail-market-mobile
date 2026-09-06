@@ -48,6 +48,12 @@ export default function MyListings() {
   }, []);
   useFocusEffect(load);
 
+  const refresh = useCallback(async () => {
+    const r = await myListings();
+    setRows(r.listings);
+    setQuota(r.quota);
+  }, []);
+
   const withdraw = (l: Listing) =>
     Alert.alert("Withdraw this listing?", "It comes off the market. You can list it again later.", [
       { text: "Keep it up", style: "cancel" },
@@ -82,7 +88,7 @@ export default function MyListings() {
   const full = quota.limit != null && quota.used >= quota.limit;
 
   return (
-    <Screen back footer={
+    <Screen onRefresh={refresh} back footer={
       <Button
         label={full ? "Upgrade to list more" : "List another card"}
         onPress={() => router.push(full ? "/plans" : "/(tabs)/scan")}

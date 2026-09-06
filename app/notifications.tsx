@@ -39,8 +39,10 @@ export default function Notifications() {
   }, []);
   useFocusEffect(load);
 
+  const refresh = useCallback(async () => setItems((await notifications()).items), []);
+
   return (
-    <Screen back>
+    <Screen onRefresh={refresh} back>
       {/* The list and the settings for the list, in the one place somebody
           goes when they are wondering why they got this. */}
       <View style={s.head}>

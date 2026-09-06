@@ -75,8 +75,8 @@ export default function Market() {
   const [grade, setGrade] = useState<string | null>(null);
   const [band, setBand] = useState<{ min?: number; max?: number } | null>(null);
 
-  const load = useCallback(async () => {
-    setRows(null);
+  const load = useCallback(async (opts?: { keepRows?: boolean }) => {
+    if (!opts?.keepRows) setRows(null);
     const r = await browse({
       game: game || undefined,
       grader: grader ?? undefined,
@@ -93,6 +93,19 @@ export default function Market() {
   }, [game, grader, raw, sort, q, setName, cardNumber, variant, grade, band]);
 
   useEffect(() => { load(); }, [load]);
+
+  /* Pull to refresh, with a spinner that means something.
+   *
+   * The list already called `load` on pull but passed `refreshing={false}`, so
+   * the wheel vanished the instant you let go while the request was still in
+   * flight — the gesture worked and looked like it had not. This holds it
+   * until the rows land, and skips the skeleton so the list stays put under
+   * your thumb rather than emptying and refilling. */
+  const [refreshing, setRefreshing] = useState(false);
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try { await load({ keepRows: true }); } finally { setRefreshing(false); }
+  }, [load]);
 
   const filters = [
     game && GAMES.find((g) => g.id === game)?.label, grader, raw && "Raw only",
@@ -217,8 +230,8 @@ export default function Market() {
         numColumns={2}
         columnWrapperStyle={{ gap: space.md }}
         contentContainerStyle={s.list}
-        onRefresh={load}
-        refreshing={false}
+        onRefresh={refresh}
+        refreshing={refreshing}
         ListEmptyComponent={
           rows == null ? (
             <View style={s.skeletonGrid}>

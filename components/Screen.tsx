@@ -1,5 +1,6 @@
+import { useCallback, useState } from "react";
 import {
-  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View,
+  KeyboardAvoidingView, Platform, Pressable, RefreshControl, ScrollView, StyleSheet, View,
   type ScrollViewProps, type StyleProp, type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -19,6 +20,7 @@ import { colors, space } from "../theme";
  */
 export function Screen({
   children, back, footer, scroll = true, style, onScroll, scrollEventThrottle, tabBar,
+  onRefresh,
 }: {
   children: React.ReactNode;
   back?: boolean;
@@ -38,8 +40,30 @@ export function Screen({
    *  because most screens using this have no bar over them and the room would
    *  be a gap at the bottom of every one of them. */
   tabBar?: boolean;
+  /** Pull down to fetch again.
+   *
+   *  Here rather than on each screen so the gesture behaves identically
+   *  everywhere — same spinner, same colour, same rule about when it stops.
+   *  A screen without it simply does not pass one, and pulling does nothing,
+   *  which is what a screen with nothing to refetch should do.
+   *
+   *  The spinner is held until the promise settles, including when it
+   *  rejects: a refresh that fails still has to STOP, or the screen spins
+   *  forever and reads as a hang. */
+  onRefresh?: () => void | Promise<unknown>;
 }) {
   const goBack = useBack();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = useCallback(async () => {
+    if (!onRefresh || refreshing) return;
+    setRefreshing(true);
+    try {
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [onRefresh, refreshing]);
   const clearance = useTabBarClearance();
   const bottom = tabBar ? clearance : undefined;
   // No "bottom" safe-area edge when the bar is over us: the bar consumes that
@@ -54,6 +78,16 @@ export function Screen({
       // the bottom become unreachable.
       style={s.fill}
       contentContainerStyle={[s.content, bottom != null && { paddingBottom: bottom }]}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={refresh}
+            tintColor={colors.inkFaint}
+            colors={[colors.ink]}
+          />
+        ) : undefined
+      }
       showsVerticalScrollIndicator={false}
       // "handled" lets a tap reach a button without first dismissing the
       // keyboard, so moving between fields takes one tap rather than two.
