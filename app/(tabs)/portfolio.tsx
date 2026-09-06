@@ -20,9 +20,20 @@ import { collectionHistory } from "../../lib/history";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
-import { aud } from "../../lib/fx";
+import { aud, convert, useFx, type Fx } from "../../lib/fx";
 
 const money = (n: number | null) => aud(n);
+
+/* What a card is WORTH comes from the price store in US dollars. What somebody
+ * PAID is what they typed, in Australian ones. Rendering the first with aud()
+ * printed a US figure behind an A$ sign — a 39% understatement of every
+ * collection — and subtracting the second from it produced a gain that was
+ * two currencies wide and meant nothing at all.
+ *
+ * Values are converted here, once, on the way in. Nothing below this line
+ * touches a US figure. */
+const AUD = (n: number | null | undefined, fx: Fx | null) =>
+  convert(n, { fx, from: "USD" });
 
 /** Collection.
  *
@@ -40,7 +51,14 @@ export default function Portfolio() {
   // line is drawn here rather than at the front door.
   const guest = useGuest();
   const router = useRouter();
+  const fx = useFx();
   const [data, setData] = useState({ entries: [] as Entry[], value: 0, cost: 0, gain: 0, priced: 0 });
+
+  /* The totals in one currency. `cost` is already what the member typed, in
+     AUD; `value` and therefore `gain` come back from the API in US dollars and
+     have to be brought across before either can be shown or subtracted. */
+  const valueAud = AUD(data.value, fx);
+  const gainAud = valueAud != null ? valueAud - data.cost : null;
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const toast = useToast();
@@ -95,7 +113,7 @@ export default function Portfolio() {
     );
   }, [load, toast]);
 
-  const up = data.gain >= 0;
+  const up = (gainAud ?? 0) >= 0;
 
   if (guest) {
     return (
@@ -149,7 +167,7 @@ export default function Portfolio() {
                 * the largest type on the screen. A dash says we do not know,
                 * and the line underneath says how many. */}
               <Txt variant="price" style={{ marginTop: 2 }}>
-                {data.entries.length > 0 && data.priced === 0 ? "—" : money(data.value)}
+                {data.entries.length > 0 && data.priced === 0 ? "—" : money(valueAud)}
               </Txt>
               {/* Same rule as the dashboard: without a recorded cost there is
                 * no gain to report, and showing the whole value as profit is
@@ -159,7 +177,7 @@ export default function Portfolio() {
                   <Feather name={up ? "trending-up" : "trending-down"} size={13}
                     color={up ? colors.up : colors.down} />
                   <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
-                    {up ? "+" : ""}{money(data.gain)} against {money(data.cost)} paid
+                    {up ? "+" : ""}{money(gainAud)} against {money(data.cost)} paid
                   </Txt>
                 </View>
               ) : (
@@ -217,7 +235,10 @@ export default function Portfolio() {
         }
         renderItem={({ item }) => {
           const qty = item.quantity ?? 1;
-          const gain = item.value != null && item.paid != null ? (item.value - item.paid) * qty : null;
+          // Both sides in AUD before they meet. This subtracted a US value
+          // from an Australian one and called the difference a profit.
+          const rowValue = AUD(item.value, fx);
+          const gain = rowValue != null && item.paid != null ? (rowValue - item.paid) * qty : null;
           // Tapping a card starts a listing for it. The collection is where a
           // seller already knows what they own, so making them re-scan a card
           // sitting in front of them is the long way round.
@@ -227,7 +248,7 @@ export default function Portfolio() {
               catalogId: item.catalogId, cardName: item.cardName, setName: item.setName,
               cardNumber: item.cardNumber, imageUrl: item.imageUrl,
               grader: item.grader, grade: item.grade, variant: item.variant,
-              marketValue: item.value,
+              marketValue: rowValue,
             });
             router.push("/sell/card");
           };
@@ -276,7 +297,7 @@ export default function Portfolio() {
                 </Txt>
               </View>
               <View style={{ alignItems: "flex-end" }}>
-                <Txt variant="h3">{money(item.value == null ? null : item.value * qty)}</Txt>
+                <Txt variant="h3">{money(rowValue == null ? null : rowValue * qty)}</Txt>
                 {gain != null && (
                   <Txt variant="bodySmall" color={gain >= 0 ? colors.up : colors.down}>
                     {gain >= 0 ? "+" : ""}{money(gain)}

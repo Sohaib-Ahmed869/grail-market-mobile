@@ -12,7 +12,7 @@ import { Picker } from "../../components/Picker";
 import { CardMarket } from "../../components/CardMarket";
 import { BuyAt } from "../../components/BuyAt";
 import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
-import { conversionNote, money as fxMoney, useFx } from "../../lib/fx";
+import { conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
@@ -143,7 +143,10 @@ export default function CardPage() {
       catalogId: String(id), cardName: meta.name, setName: meta.setName,
       cardNumber: meta.number, imageUrl: meta.imageUrl,
       grader: grader === "RAW" ? null : grader, grade,
-      marketValue: headline ?? null,
+      // AUD, like the listing it seeds. headline is the price chain's figure
+      // and that is in US dollars; passing it raw is how a sell screen showed
+      // "A$17,421" for a card the page above had just called A$24,184.
+      marketValue: convert(headline, { fx, from: "USD" }),
     });
     router.push("/sell/card");
   };

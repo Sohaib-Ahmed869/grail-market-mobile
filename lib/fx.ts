@@ -62,6 +62,30 @@ export function money(
   return `${symbol(to)}${figure(n * rate)}`;
 }
 
+/** The same conversion `money()` does, as a NUMBER.
+ *
+ *  Everything here formatted-and-converted in one step, so any code needing
+ *  the converted VALUE — to store it, to compare it, to seed a form — had no
+ *  way to get it and used the raw figure instead. That is how US$17,421 was
+ *  written into a sell draft and rendered "A$17,421" by aud(), which prefixes
+ *  a symbol and converts nothing: a 39% understatement on the one screen
+ *  where somebody sets a price.
+ *
+ *  Returns null when we cannot convert. A missing market value is a listing
+ *  the seller prices themselves; a wrongly converted one is a card sold for
+ *  two thirds of its worth. */
+export function convert(
+  n: number | null | undefined,
+  { fx, from = "USD", to = "AUD" }: { fx?: Fx | null; from?: string; to?: string } = {},
+): number | null {
+  if (n == null || !Number.isFinite(n)) return null;
+  if (from === to) return n;
+  const a = fx?.rates?.[to];
+  const b = fx?.rates?.[from];
+  if (a == null || b == null) return null;
+  return n * (a / b);
+}
+
 /** An amount already IN Australian dollars — a listing, an offer, a total.
  *
  *  Nine screens had their own copy of this and every copy rounded, so the same

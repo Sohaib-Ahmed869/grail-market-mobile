@@ -12,7 +12,7 @@ import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
 import { liveAsks, type LiveAsks } from "../lib/cardmarket";
-import { conversionNote, money as fxMoney, useFx } from "../lib/fx";
+import { conversionNote, convert, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
 import { getLastScan, getLastShots, setLastScan } from "../lib/lastscan";
 import { pickCandidate, type ScanResult } from "../lib/scan";
@@ -199,7 +199,16 @@ export default function ScanResult() {
       imageUrl: getLastShots()?.front ?? null,
       grader: form.grader || null, grade: form.grade || null,
       certNumber: v?.certNumber ?? null, variant,
-      marketValue: headline ?? null,
+      // In AUD, because that is what a listing is priced in — `price` and
+      // `currency` on the row are AUD and market_value sits beside them. This
+      // passed the raw USD figure, which aud() then rendered "A$17,421" for a
+      // card the scan screen had just shown as A$24,184: the same number, a
+      // symbol swapped onto it, 39% out on the screen where a price is set.
+      //
+      // Null rather than unconverted when we have no rate. A listing with no
+      // market value is one the seller prices themselves; a wrongly converted
+      // one is a card sold for two thirds of its worth.
+      marketValue: convert(headline, { fx, from: v?.currency ?? "USD" }),
       // Which of the three the seller actually chose, so the price screen can
       // say so rather than presenting the number as an unexplained "market
       // value" they have no way to check their choice against.
