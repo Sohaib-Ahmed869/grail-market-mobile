@@ -9,6 +9,13 @@ export type DraftSeed = {
   grader?: string | null; grade?: string | null; certNumber?: string | null;
   variant?: string | null;
   marketValue?: number | null;
+  /** Which of the three figures on the scan result the seller chose.
+   *
+   *  Carried so the price screen can NAME it. The number arrived with no
+   *  provenance, so a seller who deliberately picked the sale median saw an
+   *  unexplained "Market value" and had no way to tell whether their choice
+   *  had survived the screen change. */
+  marketBasis?: "sold" | "ours" | "asks" | null;
 };
 
 let seed: DraftSeed | null = null;

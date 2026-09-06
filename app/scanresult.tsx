@@ -200,6 +200,10 @@ export default function ScanResult() {
       grader: form.grader || null, grade: form.grade || null,
       certNumber: v?.certNumber ?? null, variant,
       marketValue: headline ?? null,
+      // Which of the three the seller actually chose, so the price screen can
+      // say so rather than presenting the number as an unexplained "market
+      // value" they have no way to check their choice against.
+      marketBasis: chosen != null ? picked : null,
     });
     // The seed also travels as route params, so a browser reload inside the
     // sell flow does not land on "scan the card first" holding a card that

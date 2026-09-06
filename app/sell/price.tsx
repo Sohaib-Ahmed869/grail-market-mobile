@@ -30,17 +30,35 @@ export default function SellPrice() {
   const draft = getDraft();
   const market = draft?.marketValue ?? null;
 
+  /** What the seller picked on the scan result, in their words. */
+  const BASIS: Record<string, string> = {
+    sold: "What it sold for — the middle of completed sales",
+    ours: "What it's worth — our valuation",
+    asks: "What people are asking — live listings",
+  };
+  const basis = draft?.marketBasis ? BASIS[draft.marketBasis] : null;
+
+  /** Whole dollars above ten, cents below it.
+   *
+   *  Every strategy rounded to whole dollars, so a 94-cent card offered
+   *  "quickly", "at market" and "hold out" — all of them A$1. Three choices
+   *  that are one number is not a choice, and most of a set is under a dollar.
+   *  The same rule the rest of the app formats money with. */
+  const round = (n: number) => (Math.abs(n) < 10 ? Math.round(n * 100) / 100 : Math.round(n));
+
   const options = useMemo(() => {
     if (!market) return [];
     return [
-      { id: "quick", name: "Sell it quickly", blurb: "Under market. Usually gone inside a week.", price: Math.round(market * 0.92) },
-      { id: "market", name: "At market", blurb: "Matches recent completed sales.", price: Math.round(market) },
-      { id: "patient", name: "Hold out", blurb: "Above market. Expect offers, not instant sales.", price: Math.round(market * 1.08) },
+      { id: "quick", name: "Sell it quickly", blurb: "Under market. Usually gone inside a week.", price: round(market * 0.92) },
+      // Exactly the figure chosen on the scan result, unmultiplied — this is
+      // the option that has to survive the trip.
+      { id: "market", name: "At market", blurb: "Matches recent completed sales.", price: round(market) },
+      { id: "patient", name: "Hold out", blurb: "Above market. Expect offers, not instant sales.", price: round(market * 1.08) },
     ];
   }, [market]);
 
   const [strategy, setStrategy] = useState(market ? "market" : "own");
-  const [own, setOwn] = useState(market ? String(Math.round(market)) : "");
+  const [own, setOwn] = useState(market ? String(round(market)) : "");
   const [delivery, setDelivery] = useState<string[]>(["pickup"]);
   const [suburb, setSuburb] = useState(draft?.suburb ?? "");
 
@@ -75,9 +93,18 @@ export default function SellPrice() {
       {market ? (
         <View style={s.market}>
           <Txt variant="overline" color={colors.inkFaint}>
-            Market value{draft?.grader ? ` · ${draft.grader} ${draft.grade ?? ""}` : " · ungraded"}
+            {basis ? "You picked" : "Market value"}
+            {draft?.grader ? ` · ${draft.grader} ${draft.grade ?? ""}` : " · ungraded"}
           </Txt>
           <Txt variant="price" style={{ marginTop: 2 }}>{money(market)}</Txt>
+          {/* Named, not just shown. A figure with no provenance on the screen
+              where somebody sets a price is the thing the scan result spent
+              three cards explaining. */}
+          {basis && (
+            <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 2 }}>
+              {basis}
+            </Txt>
+          )}
         </View>
       ) : (
         <View style={{ marginTop: space.lg }}>
