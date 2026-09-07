@@ -23,6 +23,19 @@ import { colors } from "../theme";
  *  app comes from — went to 404 on every path for an afternoon. Every tile in
  *  the product went blank at once and none of them said anything.
  */
+/** Which picture this is, ignoring how we were let in to see it.
+ *
+ *  A signed S3 read carries the signature in the query string, so the SAME
+ *  photograph arrives under a different URL every time it is re-signed. Keyed
+ *  on the whole URL, the tile treated each of those as a new image: it
+ *  remounted, went back to the shimmer, and downloaded a file it already had.
+ *  On the market row that read as pictures appearing, vanishing on scroll and
+ *  appearing again.
+ *
+ *  The path identifies the object; the query is only the permission to fetch
+ *  it. So the identity is the part before the "?". */
+const identityOf = (uri: string) => uri.split("?")[0] ?? uri;
+
 export function CardArt({
   uri, resizeMode = "cover", iconSize = 20, style,
 }: {
@@ -49,10 +62,14 @@ export function CardArt({
         source={{ uri }}
         style={StyleSheet.absoluteFill}
         resizeMode={resizeMode}
-        // Reset on a new URL, or a tile recycled by a list keeps the state of
-        // whatever card it showed last — a loaded flag from the previous
-        // image means the shimmer never appears for the new one.
-        key={uri}
+        // Reset on a new PICTURE, or a tile recycled by a list keeps the
+        // state of whatever card it showed last — a loaded flag from the
+        // previous image means the shimmer never appears for the new one.
+        //
+        // On the picture's identity rather than its full URL: a re-signed
+        // read is the same photograph at a new address, and remounting for
+        // that is what made the market tiles flicker.
+        key={identityOf(uri)}
         onLoadEnd={() => setLoaded(true)}
         onError={() => { setFailed(true); setLoaded(true); }}
       />
