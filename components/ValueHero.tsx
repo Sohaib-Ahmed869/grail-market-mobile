@@ -195,7 +195,18 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 }, elevation: 12,
   },
   bare: { overflow: "visible" },
-  fan: { ...StyleSheet.absoluteFillObject },
+  fan: {
+    ...StyleSheet.absoluteFillObject,
+    // The artwork is cropped HERE, not by the wrapper.
+    //
+    // `art` sits at top: -26 so the panel's edge cuts the head off each card,
+    // and that only happens under `overflow: hidden` — which `wrap` has and
+    // `bare` deliberately does not. The home screen uses `bare`, so on that
+    // screen the cards escaped upwards and landed on top of the avatar and
+    // the search field. Clipping on the fan itself makes the crop a property
+    // of the effect rather than of whichever wrapper it happens to be in.
+    overflow: "hidden",
+  },
   art: {
     // Cropped by the panel's top edge, so only the head of each card shows —
     // a row of them standing in a box rather than pictures laid on one.

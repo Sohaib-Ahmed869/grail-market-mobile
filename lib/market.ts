@@ -254,7 +254,11 @@ export type Entry = {
 };
 
 export async function getCollection(): Promise<{
-  entries: Entry[]; value: number; cost: number; gain: number; priced: number;
+  entries: Entry[]; value: number; cost: number; priced: number;
+  /** Null when the cost and the value are not in the same currency and there
+   *  is no rate to bring them together. Not zero — zero is a claim that the
+   *  collection is exactly break even. */
+  gain: number | null;
   /** What the sold ones went for. Kept out of `value` — a card that has gone
    *  is not held any more, and a collection total that rises when you sell is
    *  wrong in the owner's favour every time. */

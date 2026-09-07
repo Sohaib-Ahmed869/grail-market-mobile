@@ -73,7 +73,10 @@ export default function Home() {
   const { verified } = useIdentity(userId);
 
   const [collection, setCollection] = useState<
-    { value: number; gain: number; cost: number; cards: number; priced: number } | null | undefined
+    /* `gain` is nullable: the API returns null when the cost and the value are
+       in currencies it cannot bring together, which is not the same as zero. */
+    { value: number; gain: number | null; cost: number; cards: number; priced: number }
+    | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
 
@@ -288,7 +291,12 @@ export default function Home() {
                    values on two screens. */
                 value={aud(convert(collection?.value ?? 0, { fx, from: "USD" }))}
                 delta={
-                  collection && collection.cost > 0 && collection.gain !== 0
+                  /* `gain` is null when the cost and the value are in
+                     currencies we cannot bring together. `!== 0` let that
+                     through and printed "−A$0", which says the collection is
+                     exactly break even — a claim, from the absence of an
+                     answer. */
+                  collection && collection.cost > 0 && collection.gain
                     ? {
                         up: collection.gain > 0,
                         text: `${collection.gain > 0 ? "+" : "−"}${aud(

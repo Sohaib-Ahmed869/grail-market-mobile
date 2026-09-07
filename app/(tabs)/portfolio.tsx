@@ -52,13 +52,21 @@ export default function Portfolio() {
   const guest = useGuest();
   const router = useRouter();
   const fx = useFx();
-  const [data, setData] = useState({ entries: [] as Entry[], value: 0, cost: 0, gain: 0, priced: 0 });
+  const [data, setData] = useState({
+    entries: [] as Entry[], value: 0, cost: 0,
+    gain: null as number | null, priced: 0,
+  });
 
-  /* The totals in one currency. `cost` is already what the member typed, in
-     AUD; `value` and therefore `gain` come back from the API in US dollars and
-     have to be brought across before either can be shown or subtracted. */
+  /* The totals in one currency.
+   *
+   * `cost` used to arrive as whatever the member typed — Australian dollars —
+   * while `value` came back in US ones, so this subtracted one from the other.
+   * The API now converts `cost` on the way out, so BOTH are US dollars here
+   * and both are brought across together. `gain` is computed there for the
+   * same reason and comes back null when the two cannot be compared at all. */
   const valueAud = AUD(data.value, fx);
-  const gainAud = valueAud != null ? valueAud - data.cost : null;
+  const costAud = AUD(data.cost, fx);
+  const gainAud = data.gain == null ? null : AUD(data.gain, fx);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const toast = useToast();
@@ -177,7 +185,7 @@ export default function Portfolio() {
                   <Feather name={up ? "trending-up" : "trending-down"} size={13}
                     color={up ? colors.up : colors.down} />
                   <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
-                    {up ? "+" : ""}{money(gainAud)} against {money(data.cost)} paid
+                    {up ? "+" : ""}{money(gainAud)} against {money(costAud)} paid
                   </Txt>
                 </View>
               ) : (
