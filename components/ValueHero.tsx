@@ -1,8 +1,4 @@
-import { useEffect } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
-import Animated, {
-  Easing, cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withTiming,
-} from "react-native-reanimated";
+import { Pressable, StyleSheet, View } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Svg, { Defs, LinearGradient as SvgGrad, Path, Stop } from "react-native-svg";
 import { Txt } from "./Text";
@@ -12,19 +8,20 @@ import { colors, radius, space, type } from "../theme";
 
 export type HeroStat = { n: string; label: string };
 
-/** What the collection is worth, on a card made of the collection.
+/** What the collection is worth.
  *
- *  Every app has this panel: dark rectangle, small label, big number, three
- *  figures on a rule. It is the shape a dashboard falls into, and it says
- *  nothing about what the number is made of.
+ *  There was a row of card artwork fanned across the top under a scrim — the
+ *  panel made of the thing it was describing. It is gone. At the size it was
+ *  drawn the pictures read as a stray image rather than as texture, and on the
+ *  home screen, where this renders bare, they escaped the panel entirely and
+ *  sat on top of the avatar and the search field.
  *
- *  Here the number is made of cards, so the panel is too — the artwork of what
- *  you actually hold, fanned along the top and dimmed under a scrim, with the
- *  week's line drawn along the bottom edge. It changes as the collection does,
- *  which no arrangement of type can.
+ *  The number is the only thing anybody opens this for, and it does not need a
+ *  backdrop to be worth reading. `art` is still accepted so no caller breaks,
+ *  and nothing is done with it.
  *
- *  Empty, it does not pretend: no artwork, no line, and the only thing on it
- *  is the one action that starts everything.
+ *  Empty, it does not pretend: no line, and the only thing on it is the one
+ *  action that starts everything.
  */
 export function ValueHero({
   value, delta, art, spark, stats, loading, empty, onScan, onPress, bare,
@@ -32,7 +29,9 @@ export function ValueHero({
   value: string;
   /** Signed, already formatted. Null when there is no cost basis to compare. */
   delta?: { text: string; up: boolean } | null;
-  /** Artwork from the collection, best first. Up to six are drawn. */
+  /** Accepted and unused. The artwork backdrop was removed; the prop stays so
+   *  the callers that still pass it do not have to change, and so this is a
+   *  deliberate no-op rather than something that looks like it should work. */
   art?: (string | null | undefined)[];
   /** The collection's value over time, most recent last. */
   spark?: number[];
@@ -48,20 +47,6 @@ export function ValueHero({
    *  all describing an edge that should not be there. */
   bare?: boolean;
 }) {
-  const reveal = useSharedValue(0);
-  useEffect(() => {
-    reveal.value = withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) }));
-    return () => cancelAnimation(reveal);
-  }, [reveal]);
-
-  const fan = useAnimatedStyle(() => ({ opacity: reveal.value }));
-
-  const held = (art ?? []).filter((u): u is string => Boolean(u));
-  // Three or more, or none. One picture at the left edge of a dark panel is
-  // not texture, it is a stray image — the effect only works once there are
-  // enough of them to read as a row rather than as a thing.
-  const images = held.length >= 3 ? held.slice(0, 7) : [];
-
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={bare ? s.bare : s.wrap}>
       {!bare && (
@@ -71,37 +56,6 @@ export function ValueHero({
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
           style={StyleSheet.absoluteFill}
         />
-      )}
-
-      {/* ---- the collection, as the surface ------------------------------- */}
-      {images.length > 0 && (
-        <Animated.View style={[s.fan, fan]} pointerEvents="none">
-          {/* A shelf across the top, not a fan down the middle. They are the
-              texture the panel is made of — the moment one is large enough to
-              look at, it competes with the number, which is the only thing
-              here anybody came to read. */}
-          {images.map((uri, i) => (
-            <Image
-              key={uri + i}
-              source={{ uri }}
-              style={[
-                s.art,
-                {
-                  left: `${-4 + i * 15}%`,
-                  transform: [{ rotate: `${i % 2 ? 6 : -5}deg` }],
-                },
-              ]}
-              resizeMode="cover"
-            />
-          ))}
-          {/* The scrim. Without it the artwork wins and the number — the
-              entire reason for the panel — is the least readable thing on it. */}
-          <LinearGradient
-            colors={["rgba(10,18,25,0.78)", "rgba(10,18,25,0.94)", "#0A1219"]}
-            locations={[0, 0.42, 0.78]}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
       )}
 
       <View style={s.body}>
@@ -195,24 +149,6 @@ const s = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 }, elevation: 12,
   },
   bare: { overflow: "visible" },
-  fan: {
-    ...StyleSheet.absoluteFillObject,
-    // The artwork is cropped HERE, not by the wrapper.
-    //
-    // `art` sits at top: -26 so the panel's edge cuts the head off each card,
-    // and that only happens under `overflow: hidden` — which `wrap` has and
-    // `bare` deliberately does not. The home screen uses `bare`, so on that
-    // screen the cards escaped upwards and landed on top of the avatar and
-    // the search field. Clipping on the fan itself makes the crop a property
-    // of the effect rather than of whichever wrapper it happens to be in.
-    overflow: "hidden",
-  },
-  art: {
-    // Cropped by the panel's top edge, so only the head of each card shows —
-    // a row of them standing in a box rather than pictures laid on one.
-    position: "absolute", top: -26, width: "19%", aspectRatio: 0.72,
-    borderRadius: 6,
-  },
   body: { padding: space.lg, paddingBottom: space.md },
   valueRow: { flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: 2 },
   // the number never yields to the badge beside it
