@@ -23,25 +23,16 @@ export type ConfirmResult =
 
 export type Confirmation = { confirm(code: string): Promise<{ user: { uid: string } | null }> };
 
-/** DEVELOPMENT ONLY — the code that stands in for a real SMS.
- *
- *  Firebase will not send verification codes on the Spark plan; it answers
- *  auth/operation-not-allowed regardless of the provider being enabled. Rather
- *  than block the whole signup flow on a billing decision, this accepts one
- *  fixed code so the screens after it can be built and walked.
- *
- *  Set to null the moment Firebase billing is on. Two things make that hard to
- *  forget: __DEV__ means it cannot exist in a release build at all, and the
- *  code screen prints a banner saying the bypass is active. A bypass you
- *  cannot see is how one ships. */
-export const STUB_CODE: string | null = __DEV__ ? "123456" : null;
-
-/** Whether the stub is standing in. Exported so the UI can say so. */
-export const usingStub = () => STUB_CODE != null;
+// The bypass and its switch live in `devstub.ts` — one definition, importable
+// from a plain node test. This file had its own copy keyed on `__DEV__`, which
+// is the one that was actually running, so turning the other one off did
+// nothing. Re-exported here because the screens import it from this module.
+export { STUB_CODE, stubInReleaseBuild, usingStub } from "./devstub";
+import { STUB_CODE } from "./devstub";
 
 export type PhoneAuthError =
   | "bad-number" | "too-many-requests" | "wrong-code" | "expired"
-  | "unavailable" | "network" | "unknown";
+  | "unavailable" | "not-enabled" | "network" | "unknown";
 
 /** What we put in front of a person. Firebase's own strings name internals
  *  ("auth/invalid-verification-code"), which is not something to show anyone. */
@@ -51,6 +42,9 @@ const SAY: Record<PhoneAuthError, string> = {
   "wrong-code": "That code is not right. Check the message and try again.",
   expired: "That code has expired. Ask for a new one.",
   unavailable: "Phone sign-in needs the full app — it does not run in Expo Go.",
+  // What the Spark plan actually answers. It is not the person's problem and
+  // there is nothing for them to retry, so it does not pretend otherwise.
+  "not-enabled": "Text message sign-in is not switched on yet. Use another way in for now.",
   network: "No connection. Check your signal and try again.",
   unknown: "Something went wrong sending the code. Try again in a moment.",
 };
@@ -65,6 +59,13 @@ function classify(e: unknown): PhoneAuthError {
   if (code.includes("too-many-requests") || code.includes("quota-exceeded")) return "too-many-requests";
   if (code.includes("invalid-verification-code")) return "wrong-code";
   if (code.includes("code-expired") || code.includes("session-expired")) return "expired";
+  // Firebase's answer when SMS is not paid for. It landed in `unknown` and
+  // came out as "something went wrong sending the code" — a message that sent
+  // us looking at the phone number for an hour when the account was the
+  // problem. It is a billing state, and it should read as one.
+  if (code.includes("operation-not-allowed") || code.includes("billing-not-enabled")) {
+    return "not-enabled";
+  }
   if (code.includes("network")) return "network";
   return "unknown";
 }
@@ -88,7 +89,7 @@ export async function sendCode(phone: string, country: CountryCode = "AU"): Prom
   if (STUB_CODE != null) {
     console.log(
       `[phoneauth] STUB ACTIVE — no SMS sent. The code is ${STUB_CODE}. ` +
-        `Set STUB_CODE to null once Firebase billing is enabled.`,
+        `Turn it off with EXPO_PUBLIC_PHONE_STUB=off once Firebase billing is on.`,
     );
     return { ok: true, session: stubSession(e164) };
   }

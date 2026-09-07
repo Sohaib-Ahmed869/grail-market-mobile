@@ -57,6 +57,10 @@ import { colors, radius, space, type } from "../../theme";
  *  the scroll begins beneath it, which means every section can be spaced the
  *  same way and nothing overlaps at any font size.
  */
+
+/** What one bar of each range covers, for the note under a line of closes. */
+const BAR_NOUN: Record<string, string> = { D: "days", W: "weeks", M: "months" };
+
 export default function Home() {
   const navScroll = useNavScroll();
   const { width } = useWindowDimensions();
@@ -432,36 +436,37 @@ export default function Home() {
                 </Txt>
               </View>
 
-              {/* Candles only once there are enough of them to be a chart.
+              {/* Whatever the picker asked for, drawn from what came back.
                 *
-                * Two candles floating on a grid is not a picture of a trend,
-                * it is two rectangles — and with a fortnight of history that
-                * is all a weekly bar can ever be. The line says the same
-                * thing honestly at this sample size, and the candles arrive
-                * on their own as the weeks accumulate. */}
-              {leadBars.ohlc && leadBars.candles.length >= 5 ? (
+                * This used to require five real candles before it would draw
+                * the range's own data, and fall back to `lead.spark` — which
+                * is a fixed seven-point series that does not know the range
+                * exists. Nothing we hold clears five candles yet, so every
+                * range fell through to the same line and Daily and Weekly
+                * drew an identical chart. The picker changed the data and the
+                * chart threw it away.
+                *
+                * `ohlc` still decides candles versus closes: a daily bar is
+                * one reading, and four numbers off one reading is three
+                * claims we cannot make. CandleChart draws it as a close. */}
+              {leadBars.candles.length > 0 ? (
                 <CandleChart
                   candles={leadBars.candles}
-                  ohlc
+                  ohlc={leadBars.ohlc}
                   height={160}
-                  note="Each bar opens where the period began and closes where it ended. The wick is the high and the low."
-                />
-              ) : (
-                <MarketChart
-                  points={lead?.spark ?? []}
-                  height={150}
-                  label={
-                    leadBars.candles.length > 0
-                      ? `${leadBars.candles.length} ${leadBars.range === "D" ? "days" : leadBars.range === "M" ? "months" : "weeks"} recorded — candles once there are five`
-                      : undefined
+                  note={
+                    leadBars.ohlc
+                      ? "Each bar opens where the period began and closes where it ended. The wick is the high and the low."
+                      : `${leadBars.candles.length} ${BAR_NOUN[leadBars.range] ?? "periods"} recorded, one reading each — drawn as the close rather than a candle.`
                   }
                 />
+              ) : (
+                <MarketChart points={lead?.spark ?? []} height={150} />
               )}
 
-              {/* The picker sits outside the chart, so switching bar size
-                  never takes the control away with it. It did: choosing Daily
-                  dropped to the line chart, and the line chart had no picker
-                  to switch back with. */}
+              {/* The picker sits outside the chart, so switching bar size can
+                  never take the control away with it — whatever the chart
+                  above decides to draw, the way back is in the same place. */}
               {leadBars.rangeLabels.length > 1 && (
                 <View style={s.ranges}>
                   {leadBars.rangeLabels.map((r) => (

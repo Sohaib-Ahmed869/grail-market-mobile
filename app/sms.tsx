@@ -5,7 +5,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useToast } from "../components/Toast";
 import { Screen } from "../components/Screen";
-import { STUB_CODE, confirmCode, sendCode, usingStub } from "../lib/phoneauth";
+import { STUB_CODE, confirmCode, sendCode, stubInReleaseBuild, usingStub } from "../lib/phoneauth";
 import { clearPending, getPending, setPending } from "../lib/signupsession";
 import { Txt } from "../components/Text";
 import { Note } from "../components/Note";
@@ -152,9 +152,13 @@ export default function SmsCode() {
       </View>
 
       {usingStub() ? (
-        // Impossible to miss, and gone from a release build with the stub
+        /* Impossible to miss. It does NOT say "development build" any more:
+           the bypass is on in release builds too until Firebase is paid for,
+           and a banner that names the wrong build is how one reaches a store
+           with anyone able to type 123456. */
         <Note tone="accent" icon="alert-triangle">
-          Development build — no SMS was sent. Enter{" "}
+          {stubInReleaseBuild() ? "Testing bypass is ON" : "Development build"} — no
+          SMS was sent. Enter{" "}
           <Txt variant="bodySmall" color={colors.ink} style={{ fontWeight: "700" }}>
             {STUB_CODE}
           </Txt>
