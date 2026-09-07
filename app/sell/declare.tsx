@@ -35,18 +35,34 @@ export default function SellDeclare() {
   const [step, setStep] = useState("");
   const toast = useToast();
 
-  /* Navigating out of a screen that has nothing to show.
+  /* Arriving here with nothing to show.
    *
-   * This called router.replace() during RENDER, which updates the navigation
-   * container while React is drawing this component — React says so by name:
-   * "Cannot update a component (NavigationContainerInner) while rendering a
-   * different component (SellDeclare)". Rendering has to be free of side
-   * effects; the redirect belongs in an effect, after the paint.
+   * A mount-time question — "did you reach this screen without a draft?" —
+   * and it has to stay one. Written as a live check on the draft, it also
+   * fired when the draft was cleared ON PURPOSE: submitting replaces this
+   * route with the confirmation, every screen still on the sell stack
+   * re-renders as the navigator changes, this one read a draft that had just
+   * been cleared by a SUCCESSFUL submit, and sent the seller back to
+   * `/sell/card`. The listing was created and in review, and the app looked
+   * like it had thrown the form away and reopened it — so the same card
+   * could be filled in and submitted over and over.
+   *
+   * Read once, on the first render, before any of that can happen.
+   *
+   * It also called router.replace() during RENDER, which updates the
+   * navigation container while React is drawing this component. Rendering
+   * has to be free of side effects; the redirect belongs in an effect.
    *
    * Still returns null immediately, so the empty screen never flashes. */
+  const [arrivedWithDraft] = useState(() => Boolean(getDraft()));
   useEffect(() => {
-    if (!draft) router.replace("/sell/card");
-  }, [draft, router]);
+    if (!arrivedWithDraft) router.replace("/sell/card");
+  }, [arrivedWithDraft, router]);
+  // Two different conditions, kept apart on purpose. The one above decides
+  // whether to NAVIGATE and is answered once, at mount. This one only decides
+  // whether there is anything to DRAW, and is answered live — because a
+  // successful submit clears the draft while this screen is still on the
+  // stack, and reading `.photos` off a null is how that would crash instead.
   if (!draft) return null;
 
   const all = ticked.length === STATEMENTS.length;
