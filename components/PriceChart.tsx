@@ -42,15 +42,23 @@ export function PriceChart({
     const prices = points.map((p) => p.price);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
-    // A flat series has no span to scale by; giving it one keeps the line in
-    // the middle instead of pinned to an edge or dividing by zero.
-    const span = max - min || Math.max(max * 0.1, 1);
+    // A flat series has no span to scale by. Inventing one is right, but it is
+    // only half the job: every point is then `price - min === 0`, so the line
+    // was drawn at `1 * usable` — the floor — sitting on top of the baseline
+    // with the whole chart empty above it. The comment here has claimed it
+    // centred the line since the day it was written, and it never did.
+    //
+    // Centring means moving the DOMAIN, not the point: put the single value
+    // in the middle of the invented span and it lands at half height.
+    const flat = max === min;
+    const span = flat ? Math.max(Math.abs(max) * 0.1, 1) : max - min;
+    const lo = flat ? min - span / 2 : min;
     const usable = height - padTop - padBottom;
     const step = width / (points.length - 1);
 
     const xy = points.map((p, i) => ({
       x: i * step,
-      y: padTop + (1 - (p.price - min) / span) * usable,
+      y: padTop + (1 - (p.price - lo) / span) * usable,
     }));
 
     let line = `M${xy[0]!.x.toFixed(1)} ${xy[0]!.y.toFixed(1)}`;
@@ -60,7 +68,7 @@ export function PriceChart({
       line += ` C${cx.toFixed(1)} ${a.y.toFixed(1)}, ${cx.toFixed(1)} ${b.y.toFixed(1)}, ${b.x.toFixed(1)} ${b.y.toFixed(1)}`;
     }
     return {
-      line, xy, min, max,
+      line, xy, min, max, flat,
       area: `${line} L${width} ${height - padBottom} L0 ${height - padBottom} Z`,
       floor: height - padBottom,
       step,
@@ -151,7 +159,9 @@ export function PriceChart({
         <View style={s.axis}>
           <Txt variant="bodySmall" color={colors.inkFaint}>{shortDay(points[0]!.day)}</Txt>
           <Txt variant="bodySmall" color={colors.inkFaint}>
-            {money(geo.min)} – {money(geo.max)}
+            {/* A range needs two ends. When every reading is the same number
+                this printed "A$100 – A$100", which says nothing twice. */}
+            {geo.flat ? `Held at ${money(geo.min)}` : `${money(geo.min)} – ${money(geo.max)}`}
           </Txt>
           <Txt variant="bodySmall" color={colors.inkFaint}>
             {shortDay(points[points.length - 1]!.day)}
