@@ -59,6 +59,16 @@ export default function ListingOffers() {
     }
     setCountering(null);
     setCounter("");
+
+    // Accepting opens a deal, and the seller goes straight to it. This used to
+    // end here: the offer said "accepted", the listing stayed on the market,
+    // and there was nowhere to go and nothing left to do — the two of them
+    // were expected to work the rest out in a message thread.
+    const dealId = (r as any)?.dealId;
+    if (action === "accepted" && dealId) {
+      router.push(`/deals/${dealId}` as never);
+      return;
+    }
     load();
   };
 

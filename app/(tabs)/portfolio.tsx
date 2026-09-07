@@ -206,6 +206,9 @@ export default function Portfolio() {
                 { icon: "watchlist" as const, label: "Watchlist", to: "/watchlist" },
                 { icon: "selling" as const, label: "My listings", to: "/mylistings" },
                 { icon: "offer" as const, label: "My offers", to: "/offers" },
+                // Between an accepted offer and a card that has changed hands
+                // there is now something to look at, and somewhere to act.
+                { icon: "offer" as const, label: "Deals", to: "/deals" },
                 { icon: "market" as const, label: "Market", to: "/market" },
               ].map((x) => (
                 <Pressable key={x.label} onPress={() => router.push(x.to as any)}
@@ -316,6 +319,19 @@ export default function Portfolio() {
                       : item.unpriced === "sales"
                         ? "No sales at this grade"
                         : "No price yet"}
+                  </Txt>
+                )}
+                {/* Where the card is up to on the market. "Listed · not sold
+                    yet" is the distinction that was missing entirely: a card
+                    on the market looked exactly like one sitting in a drawer,
+                    and a card that had gone looked the same as both. */}
+                {item.market && (
+                  <Txt
+                    variant="bodySmall"
+                    color={item.market.settled ? colors.up : colors.accent}
+                    style={{ fontWeight: "600" }}
+                  >
+                    {item.market.label}
                   </Txt>
                 )}
               </View>

@@ -236,15 +236,35 @@ export type Entry = {
    *  for the card at all. One blank for all three is what made a collection
    *  read as broken rather than incomplete. */
   unpriced: "grade" | "sales" | "price" | null;
+  /** What this card is doing on the market, when it is doing anything.
+   *
+   *  A collection that cannot tell you a card is listed — or that it has
+   *  already gone — is a list of things you MIGHT still own, and its total is
+   *  a number counting cards that are half sold. `settled` is the one that
+   *  decides whether it still belongs in the value. */
+  market: {
+    state: "listed" | "pending" | "agreed" | "sent" | "sold";
+    label: string;
+    settled: boolean;
+    price: number;
+    currency: string;
+    listingId: string;
+    dealId: string | null;
+  } | null;
 };
 
 export async function getCollection(): Promise<{
   entries: Entry[]; value: number; cost: number; gain: number; priced: number;
+  /** What the sold ones went for. Kept out of `value` — a card that has gone
+   *  is not held any more, and a collection total that rises when you sell is
+   *  wrong in the owner's favour every time. */
+  realised: number; held: number; sold: number;
 }> {
   try {
-    return await get("/collection");
+    const r = await get<any>("/collection");
+    return { realised: 0, held: r?.entries?.length ?? 0, sold: 0, ...r };
   } catch {
-    return { entries: [], value: 0, cost: 0, gain: 0, priced: 0 };
+    return { entries: [], value: 0, cost: 0, gain: 0, priced: 0, realised: 0, held: 0, sold: 0 };
   }
 }
 

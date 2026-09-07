@@ -37,6 +37,7 @@ const QUICK: { icon: keyof typeof Feather.glyphMap; label: string; to: string }[
   { icon: "eye", label: "Watchlist", to: "/watchlist" },
   { icon: "tag", label: "Listings", to: "/mylistings" },
   { icon: "inbox", label: "Offers", to: "/offers" },
+  { icon: "repeat", label: "Deals", to: "/deals" },
 ];
 
 /* The rest, grouped by errand and WITHOUT hints.

@@ -36,7 +36,7 @@ import { FollowRing } from "../../components/FollowRing";
 import { CardArt } from "../../components/CardArt";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { collectionHistory, marketIndex } from "../../lib/history";
-import { aud, money, useFx } from "../../lib/fx";
+import { aud, convert, money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { PeriodStrip } from "../../components/PeriodStrip";
@@ -279,12 +279,21 @@ export default function Home() {
                 bare
                 loading={collection === undefined}
                 empty={!collection || collection.cards === 0}
-                value={aud(collection?.value ?? 0)}
+                /* Converted, because /collection answers in US dollars.
+                   `aud()` means "already Australian" and formatting a US
+                   figure with it printed US$4,250 as A$4,250 — the headline
+                   number of the whole product, understated by a third. The
+                   portfolio tab has done this correctly the whole time, which
+                   is how the same collection could read as two different
+                   values on two screens. */
+                value={aud(convert(collection?.value ?? 0, { fx, from: "USD" }))}
                 delta={
                   collection && collection.cost > 0 && collection.gain !== 0
                     ? {
                         up: collection.gain > 0,
-                        text: `${collection.gain > 0 ? "+" : "−"}${aud(Math.abs(collection.gain))}`,
+                        text: `${collection.gain > 0 ? "+" : "−"}${aud(
+                          Math.abs(convert(collection.gain, { fx, from: "USD" }) ?? 0),
+                        )}`,
                       }
                     : null
                 }
