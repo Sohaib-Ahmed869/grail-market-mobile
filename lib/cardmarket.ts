@@ -128,6 +128,32 @@ export async function allSets(game?: string): Promise<SetSummary[]> {
   } catch { return []; }
 }
 
+export type CardMeta = {
+  cardId: string; name: string; setName: string | null;
+  number: string | null; game: string | null; imageUrl: string | null;
+};
+
+/** Who a catalogue id is, asked rather than worked out.
+ *
+ *  This screen used to derive the card's set by cutting the id at its last
+ *  hyphen and reading that set. Correct for Pokemon — `swsh7-215` gives
+ *  `swsh7` — and correct for nothing else. A One Piece id is
+ *  `optcg-OP13-119`, so the cut produced `optcg-OP13` while the set endpoint
+ *  wants `optcg:OP13`; the read missed, the page had no card name, and with
+ *  no name there is no price either. Portgas D Ace sits first on the board,
+ *  so it was the first thing anyone tapped.
+ *
+ *  The server answers from what it already stores, which also covers Magic,
+ *  where the set is not in the id at all and no cut could have found it. */
+export async function cardMeta(cardId: string): Promise<CardMeta | null> {
+  try {
+    const r = await get<CardMeta & { error?: string }>(
+      `/market/card?catalogId=${encodeURIComponent(cardId)}`,
+    );
+    return r?.error || !r?.name ? null : r;
+  } catch { return null; }
+}
+
 export async function setDetail(setId: string): Promise<SetDetail | null> {
   try {
     const r = await get<SetDetail & { error?: string }>(`/market/sets/${encodeURIComponent(setId)}`);

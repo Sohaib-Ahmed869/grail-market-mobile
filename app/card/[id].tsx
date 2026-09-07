@@ -11,7 +11,7 @@ import { GraderChips } from "../../components/GraderChips";
 import { Picker } from "../../components/Picker";
 import { CardMarket } from "../../components/CardMarket";
 import { BuyAt } from "../../components/BuyAt";
-import { cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
+import { cardMeta, cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
 import { conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
@@ -83,18 +83,48 @@ export default function CardPage() {
   const [following, setFollowing] = useState(false);
   const toast = useToast();
 
-  // The card id carries its set: "base1-4" is card 4 of base1. Reading the
-  // set gives us the name and the artwork without another endpoint.
+  // Who this card is. Asked, not worked out.
+  //
+  // This used to cut the id at its last hyphen and read the front half as a
+  // set — right for Pokemon, where `base1-4` really is card 4 of base1, and
+  // right for nothing else. A One Piece id is `optcg-OP13-119`, so the cut
+  // gave `optcg-OP13` while the set endpoint wants `optcg:OP13` with a colon.
+  // The read missed, `meta` went null, and a null meta means the price effect
+  // below never fires — so the page rendered with no name and no figure. That
+  // was every One Piece card, Portgas D Ace included, which is the first card
+  // on the board and so the first one anybody taps.
+  //
+  // The server answers from what it already stores about the card, which also
+  // covers Magic, where the set is not in the id at all and no cut here could
+  // ever have found it.
   useEffect(() => {
+    let alive = true;
     const raw = String(id);
-    const cut = raw.lastIndexOf("-");
-    const setId = cut > 0 ? raw.slice(0, cut) : raw;
-    setDetail(setId).then((s) => {
-      const c = s?.cards.find((x) => x.cardId === raw);
-      setMeta(c && s
-        ? { name: c.name, setName: s.name, number: c.localId, imageUrl: c.imageUrl }
-        : null);
+    cardMeta(raw).then((m) => {
+      if (!alive) return;
+      if (m) {
+        setMeta({
+          name: m.name,
+          setName: m.setName ?? "",
+          number: m.number ?? "",
+          imageUrl: m.imageUrl,
+        });
+        return;
+      }
+      // Nothing stored about it — a deep link into a set nobody here has
+      // touched. Fall back to reading the set, which is still the Pokemon
+      // shape and still correct for it.
+      const cut = raw.lastIndexOf("-");
+      const setId = cut > 0 ? raw.slice(0, cut) : raw;
+      setDetail(setId).then((s) => {
+        if (!alive) return;
+        const c = s?.cards.find((x) => x.cardId === raw);
+        setMeta(c && s
+          ? { name: c.name, setName: s.name, number: c.localId, imageUrl: c.imageUrl }
+          : null);
+      });
     });
+    return () => { alive = false; };
   }, [id]);
 
   useEffect(() => {
