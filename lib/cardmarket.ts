@@ -145,10 +145,16 @@ export type CardMeta = {
  *
  *  The server answers from what it already stores, which also covers Magic,
  *  where the set is not in the id at all and no cut could have found it. */
-export async function cardMeta(cardId: string): Promise<CardMeta | null> {
+export async function cardMeta(cardId: string, setId?: string | null): Promise<CardMeta | null> {
   try {
     const r = await get<CardMeta & { error?: string }>(
-      `/market/card?catalogId=${encodeURIComponent(cardId)}`,
+      `/market/card?catalogId=${encodeURIComponent(cardId)}` +
+        // Told, not derived. Only Pokemon and One Piece card ids contain their
+        // set; the other seven catalogues use an opaque provider id, so a page
+        // that had to work the set out from the id said "Card Not Found" on
+        // every card in every one of them. The screen that opened this knew
+        // the set all along.
+        (setId ? `&setId=${encodeURIComponent(setId)}` : ""),
     );
     return r?.error || !r?.name ? null : r;
   } catch { return null; }

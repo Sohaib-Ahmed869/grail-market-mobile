@@ -38,7 +38,7 @@ import { colors, radius, space, type } from "../../theme";
  *  question rather than an answer: pick a company and a grade, and the page
  *  re-prices against that company's own sales. */
 export default function CardPage() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, set: setParam } = useLocalSearchParams<{ id: string; set?: string }>();
   const router = useRouter();
   const fx = useFx();
 
@@ -100,7 +100,7 @@ export default function CardPage() {
   useEffect(() => {
     let alive = true;
     const raw = String(id);
-    cardMeta(raw).then((m) => {
+    cardMeta(raw, setParam ? String(setParam) : null).then((m) => {
       if (!alive) return;
       if (m) {
         setMeta({
@@ -125,7 +125,7 @@ export default function CardPage() {
       });
     });
     return () => { alive = false; };
-  }, [id]);
+  }, [id, setParam]);
 
   useEffect(() => {
     if (!meta) return;

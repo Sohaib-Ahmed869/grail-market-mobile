@@ -64,7 +64,17 @@ export default function SetScreen() {
           contentContainerStyle={s.list}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => router.push(`/card/${encodeURIComponent(item.cardId)}` as any)}
+              /* The set travels with the card. Seven of the nine catalogues key
+                 their cards on an opaque provider id with no set inside it, so
+                 a card page left to work the set out from the id alone said
+                 "Card Not Found" on every card in every one of them. This
+                 screen has known the set the whole time. */
+              onPress={() =>
+                router.push({
+                  pathname: "/card/[id]",
+                  params: { id: item.cardId, set: String(setId) },
+                } as never)
+              }
               style={({ pressed }) => [s.tile, pressed && { opacity: 0.75 }]}
             >
               <View style={s.art}>
