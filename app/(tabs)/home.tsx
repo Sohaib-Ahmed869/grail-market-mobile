@@ -282,6 +282,9 @@ export default function Home() {
                 bare
                 loading={collection === undefined}
                 empty={!collection || collection.cards === 0}
+                // Held but unpriced is not worth zero. It is unknown, and the
+                // card says so with a dash rather than with A$0.00.
+                unpriced={Boolean(collection && collection.cards > 0 && collection.priced === 0)}
                 /* Converted, because /collection answers in US dollars.
                    `aud()` means "already Australian" and formatting a US
                    figure with it printed US$4,250 as A$4,250 — the headline
