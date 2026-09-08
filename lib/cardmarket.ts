@@ -104,7 +104,14 @@ export type SetSummary = {
 };
 
 export type SetDetail = SetSummary & {
-  cards: { cardId: string; name: string; localId: string; imageUrl: string | null }[];
+  cards: {
+    cardId: string; name: string; localId: string; imageUrl: string | null;
+    /** Ungraded price in US dollars, or null where nobody has one. Null is
+     *  shown as a dash, never as zero — a set page printing A$0 under every
+     *  unpriced card would be calling them worthless. */
+    rawUsd: number | null;
+    rarity: string | null;
+  }[];
 };
 
 export type BrowseGame = { id: string; name: string; sets?: number; preview?: string | null };
