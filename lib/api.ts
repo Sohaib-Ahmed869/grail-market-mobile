@@ -27,8 +27,44 @@ export const API = process.env.EXPO_PUBLIC_API_URL ?? AWS_API;
  *  service is a separate process behind that host and may move again. */
 export const SCAN_API = process.env.EXPO_PUBLIC_SCAN_URL ?? AWS_API;
 
+/** How long to wait before deciding the server is not going to answer.
+ *
+ *  React Native's `fetch` has NO default timeout, and neither did any call in
+ *  this file. A request that connects and then goes quiet — a box under load,
+ *  a proxy holding the socket, an upstream the API is itself waiting on —
+ *  never settles, so the promise never resolves and never rejects. Every
+ *  button in the app is `loading={busy}` around one of these with `busy`
+ *  cleared in a `finally`, and a `finally` on a promise that never settles
+ *  does not run. The button spins for as long as the screen is open, with no
+ *  error, no toast and no way out.
+ *
+ *  Twenty seconds is far longer than any healthy call here and short enough
+ *  that a person has not yet decided the app is broken. */
+const TIMEOUT_MS = 20_000;
+
+/** `fetch`, but it always finishes.
+ *
+ *  An abort is turned into an ApiError with status 0, so `apiMessage` has a
+ *  sentence for it and every existing catch keeps working unchanged. */
+async function call(path: string, init: RequestInit, timeoutMs = TIMEOUT_MS): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(`${API}${path}`, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    if ((e as Error)?.name === "AbortError") {
+      throw new ApiError(path, 0, "The server didn't answer. Check your connection and try again.");
+    }
+    throw e;
+  } finally {
+    // Cleared whichever way it went, or a slow-but-successful call leaves a
+    // timer holding a reference to an abort nobody needs any more.
+    clearTimeout(timer);
+  }
+}
+
 export async function post<T>(path: string, body: unknown, headers: Record<string, string> = {}) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await call(path, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeader(), ...headers },
     body: JSON.stringify(body ?? {}),
@@ -38,16 +74,37 @@ export async function post<T>(path: string, body: unknown, headers: Record<strin
 }
 
 export async function get<T>(path: string) {
-  const res = await fetch(`${API}${path}`, { headers: { ...authHeader() } });
+  const res = await call(path, { headers: { ...authHeader() } });
   if (!res.ok) throw await failure(path, res);
   return (await res.json()) as T;
 }
 
+/** An abort signal that fires after `ms`, for the calls that do not go through
+ *  `get`/`post` — multipart uploads and the scan pipeline, which build their
+ *  own requests and legitimately need longer than a JSON round trip.
+ *
+ *  Exported rather than duplicated, so there is one answer to "how long do we
+ *  wait" and adding a new upload path cannot quietly reintroduce a request
+ *  that hangs forever.
+ *
+ *  Usage: `fetch(url, { ..., signal: deadline(60_000) })`. The timer is
+ *  cleared when the signal fires or the request settles, whichever is first. */
+export function deadline(ms = TIMEOUT_MS): AbortSignal {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  // `abort` fires on the timeout; `unref` does not exist in RN, so the timer
+  // is cleared from the signal itself once it is no longer needed.
+  ctrl.signal.addEventListener?.("abort", () => clearTimeout(timer));
+  return ctrl.signal;
+}
+
+/** A photograph is megabytes over a phone connection, and the API stores it
+ *  in S3 before answering. A JSON timeout would abandon uploads that are
+ *  working. */
+export const UPLOAD_TIMEOUT_MS = 90_000;
+
 export async function del<T>(path: string) {
-  const res = await fetch(`${API}${path}`, {
-    method: "DELETE",
-    headers: { ...authHeader() },
-  });
+  const res = await call(path, { method: "DELETE", headers: { ...authHeader() } });
   if (!res.ok) throw await failure(path, res);
   return (await res.json()) as T;
 }
@@ -94,6 +151,9 @@ export function apiMessage(e: unknown, doing: string): string {
   if (status === 429) return "Too many attempts. Wait a minute and try again.";
   if (status === 404) return `The server doesn't support ${doing} yet — it's running an older build.`;
   if (status === 401 || status === 403) return "Sign in again to continue.";
+  // 0 is ours, not the server's: the request was abandoned because nothing
+  // came back. The message on the error says so; this is the fallback.
+  if (status === 0) return "The server didn't answer. Try again in a moment.";
   if (status != null) return `${doing} failed (${status}). Try again.`;
   return "Couldn't reach the server. Check your connection.";
 }

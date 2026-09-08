@@ -1,4 +1,4 @@
-import { API, del, get, post } from "./api";
+import { API, del, get, post, deadline, UPLOAD_TIMEOUT_MS } from "./api";
 import { authHeader } from "./session";
 
 export type Listing = {
@@ -128,6 +128,10 @@ export async function uploadPhoto(
       // No Content-Type: fetch has to set the multipart boundary itself.
       headers: { ...authHeader() },
       body,
+      // Every request has to finish. Without a signal this hangs forever on
+      // a box that accepts the connection and then goes quiet, and the button
+      // that called it spins for as long as the screen is open.
+      signal: deadline(UPLOAD_TIMEOUT_MS),
     });
     if (!r.ok) return null;
     const j = (await r.json()) as { url?: string; error?: string };

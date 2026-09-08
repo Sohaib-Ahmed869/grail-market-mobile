@@ -1,4 +1,4 @@
-import { API, get } from "./api";
+import { API, get, deadline, UPLOAD_TIMEOUT_MS } from "./api";
 import { authHeader } from "./session";
 
 // Getting help, and reporting somebody.
@@ -100,6 +100,10 @@ export async function fileTicket(t: {
     // No Content-Type: fetch sets the multipart boundary itself.
     const r = await fetch(`${API}/support`, {
       method: "POST", headers: { ...authHeader() }, body: form,
+          // Every request has to finish. Without a signal this hangs forever on
+      // a box that accepts the connection and then goes quiet, and the button
+      // that called it spins for as long as the screen is open.
+      signal: deadline(UPLOAD_TIMEOUT_MS),
     });
     return await r.json();
   } catch {
@@ -116,6 +120,10 @@ export async function replyToTicket(
     attach(form, photos);
     const r = await fetch(`${API}/support/${encodeURIComponent(id)}/reply`, {
       method: "POST", headers: { ...authHeader() }, body: form,
+          // Every request has to finish. Without a signal this hangs forever on
+      // a box that accepts the connection and then goes quiet, and the button
+      // that called it spins for as long as the screen is open.
+      signal: deadline(UPLOAD_TIMEOUT_MS),
     });
     const j = await r.json();
     return Boolean(j?.ok);

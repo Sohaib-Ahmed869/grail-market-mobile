@@ -75,8 +75,39 @@ export function Button({
           style={[StyleSheet.absoluteFill, s.grad]}
         />
       )}
+      {/* The spinner does not replace the label — it joins it.
+       *
+       * It used to swap the two, so a caller that had carefully computed
+       * "Uploading photo 3 of 10" and passed it as the label had that label
+       * hidden the moment it set `loading`. The submit on the sell flow does
+       * exactly that: it names every stage as it goes and none of it was ever
+       * visible, so a ten-photograph upload was an unmarked spinner and read
+       * as the app being stuck rather than as the app working.
+       *
+       * A caller with nothing to say passes no label change and gets what it
+       * had before: a spinner beside a word. */}
       {loading ? (
-        <ActivityIndicator color={kind === "primary" ? colors.onPrimary : colors.ink} />
+        <View style={s.row}>
+          <ActivityIndicator
+            size="small"
+            color={kind === "primary" ? colors.onPrimary : colors.ink}
+          />
+          {label ? (
+            <Txt
+              variant="button"
+              color={
+                kind === "primary" ? colors.onPrimary
+                : kind === "accent" ? colors.onAccent
+                : kind === "ghostLight" ? colors.onDark
+                : kind === "link" ? colors.inkMuted
+                : colors.ink
+              }
+              numberOfLines={1}
+            >
+              {label}
+            </Txt>
+          ) : null}
+        </View>
       ) : (
         <View style={s.row}>
           {icon}
