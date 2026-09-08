@@ -43,8 +43,18 @@ export function CardDeck({
   // same card does not re-announce it and refetch everything for nothing.
   const announced = useRef(start);
 
+  // Jump to the card after the list has mounted, rather than asking the list
+  // to be born there. With `initialScrollIndex` the card at that index was
+  // the one rendered before the list had measured itself, and its picture
+  // never loaded — a valid URL, both neighbours fine, the centre blank on
+  // every fresh open. Rendering from zero and scrolling once the list exists
+  // takes that first-paint path out of the picture entirely.
   useEffect(() => {
     x.value = start * STEP;
+    const t = setTimeout(() => {
+      list.current?.scrollToIndex({ index: start, animated: false });
+    }, 0);
+    return () => clearTimeout(t);
   }, [start, x]);
 
   const onScroll = useAnimatedScrollHandler((e) => { x.value = e.contentOffset.x; });
@@ -70,8 +80,12 @@ export function CardDeck({
         snapToInterval={STEP}
         decelerationRate="fast"
         disableIntervalMomentum
-        initialScrollIndex={start}
         getItemLayout={(_, i) => ({ length: STEP, offset: STEP * i, index: i })}
+        onScrollToIndexFailed={({ index }) => {
+          // The list has not laid out that far yet. Ask again next tick; it
+          // has the layout table above so this is one retry, not a loop.
+          setTimeout(() => list.current?.scrollToIndex({ index, animated: false }), 50);
+        }}
         contentContainerStyle={{ paddingHorizontal: SIDE }}
         onScroll={onScroll}
         scrollEventThrottle={16}

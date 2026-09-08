@@ -46,6 +46,13 @@ export function CardArt({
 }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  // One retry before giving up. The first card in a deck is rendered before
+  // the list has measured itself and then jumped to; iOS cancels the image
+  // request mid-flight and reports it as an error, and this treated that as
+  // "the picture is broken" for the life of the tile — a blank centre card
+  // between two neighbours that loaded fine. A cancelled load is not a dead
+  // URL, and asking once more tells them apart.
+  const [attempt, setAttempt] = useState(0);
 
   if (!uri || failed) {
     return (
@@ -59,7 +66,13 @@ export function CardArt({
     <View style={[s.fill, style]}>
       {!loaded && <Shimmer />}
       <Image
-        source={{ uri }}
+        // The siblings, cheapest first: the webp at the same size (23KB for
+        // the card that started this) before the large png (300KB).
+        source={{
+          uri: attempt === 2 ? uri.replace(/\/low\.png$/i, "/low.webp")
+            : attempt === 3 ? uri.replace(/\/low\.png$/i, "/high.png")
+            : uri,
+        }}
         style={StyleSheet.absoluteFill}
         resizeMode={resizeMode}
         // Reset on a new PICTURE, or a tile recycled by a list keeps the
@@ -69,9 +82,22 @@ export function CardArt({
         // On the picture's identity rather than its full URL: a re-signed
         // read is the same photograph at a new address, and remounting for
         // that is what made the market tiles flicker.
-        key={identityOf(uri)}
+        key={`${identityOf(uri)}#${attempt}`}
         onLoadEnd={() => setLoaded(true)}
-        onError={() => { setFailed(true); setLoaded(true); }}
+        onError={() => {
+          if (attempt === 0) { setAttempt(1); return; }
+          // Then the siblings. TCGdex serves each card in two sizes and two
+          // formats at sibling paths, and its CDN answers a real 404 for
+          // `low.png` whenever the request carries an image Accept header —
+          // which every image request from this app does, and a bare curl
+          // does not, which is why it looked fine from a terminal. Lurantis
+          // ex, Pitch Black #004, was blank in the deck on every fresh open
+          // while `low.webp` and `high.png` both returned the picture. A
+          // missing size is not a missing card.
+          if (attempt === 1 && /\/low\.png$/i.test(uri)) { setAttempt(2); return; }
+          if (attempt === 2 && /\/low\.png$/i.test(uri)) { setAttempt(3); return; }
+          setFailed(true); setLoaded(true);
+        }}
       />
     </View>
   );

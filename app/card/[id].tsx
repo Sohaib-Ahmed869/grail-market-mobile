@@ -17,6 +17,7 @@ import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grad
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
 import { CardDeck, type DeckCard } from "../../components/CardDeck";
+import { CardActions } from "../../components/CardActions";
 import { InterestBar } from "../../components/InterestBar";
 import { cardCandles, cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
 import { PeriodStrip } from "../../components/PeriodStrip";
@@ -197,42 +198,30 @@ export default function CardPage() {
     <Screen
       back
       footer={
-        <>
-          <Button label="Sell one of these" onPress={sell} />
-          <Button
-            label={followed ? "Following · 10% either way" : "Follow this card"}
-            kind="ghost"
-            icon={
-              <Icon
-                name="follow"
-                size={18}
-                filled={followed}
-                color={followed ? colors.accent : colors.ink}
-              />
-            }
-            disabled={followed}
-            loading={following}
-            onPress={async () => {
-              if (!session) return router.push("/signup");
-              setFollowing(true);
-              const r = await follow({
-                catalogId: String(id), cardName: meta.name, setName: meta.setName,
-                cardNumber: meta.number, imageUrl: meta.imageUrl,
-                grader: grader === "RAW" ? null : grader, grade,
-                alertPct: 10, alertDir: "any",
+        <CardActions
+          followed={followed}
+          following={following}
+          onSell={sell}
+          onFollow={async () => {
+            if (!session) return router.push("/signup");
+            setFollowing(true);
+            const r = await follow({
+              catalogId: String(id), cardName: meta.name, setName: meta.setName,
+              cardNumber: meta.number, imageUrl: meta.imageUrl,
+              grader: grader === "RAW" ? null : grader, grade,
+              alertPct: 10, alertDir: "any",
+            });
+            setFollowing(false);
+            if (r.watchId) {
+              setFollowed(true);
+              toast(`Following ${meta.name}. We'll tell you if it moves 10%.`, {
+                action: { label: "Watchlist", onPress: () => router.push("/watchlist") },
               });
-              setFollowing(false);
-              if (r.watchId) {
-                setFollowed(true);
-                toast(`Following ${meta.name}. We'll tell you if it moves 10%.`, {
-                  action: { label: "Watchlist", onPress: () => router.push("/watchlist") },
-                });
-              } else {
-                toast(r.message ?? "Could not follow that card.", { tone: "bad" });
-              }
-            }}
-          />
-        </>
+            } else {
+              toast(r.message ?? "Could not follow that card.", { tone: "bad" });
+            }
+          }}
+        />
       }
     >
       {deck && deck.length > 1 ? (
