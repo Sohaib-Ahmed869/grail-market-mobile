@@ -204,8 +204,14 @@ export default function Search() {
               <SetLogo uri={item.logo ?? item.symbol} name={item.name} />
               <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>{item.name}</Txt>
               <Txt variant="bodySmall" color={colors.inkFaint}>
-                {item.total} card{item.total === 1 ? "" : "s"}
-                {item.releasedAt ? ` · ${item.releasedAt.slice(0, 4)}` : ""}
+                {/* Not every catalogue publishes a card count. One Piece's does
+                    not, so every One Piece set arrived here as 0 and the tile
+                    said "0 cards" — which reads as an empty set. It is not: the
+                    set opens to 154 cards. Zero was a claim we could not make;
+                    the year on its own is the honest tile. */}
+                {item.total > 0 ? `${item.total} card${item.total === 1 ? "" : "s"}` : ""}
+                {item.total > 0 && item.releasedAt ? " · " : ""}
+                {item.releasedAt ? item.releasedAt.slice(0, 4) : ""}
               </Txt>
             </Pressable>
           )}
