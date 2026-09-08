@@ -9,6 +9,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { SvgUri } from "react-native-svg";
 import { CardArt, Shimmer } from "../../components/CardArt";
 import { PageWash } from "../../components/PageWash";
+import { Bloom } from "../../components/Bloom";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
 import { searchCards, type CardHit } from "../../lib/cards";
@@ -16,7 +17,7 @@ import { lookup, looksLikeCode, type Lookup } from "../../lib/lookup";
 import { allSets, browseGames, type BrowseGame, type SetSummary } from "../../lib/cardmarket";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
-import { colors, radius, space, type } from "../../theme";
+import { colors, radius, shadow, space, type } from "../../theme";
 
 const GAME_LABEL: Record<string, string> = {
   pokemon: "Pokémon", onepiece: "One Piece", mtg: "Magic",
@@ -150,21 +151,43 @@ export default function Search() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => setGame(item)}
-              style={({ pressed }) => [s.gameTile, pressed && { opacity: 0.75 }]}
+              style={({ pressed }) => [s.gameTile, pressed && { transform: [{ scale: 0.98 }] }]}
             >
-              <CardArt uri={item.preview} iconSize={22} />
-              {/* The scrim. Set logos are drawn to sit on white and card art
-                  is busy, so without it the name is unreadable on about half
-                  the tiles and unpredictable on the rest. */}
+              {/* The ground: navy falling to deeper navy, with a gold bloom in
+                  the corner the art comes out of. The game's own preview is
+                  drawn as a card lifted out of the tile — turned, shadowed,
+                  running off the top edge — rather than as a photo filling
+                  a box behind a scrim. A logo (Pokemon's preview is a set
+                  logo, not a card) is shown flat; tilting a logo like a card
+                  is a lie about what it is. */}
               <LinearGradient
-                colors={["rgba(10,18,25,0.25)", "rgba(10,18,25,0.86)"]}
-                locations={[0.25, 1]}
+                colors={["#2C3D4B", colors.dark, "#0B131B"]}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                 style={StyleSheet.absoluteFill}
               />
-              <Txt variant="h2" color={colors.onDark} numberOfLines={2}>{item.name}</Txt>
-              <Txt variant="bodySmall" color={colors.onDarkMuted}>
-                {item.sets ? `${item.sets} sets` : "Browse sets"}
-              </Txt>
+              <View style={s.gameBloom} pointerEvents="none">
+                <Bloom size={300} color={colors.accent} opacity={0.5} />
+              </View>
+              {item.preview ? (
+                /\/logo\.(png|webp)$/i.test(item.preview) ? (
+                  <Image source={{ uri: item.preview }} style={s.gameLogo} resizeMode="contain" />
+                ) : (
+                  <View style={s.gameCard}>
+                    <Image source={{ uri: item.preview }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                  </View>
+                )
+              ) : null}
+              <View style={s.gameText}>
+                <Txt variant="h2" color={colors.onDark} numberOfLines={2}>{item.name}</Txt>
+                <View style={s.gameMeta}>
+                  <Txt variant="bodySmall" color={colors.onDarkMuted}>
+                    {item.sets ? `${item.sets} sets` : "Browse sets"}
+                  </Txt>
+                  <View style={s.gameGo}>
+                    <Feather name="arrow-right" size={14} color={colors.dark} />
+                  </View>
+                </View>
+              </View>
             </Pressable>
           )}
         />
@@ -325,8 +348,25 @@ const s = StyleSheet.create({
   list: { paddingHorizontal: space.xl, paddingTop: space.lg },
   certWrap: { paddingHorizontal: space.xl, paddingTop: space.xl },
   gameTile: {
-    flex: 1, height: 132, padding: space.md, justifyContent: "flex-end",
-    borderRadius: radius.lg, backgroundColor: colors.dark, overflow: "hidden",
+    flex: 1, height: 196, padding: space.md, justifyContent: "flex-end",
+    borderRadius: radius.xl, backgroundColor: colors.dark, overflow: "hidden",
+    ...shadow.card,
+  },
+  gameBloom: { position: "absolute", right: -70, top: -90 },
+  // A card lifted out of the tile: turned, running off the top-right edge,
+  // its own shadow under it.
+  gameCard: {
+    position: "absolute", top: -22, right: -18, width: 92, height: 128,
+    borderRadius: radius.sm, overflow: "hidden", backgroundColor: colors.surfaceSunk,
+    transform: [{ rotate: "12deg" }],
+    ...shadow.lifted,
+  },
+  gameLogo: { position: "absolute", top: 14, right: 12, width: 120, height: 64 },
+  gameText: { gap: 2 },
+  gameMeta: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  gameGo: {
+    width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.accent,
   },
   crumb: {
     flexDirection: "row", alignItems: "center", gap: space.sm, marginBottom: space.md,

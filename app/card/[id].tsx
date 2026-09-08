@@ -16,6 +16,7 @@ import { conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
+import { CardDeck, type DeckCard } from "../../components/CardDeck";
 import { InterestBar } from "../../components/InterestBar";
 import { cardCandles, cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
 import { PeriodStrip } from "../../components/PeriodStrip";
@@ -79,6 +80,17 @@ export default function CardPage() {
   }, [id]);
   const [price, setPrice] = useState<CardPrice | null | undefined>(undefined);
   const session = useSession();
+
+  // The rest of the set, when we came from one. Opened from a set, the card
+  // is one of a hand and the hand is what you swipe through; opened from a
+  // scan or a link it is on its own, and gets the single flip-in instead.
+  const [deck, setDeck] = useState<DeckCard[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!setParam) { setDeck(null); return; }
+    setDetail(String(setParam)).then((d) => { if (alive) setDeck(d?.cards ?? null); });
+    return () => { alive = false; };
+  }, [setParam]);
   const [followed, setFollowed] = useState(false);
   const [following, setFollowing] = useState(false);
   const toast = useToast();
@@ -223,9 +235,25 @@ export default function CardPage() {
         </>
       }
     >
-      <View style={s.hero}>
-        <CardReveal uri={meta.imageUrl} width={190} height={264} />
-      </View>
+      {deck && deck.length > 1 ? (
+        /* Swiping re-points the page at the card in the middle. setParams,
+           not push: the URL changes in place and every effect keyed on `id`
+           runs again for the new card, and there is no stack of two hundred
+           card pages behind the back button. */
+        <View style={s.deck}>
+          <CardDeck
+            cards={deck}
+            currentId={String(id)}
+            onChange={(card) =>
+              router.setParams({ id: card.cardId, set: String(setParam) } as never)
+            }
+          />
+        </View>
+      ) : (
+        <View style={s.hero}>
+          <CardReveal uri={meta.imageUrl} width={190} height={264} />
+        </View>
+      )}
 
       <Txt variant="display" center style={{ marginTop: space.lg }}>{meta.name}</Txt>
       <Txt variant="body" color={colors.inkMuted} center>
@@ -476,6 +504,9 @@ function CardTrend({
 const s = StyleSheet.create({
   trendHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   hero: { alignItems: "center", marginTop: space.sm },
+  // Full-bleed: the neighbours have to be able to peek in past the page's
+  // own gutter, or the "hand of cards" is one card in a box.
+  deck: { marginHorizontal: -space.xl, marginTop: space.sm },
   quote: {
     alignItems: "center", marginTop: space.xl, padding: space.lg,
     borderRadius: radius.lg, backgroundColor: colors.surface,
