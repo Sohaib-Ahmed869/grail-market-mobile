@@ -286,10 +286,47 @@ export type Variant = {
   rarity: string | null;
   imageUrl: string | null;
   url: string | null;
+  /** From completed sales. Null on a card too scarce to have any — which is
+   *  exactly the card people care most about. */
   marketUsd: number | null;
   lowUsd: number | null;
   highUsd: number | null;
+  /** The cheapest Near Mint copy listed right now. An ASK, kept separate
+   *  from the market price so the two are never quietly merged. */
+  listedUsd: number | null;
+  listedCondition: string | null;
 };
+
+/** What a printing is going for, and what kind of number that is.
+ *
+ *  The ASK leads. A sale is what one copy went for at some point in the past,
+ *  and on a card that changes hands a few times a year that past can be
+ *  months old; an ask is what somebody wants for one today. On the scarcest
+ *  printings the ask is also the only figure that exists at all.
+ *
+ *  The sold figure is still returned beside it, because "asking 19,999, last
+ *  sold 12,000" is a more useful pair of facts than either alone. */
+export function priceOf(v: Variant): { usd: number; sold: boolean } | null {
+  if (v.listedUsd != null && v.listedUsd > 0) return { usd: v.listedUsd, sold: false };
+  if (v.marketUsd != null && v.marketUsd > 0) return { usd: v.marketUsd, sold: true };
+  return null;
+}
+
+/** The last sale, when it says something the ask does not.
+ *
+ *  Both figures ultimately come from the same marketplace, so on a card that
+ *  trades normally the cheapest listing IS roughly the market price and
+ *  printing "asking US$2,116 · sold US$2,116.43" is one number twice. It is
+ *  worth showing only when the two have come apart — which is the case that
+ *  actually tells you something: a card being asked well above what one last
+ *  went for is a seller testing the market, and the gap is the story. */
+export function alsoSold(v: Variant): number | null {
+  const ask = v.listedUsd;
+  const sold = v.marketUsd;
+  if (ask == null || ask <= 0 || sold == null || sold <= 0) return null;
+  const apart = Math.abs(ask - sold) / Math.min(ask, sold);
+  return apart > 0.08 ? sold : null;
+}
 
 /** One place this card can be bought, and what it costs there.
  *

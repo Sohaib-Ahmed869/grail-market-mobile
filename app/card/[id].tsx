@@ -18,6 +18,7 @@ import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
 import { CardDeck } from "../../components/CardDeck";
 import { SetList, type SetCard } from "../../components/SetList";
+import { priceOf } from "../../lib/cardmarket";
 import { PrintingPicker } from "../../components/PrintingPicker";
 import { CardActions } from "../../components/CardActions";
 import { InterestBar } from "../../components/InterestBar";
@@ -267,7 +268,7 @@ export default function CardPage() {
     // A named printing outranks every other source: it is the only figure
     // here that is about one physical card rather than about a number that
     // several cards share.
-    if (chosen?.marketUsd != null) return chosen.marketUsd;
+    if (chosen && priceOf(chosen)) return priceOf(chosen)!.usd;
     if (unresolved) return null;
     if (grader === "RAW") return price.rawUsd;
     return price.slabPrice?.price ?? price.sold?.price ?? price.liveAsk?.median ?? null;
@@ -440,7 +441,7 @@ export default function CardPage() {
         <View style={s.quote}>
           <Txt variant="overline" color={colors.inkFaint} center>
             {chosen
-              ? (chosen.variant ?? "Base printing")
+              ? `${chosen.variant ?? "Base printing"}${priceOf(chosen) ? (priceOf(chosen)!.sold ? " · last sold" : " · asking now") : ""}`
               : unresolved
                 ? "Which version is this?"
                 : grader === "RAW"

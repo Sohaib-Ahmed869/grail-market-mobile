@@ -11,7 +11,7 @@ import { PriceChoice, PrintingAndLiquidity, type PriceSide } from "../components
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
-import { cardPrintings, liveAsks, printingFromName, type LiveAsks, type Variant } from "../lib/cardmarket";
+import { alsoSold, cardPrintings, liveAsks, priceOf, printingFromName, type LiveAsks, type Variant } from "../lib/cardmarket";
 import { PrintingPicker } from "../components/PrintingPicker";
 import { conversionNote, convert, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
@@ -364,8 +364,8 @@ export default function ScanResult() {
   // A named printing outranks everything below it: it is the only figure here
   // that is about ONE physical card rather than about a number several cards
   // share. And while the printing is unknown, no figure is offered at all.
-  const headline = printing?.marketUsd != null
-    ? printing.marketUsd
+  const headline = printing && priceOf(printing)
+    ? priceOf(printing)!.usd
     : printingUnresolved
       ? null
       : chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
@@ -615,9 +615,13 @@ export default function ScanResult() {
           <View style={{ marginTop: space.lg }}>
             <Note icon="check-circle" tone="good">
               Priced as the {printing.variant ?? "base printing"}
-              {printing.marketUsd == null
-                ? " — TCGplayer has no market price for it, which for a card this scarce means nobody has one listed."
-                : "."}
+              {!priceOf(printing)
+                ? " — no price on any source we read for this printing."
+                : priceOf(printing)!.sold
+                  ? " — the last completed sale. Nobody is listing one right now."
+                  : ` — the cheapest Near Mint copy listed today${
+                      alsoSold(printing) != null ? `. Last sold ${fxMoney(alsoSold(printing), { fx, from: "USD" })}` : ""
+                    }.`}
             </Note>
           </View>
         ) : null}

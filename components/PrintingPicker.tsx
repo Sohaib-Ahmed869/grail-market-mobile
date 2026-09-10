@@ -3,7 +3,7 @@ import { Feather } from "@expo/vector-icons";
 import { Txt } from "./Text";
 import { Note } from "./Note";
 import { money, useFx } from "../lib/fx";
-import type { Variant } from "../lib/cardmarket";
+import { alsoSold, priceOf, type Variant } from "../lib/cardmarket";
 import { colors, radius, shadow, space, type } from "../theme";
 
 /** Which printing of this card is the one in your hand.
@@ -65,7 +65,7 @@ export function PrintingPicker({
               key={v.productId}
               onPress={() => onSelect(on ? null : v.productId)}
               accessibilityState={{ selected: on }}
-              accessibilityLabel={`${v.variant ?? "Base printing"}, ${v.marketUsd != null ? money(v.marketUsd, { fx, from: "USD" }) : "none listed"}`}
+              accessibilityLabel={`${v.variant ?? "Base printing"}, ${priceOf(v) ? money(priceOf(v)!.usd, { fx, from: "USD" }) : "no price"}`}
               style={({ pressed }) => [s.tile, on && s.tileOn, pressed && { transform: [{ scale: 0.98 }] }]}
             >
               <View style={s.art}>
@@ -79,12 +79,31 @@ export function PrintingPicker({
               <Txt variant="label" numberOfLines={2} style={s.name}>
                 {v.variant ?? "Base printing"}
               </Txt>
-              <Txt
-                style={[s.price, v.marketUsd == null && { color: colors.inkFaint, ...type.bodySmall }]}
-                numberOfLines={1}
-              >
-                {v.marketUsd != null ? money(v.marketUsd, { fx, from: "USD" }) : "none listed"}
-              </Txt>
+              {(() => {
+                const p = priceOf(v);
+                return (
+                  <>
+                    <Txt
+                      style={[s.price, !p && { color: colors.inkFaint, ...type.bodySmall }]}
+                      numberOfLines={1}
+                    >
+                      {p ? money(p.usd, { fx, from: "USD" }) : "no price"}
+                    </Txt>
+                    {/* Which KIND of number it is. A sale and an ask are not
+                        the same claim, and on the scarcest printings the only
+                        figure that exists is somebody's asking price. */}
+                    {p && (
+                      <Txt style={s.basis} numberOfLines={1}>
+                        {p.sold
+                          ? "last sold"
+                          : alsoSold(v) != null
+                            ? `asking · sold ${money(alsoSold(v)!, { fx, from: "USD" })}`
+                            : "asking"}
+                      </Txt>
+                    )}
+                  </>
+                );
+              })()}
             </Pressable>
           );
         })}
@@ -117,4 +136,5 @@ const s = StyleSheet.create({
   },
   name: { marginTop: 6, minHeight: 34 },
   price: { ...type.button, color: colors.ink, fontVariant: ["tabular-nums"] },
+  basis: { ...type.overline, fontSize: 10.5, color: colors.inkFaint, marginTop: 1 },
 });
