@@ -79,12 +79,23 @@ export function printingFromName(name: string, variants: Variant[]): Variant | n
   const named = variants
     .filter((v) => v.variant)
     .sort((a, b) => (b.variant!.length - a.variant!.length));
+  // An explicit variant name in the scanned title is the only positive
+  // identification there is. Longest first, so "Red Super Alternate Art"
+  // cannot be swallowed by "Super Alternate Art".
   for (const v of named) if (n.includes(v.variant!.toLowerCase())) return v;
-  // No variant words at all in the scanned name means the base printing —
-  // but only when there IS a base printing to mean.
-  if (!named.some((v) => n.includes(v.variant!.split(" ")[0]!.toLowerCase()))) {
-    return variants.find((v) => !v.variant) ?? null;
-  }
+
+  // Nothing matched. If this number has exactly one printing then there is
+  // no question to ask and that printing is the card.
+  if (variants.length === 1) return variants[0]!;
+
+  // Otherwise: ASK.
+  //
+  // This used to fall back to the base printing, on the reasoning that a name
+  // with no variant words in it must be the plain card. That reasoning picks
+  // the CHEAPEST of five whenever the identifier does not spell the variant
+  // out — which is the original defect wearing a new hat: a Red Super
+  // Alternate Art silently priced as the A$18 base. A guess that lands on the
+  // cheapest option is not a default, it is a wrong answer with a bias.
   return null;
 }
 

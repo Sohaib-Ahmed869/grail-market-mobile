@@ -626,7 +626,13 @@ export default function ScanResult() {
           </View>
         ) : null}
 
-        {printingUnresolved ? null : (
+        {/* The asking/sold cards below are built from a marketplace SEARCH for
+            this card's name and number, which cannot tell five printings
+            apart — that pool is where A$197 came from. Once we have
+            printing-level prices they are the answer, and showing a second,
+            broader figure beside them is the two-figures-for-one-card fault
+            this whole screen exists to end. */}
+        {variants.length > 1 ? null : (
         <PriceChoice
           sold={sold}
           ours={price ? { ...price, low: price.low ?? null, high: price.high ?? null } : null}
