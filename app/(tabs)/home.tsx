@@ -63,7 +63,8 @@ export default function Home() {
   const [collection, setCollection] = useState<
     /* `gain` is nullable: the API returns null when the cost and the value are
        in currencies it cannot bring together, which is not the same as zero. */
-    { value: number; gain: number | null; cost: number; cards: number; priced: number }
+    { value: number; gain: number | null; cost: number; cards: number;
+      priced: number; gainCards: number }
     | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
@@ -85,7 +86,7 @@ export default function Home() {
         .slice(0, 6),
     );
     setCollection({
-      value: r.value, gain: r.gain, cost: r.cost,
+      value: r.value, gain: r.gain, cost: r.cost, gainCards: r.gainCards,
       cards: r.entries.length, priced: r.priced,
     });
   }, []);
@@ -140,7 +141,18 @@ export default function Home() {
   const signedIn = Boolean(session) && !guest;
   const held = collection?.cards ?? 0;
   const unpriced = Boolean(collection && held > 0 && collection.priced === 0);
-  const gain = collection && collection.cost > 0 && collection.gain
+  /* The gain pill, and the cards it is entitled to speak for.
+   *
+   * The server reports how many cards have both a price and a cost; the gain
+   * covers those and no others. An older server does not say, and its gain
+   * sets the whole cost against a value only the priced cards contribute to —
+   * so against one of those the figure only stands when everything is priced.
+   * A dashboard pill reading "down A$11,092" because four cards have no price
+   * yet is the loudest wrong number in the product. */
+  const spans = collection
+    ? collection.gainCards || (collection.priced === collection.cards ? collection.cards : 0)
+    : 0;
+  const gain = collection && collection.cost > 0 && collection.gain && spans > 0
     ? convert(collection.gain, { fx, from: "USD" }) ?? 0
     : null;
 

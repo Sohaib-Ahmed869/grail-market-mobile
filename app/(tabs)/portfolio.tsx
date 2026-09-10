@@ -191,6 +191,15 @@ export default function Portfolio() {
 
   const up = (gainAud ?? 0) >= 0;
 
+  /* How many cards the gain actually covers.
+   *
+   * The server now answers this directly. An older server does not, and its
+   * gain sets the cost of every card against a value only the priced ones
+   * contribute to — so against one of those, the figure is only trustworthy
+   * when every card has a price. Nothing else earns the red arrow. */
+  const spans = data.gainCards || (data.priced === entries.length ? entries.length : 0);
+  const showGain = gainAud != null && data.cost > 0 && spans > 0;
+
   if (guest) {
     return (
       <JoinGate
@@ -270,23 +279,23 @@ export default function Portfolio() {
                 * whole cost set against a value only one card contributed to.
                 * It looked like a wipeout and was arithmetic on two different
                 * sets of cards. */}
-              {gainAud != null && data.cost > 0 ? (
+              {showGain ? (
                 <View style={s.deltaRow}>
                   <Feather name={up ? "trending-up" : "trending-down"} size={13}
                     color={up ? colors.up : colors.down} />
                   <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
                     {up ? "+" : ""}{money(gainAud)} against {money(costAud)} paid
                   </Txt>
-                  {data.gainCards < entries.length && (
+                  {spans < entries.length && (
                     <Txt variant="bodySmall" color={colors.inkFaint}>
-                      on {data.gainCards} of {entries.length}
+                      on {spans} of {entries.length}
                     </Txt>
                   )}
                 </View>
               ) : (
                 <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: 4 }}>
-                  {data.spent > 0
-                    ? "Nothing here has both a price and a cost yet"
+                  {data.cost > 0 || data.spent > 0
+                    ? "Gain needs a price and a cost on the same card"
                     : "Add what you paid to see gain or loss"}
                 </Txt>
               )}
