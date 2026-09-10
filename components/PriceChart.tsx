@@ -22,12 +22,15 @@ const shortDay = (iso: string) =>
  *  chart you cannot interrogate only answers "up or down", which the
  *  percentage beside it already said. */
 export function PriceChart({
-  points, height = 180, tone,
+  points, height = 180, tone, format = money,
 }: {
   points: ChartPoint[];
   height?: number;
   /** Force a colour. By default it takes it from the direction of travel. */
   tone?: string;
+  /** How the readout prints a value. Money by default; an index rebased to
+   *  100 is not dollars and printed "A$100" until it could say otherwise. */
+  format?: (n: number) => string;
 }) {
   const [width, setWidth] = useState(0);
   const [held, setHeld] = useState<number | null>(null);
@@ -115,7 +118,7 @@ export function PriceChart({
       onLayout={(e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width)}
     >
       <View style={s.readout}>
-        <Txt variant="h1">{shown ? money(shown.price) : "—"}</Txt>
+        <Txt variant="h1">{shown ? format(shown.price) : "—"}</Txt>
         <Txt variant="bodySmall" color={colors.inkMuted}>
           {shown ? shortDay(shown.day) : ""}
         </Txt>
@@ -161,7 +164,7 @@ export function PriceChart({
           <Txt variant="bodySmall" color={colors.inkFaint}>
             {/* A range needs two ends. When every reading is the same number
                 this printed "A$100 – A$100", which says nothing twice. */}
-            {geo.flat ? `Held at ${money(geo.min)}` : `${money(geo.min)} – ${money(geo.max)}`}
+            {geo.flat ? `Held at ${format(geo.min)}` : `${format(geo.min)} – ${format(geo.max)}`}
           </Txt>
           <Txt variant="bodySmall" color={colors.inkFaint}>
             {shortDay(points[points.length - 1]!.day)}

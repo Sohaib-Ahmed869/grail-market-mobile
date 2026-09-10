@@ -1,76 +1,64 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   AppState, Image, Pressable, RefreshControl, ScrollView, StyleSheet, View,
-  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { StatusBar } from "expo-status-bar";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { Bloom } from "../../components/Bloom";
+import { Aurora } from "../../components/Aurora";
 import { Mark, MarkWatermark } from "../../components/Brand";
 import { PageWash } from "../../components/PageWash";
 import { Txt } from "../../components/Text";
 import { Avatar } from "../../components/Avatar";
 import { unreadCount } from "../../lib/messages";
 import { unreadNotifications } from "../../lib/notifications";
-import { Icon } from "../../components/Icon";
+import { Icon, type IconName } from "../../components/Icon";
 import { watchlist, type Watch } from "../../lib/watchlist";
-import { Loader } from "../../components/Loader";
-import { Bone, SkeletonCard, SkeletonList } from "../../components/Skeleton";
-import { Spark } from "../../components/Spark";
+import { Bone, SkeletonCard } from "../../components/Skeleton";
 import { GraderBadge } from "../../components/GraderChips";
-import { useIdentity } from "../../lib/useIdentity";
 import { useSession } from "../../lib/session";
 import { useGuest } from "../../lib/guest";
 import { browse, getCollection, num, type Listing } from "../../lib/market";
 import { marketPulse, type Pulse } from "../../lib/cardmarket";
-import { MoveBars } from "../../components/MoveBars";
-import { CandleChart } from "../../components/CandleChart";
-import { cardCandles } from "../../lib/cards";
-import { MarketChart } from "../../components/MarketChart";
-import { ValueHero } from "../../components/ValueHero";
 import { FocusRail } from "../../components/FocusRail";
 import { FollowRing } from "../../components/FollowRing";
+import { MarketMovers } from "../../components/MarketMovers";
 import { CardArt } from "../../components/CardArt";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
-import { collectionHistory, marketIndex } from "../../lib/history";
+import { marketIndex } from "../../lib/history";
 import { aud, convert, money, useFx } from "../../lib/fx";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
-import { PeriodStrip } from "../../components/PeriodStrip";
-import { colors, radius, space, type } from "../../theme";
+import { GAME_IDS, gameTheme } from "../../lib/games";
+import { colors, radius, shadow, space, type } from "../../theme";
 
-
+/** Roughly how tall the navy band is, which is all the aurora needs to know
+ *  to place its glows within it. Measuring it would mean a layout pass and a
+ *  re-render before any light appeared. */
+const BAND_H = 300;
 
 /** Home.
  *
  *  Three bands, in the order someone opens the app for: what mine is worth,
  *  what the market is doing, what is for sale.
  *
- *  The rebuild fixed a structural fault rather than a stylistic one. The
- *  actions were pulled up into the navy band with a negative margin and the
- *  content below started immediately after them, so the first section heading
- *  sat underneath the cards — the page had no gutter between two things that
- *  belonged to different bands. Now the actions sit inside the dark band and
- *  the scroll begins beneath it, which means every section can be spaced the
- *  same way and nothing overlaps at any font size.
+ *  The value is the top of the screen, not a card on it. The last version
+ *  put a white wallet card on the navy band with a rim, a logo box, a plus
+ *  button and two pill actions under it — and with nothing priced yet the
+ *  whole card was a dash. Now the number is set straight onto the band with
+ *  the cards it is made of fanned beside it, the four things you can do are
+ *  a row of glass tiles, and everything below arrives on a sheet.
  */
-
-/** What one bar of each range covers, for the note under a line of closes. */
-const BAR_NOUN: Record<string, string> = { D: "days", W: "weeks", M: "months" };
-
 export default function Home() {
   const navScroll = useNavScroll();
-  const { width } = useWindowDimensions();
   const clearance = useTabBarClearance();
   const session = useSession();
   const guest = useGuest();
   const userId = session?.userId ?? "";
   const router = useRouter();
   const fx = useFx();
-  const { verified } = useIdentity(userId);
 
   const [collection, setCollection] = useState<
     /* `gain` is nullable: the API returns null when the cost and the value are
@@ -79,6 +67,28 @@ export default function Home() {
     | null | undefined
   >(undefined);
   const [pulse, setPulse] = useState<Pulse[] | undefined>(undefined);
+  // The hero is built out of the collection, so it needs the pictures too.
+  const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
+  const [forSale, setForSale] = useState<Listing[] | undefined>(undefined);
+  const [unread, setUnread] = useState(0);
+  const [alerts, setAlerts] = useState(0);
+  const [watched, setWatched] = useState<Watch[] | undefined>(undefined);
+
+  const takeCollection = useCallback((r: Awaited<ReturnType<typeof getCollection>>) => {
+    // Most valuable first: if only three can be shown, they should be the
+    // three worth showing.
+    setHeldArt(
+      [...r.entries]
+        .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
+        .map((e) => e.imageUrl)
+        .filter(Boolean)
+        .slice(0, 6),
+    );
+    setCollection({
+      value: r.value, gain: r.gain, cost: r.cost,
+      cards: r.entries.length, priced: r.priced,
+    });
+  }, []);
 
   /* Pull to refresh the whole dashboard.
    *
@@ -93,19 +103,7 @@ export default function Home() {
     try {
       await Promise.allSettled([
         marketPulse().then(setPulse),
-        getCollection().then((r) => {
-          setHeldArt(
-            [...r.entries]
-              .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-              .map((e) => e.imageUrl)
-              .filter(Boolean)
-              .slice(0, 6),
-          );
-          setCollection({
-            value: r.value, gain: r.gain, cost: r.cost,
-            cards: r.entries.length, priced: r.priced,
-          });
-        }),
+        getCollection().then(takeCollection),
         watchlist().then((r) => setWatched(r.watches)),
         browse({ sort: "featured" }).then((r) => setForSale(r.listings.slice(0, 10))),
         unreadCount().then(setUnread),
@@ -114,34 +112,7 @@ export default function Home() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
-  // Candles for the leading mover. One call, cached hard on the server, and
-  // it is the same endpoint the card page uses rather than a second one.
-  const [leadRange, setLeadRange] = useState("W");
-  const [leadBars, setLeadBars] = useState<Awaited<ReturnType<typeof cardCandles>>>({
-    candles: [], ranges: [], rangeLabels: [], range: "W", ohlc: false, grader: null,
-  });
-  // The hero is built out of the collection, so it needs the pictures and the
-  // line as well as the totals.
-  const [heldArt, setHeldArt] = useState<(string | null)[]>([]);
-  const [valueLine, setValueLine] = useState<number[] | undefined>(undefined);
-  const [forSale, setForSale] = useState<Listing[] | undefined>(undefined);
-  const [unread, setUnread] = useState(0);
-  const [alerts, setAlerts] = useState(0);
-  const [watched, setWatched] = useState<Watch[] | undefined>(undefined);
-
-  // Which mover the chart is showing. Defaults to the biggest, which is what
-  // the section is ranked on, until somebody picks another.
-  const [picked, setPicked] = useState<string | null>(null);
-  const lead =
-    pulse?.find((p) => (p.cardId ?? p.label) === picked) ?? pulse?.[0] ?? null;
-  const leadId = lead?.cardId ?? lead?.label ?? null;
-  useEffect(() => {
-    let alive = true;
-    if (!leadId) return;
-    cardCandles(leadId, leadRange).then((b) => { if (alive) setLeadBars(b); });
-    return () => { alive = false; };
-  }, [leadId, leadRange]);
+  }, [takeCollection]);
 
   useFocusEffect(useCallback(() => {
     let alive = true;
@@ -154,42 +125,24 @@ export default function Home() {
     };
     const timer = setInterval(badges, 8000);
     if (!userId) setCollection(null);
-    else {
-      getCollection().then((r) => {
-        if (!alive) return;
-        // Most valuable first: if only six can be shown, they should be the
-        // six worth showing.
-        setHeldArt(
-          [...r.entries]
-            .sort((a, b) => (b.value ?? 0) - (a.value ?? 0))
-            .map((e) => e.imageUrl)
-            .filter(Boolean)
-            .slice(0, 6),
-        );
-        if (alive) setCollection({
-          value: r.value, gain: r.gain, cost: r.cost,
-          cards: r.entries.length, priced: r.priced,
-        });
-      });
-    }
+    else getCollection().then((r) => { if (alive) takeCollection(r); });
     if (userId) {
-      unreadCount().then((n) => { if (alive) setUnread(n); });
-      unreadNotifications().then((n) => { if (alive) setAlerts(n); });
+      badges();
       watchlist().then((r) => { if (alive) setWatched(r.watches); });
     } else {
       setWatched([]);
     }
     marketPulse().then((r) => { if (alive) setPulse(r); });
-    // 30 days, not 90: the hero's line is 56pt tall and a quarter of the
-    // screen wide, so a longer window only adds detail nobody can see.
-    collectionHistory(30).then((h) => {
-      if (alive) setValueLine(h?.points.map((p) => p.price));
-    });
     browse({ sort: "featured" }).then((r) => { if (alive) setForSale(r.listings.slice(0, 10)); });
     return () => { alive = false; clearInterval(timer); };
-  }, [userId]));
+  }, [userId, takeCollection]));
 
   const signedIn = Boolean(session) && !guest;
+  const held = collection?.cards ?? 0;
+  const unpriced = Boolean(collection && held > 0 && collection.priced === 0);
+  const gain = collection && collection.cost > 0 && collection.gain
+    ? convert(collection.gain, { fx, from: "USD" }) ?? 0
+    : null;
 
   return (
     <View style={s.root}>
@@ -206,140 +159,89 @@ export default function Home() {
         {...navScroll}
       >
         {/* ---- the band ---------------------------------------------------- */}
-        {/* The value does not sit on a card any more — it IS the top of the
-            screen. A panel on a page is a component; a header the page begins
-            with is the page being about that number, which is what a
-            dashboard is for.
-            
-            It runs under the status bar and the content arrives on a sheet
-            below it, so the two read as foreground and background rather than
-            as two blocks stacked. */}
         <LinearGradient
           colors={["#25374A", colors.dark, "#0C151E"]}
           locations={[0, 0.55, 1]}
           style={s.band}
         >
-          <View style={s.bloom} pointerEvents="none">
-            <Bloom size={560} color={colors.accent} opacity={0.30} />
-          </View>
-          {/* The mark, enormous and barely there. Texture for the band, not a
-              logo sitting on it. */}
+          {/* The light behind the band drifts — see components/Aurora. */}
+          <Aurora height={BAND_H} />
           <MarkWatermark size={330} opacity={0.05} style={s.bandMark} />
           <SafeAreaView edges={["top"]}>
-            {/* The greeting said nothing anyone needed twice a day, and the
-                verification chip belongs on the profile where it can be acted
-                on. Search takes the space because it is the thing people open
-                the app to do; messages sit opposite because they are the
-                thing people open the app to check. */}
             <View style={s.bar}>
               <Pressable onPress={() => router.push("/(tabs)/profile")} hitSlop={6}>
                 <Avatar name={session?.name ?? "Guest"} id={session?.avatar} size={38} ring />
               </Pressable>
 
-              <Pressable
-                onPress={() => router.push("/(tabs)/search")}
-                style={s.search}
-              >
+              <Pressable onPress={() => router.push("/(tabs)/search")} style={s.search}>
                 <Icon name="search" size={18} color={colors.onDarkMuted} />
                 <Txt variant="bodySmall" color={colors.onDarkMuted} numberOfLines={1}>
                   Search a card, set or code
                 </Txt>
               </Pressable>
 
-              <Pressable
-                onPress={() => (signedIn ? router.push("/notifications") : router.push("/signup"))}
-                style={s.iconBtn}
-                accessibilityLabel="Notifications"
-              >
-                <Icon name="notify" size={20} color={colors.onDark} filled={alerts > 0} />
-                {alerts > 0 && (
-                  <View style={s.unread}>
-                    <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
-                      {alerts > 9 ? "9+" : alerts}
-                    </Txt>
-                  </View>
-                )}
-              </Pressable>
-
-              <Pressable
-                onPress={() => (signedIn ? router.push("/messages") : router.push("/signup"))}
-                style={s.iconBtn}
-                accessibilityLabel="Messages"
-              >
-                <Icon name="messages" size={20} color={colors.ink} filled={unread > 0} />
-                {unread > 0 && (
-                  <View style={s.unread}>
-                    <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
-                      {unread > 9 ? "9+" : unread}
-                    </Txt>
-                  </View>
-                )}
-              </Pressable>
+              <Glass
+                icon="notify" count={alerts} label="Notifications"
+                onPress={() => router.push(signedIn ? "/notifications" : "/signup")}
+              />
+              <Glass
+                icon="messages" count={unread} label="Messages"
+                onPress={() => router.push(signedIn ? "/messages" : "/signup")}
+              />
             </View>
 
             {signedIn ? (
-              <ValueHero
-                bare
-                loading={collection === undefined}
-                empty={!collection || collection.cards === 0}
-                // Held but unpriced is not worth zero. It is unknown, and the
-                // card says so with a dash rather than with A$0.00.
-                unpriced={Boolean(collection && collection.cards > 0 && collection.priced === 0)}
-                /* Converted, because /collection answers in US dollars.
-                   `aud()` means "already Australian" and formatting a US
-                   figure with it printed US$4,250 as A$4,250 — the headline
-                   number of the whole product, understated by a third. The
-                   portfolio tab has done this correctly the whole time, which
-                   is how the same collection could read as two different
-                   values on two screens. */
-                value={aud(convert(collection?.value ?? 0, { fx, from: "USD" }))}
-                delta={
-                  /* `gain` is null when the cost and the value are in
-                     currencies we cannot bring together. `!== 0` let that
-                     through and printed "−A$0", which says the collection is
-                     exactly break even — a claim, from the absence of an
-                     answer. */
-                  collection && collection.cost > 0 && collection.gain
-                    ? {
-                        up: collection.gain > 0,
-                        text: `${collection.gain > 0 ? "+" : "−"}${aud(
-                          Math.abs(convert(collection.gain, { fx, from: "USD" }) ?? 0),
-                        )}`,
-                      }
-                    : null
-                }
-                // The panel is made of the collection it is valuing. As cards
-                // go in, the card itself changes — which no arrangement of
-                // type on a dark rectangle can do.
-                art={heldArt}
-                spark={valueLine}
-                stats={[
-                  {
-                    n: String(collection?.cards ?? 0),
-                    label: collection?.cards === 1 ? "card held" : "cards held",
-                  },
-                  { n: String(watched?.length ?? 0), label: "following" },
-                  { n: String(collection?.priced ?? 0), label: "priced" },
-                ]}
-                onScan={() => router.push("/(tabs)/scan")}
-                onPress={() => router.push("/(tabs)/portfolio")}
-              />
+              <>
+                {/* ---- the number, on the band ------------------------------ */}
+                <Pressable onPress={() => router.push("/(tabs)/portfolio")} style={s.hero}>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Txt variant="overline" color={colors.onDarkMuted}>Your collection</Txt>
+                    {collection === undefined ? (
+                      <Bone w="62%" h={40} r={8} style={{ marginTop: 10, backgroundColor: "rgba(255,255,255,0.12)" }} />
+                    ) : held === 0 ? (
+                      <Txt style={s.heroWord} color={colors.onDark}>Nothing held yet</Txt>
+                    ) : unpriced ? (
+                      // Held but unpriced is not worth zero. It is unknown.
+                      <Txt style={s.heroWord} color={colors.onDark}>Not priced yet</Txt>
+                    ) : (
+                      /* Converted, because /collection answers in US dollars.
+                         Formatting a US figure as Australian understated the
+                         headline number of the whole product by a third. */
+                      <Txt style={s.heroValue} color={colors.onDark} numberOfLines={1} adjustsFontSizeToFit>
+                        {aud(convert(collection?.value ?? 0, { fx, from: "USD" }))}
+                      </Txt>
+                    )}
+                    <View style={s.heroFacts}>
+                      {gain != null && !unpriced && held > 0 && (
+                        <View style={[s.gain, { backgroundColor: gain >= 0 ? "rgba(79,191,139,0.18)" : "rgba(211,118,107,0.20)" }]}>
+                          <Feather name={gain >= 0 ? "arrow-up-right" : "arrow-down-right"} size={12}
+                            color={gain >= 0 ? "#7FD6AC" : "#F0A69C"} />
+                          <Txt variant="label" color={gain >= 0 ? "#7FD6AC" : "#F0A69C"}>
+                            {aud(Math.abs(gain))}
+                          </Txt>
+                        </View>
+                      )}
+                      <Txt variant="bodySmall" color={colors.onDarkMuted} numberOfLines={1} style={{ flexShrink: 1 }}>
+                        {collection === undefined
+                          ? " "
+                          : held === 0
+                            ? "Scan a card to start"
+                            : [
+                                `${held} card${held === 1 ? "" : "s"}`,
+                                watched?.length ? `${watched.length} following` : null,
+                                collection && collection.priced > 0 && collection.priced < held
+                                  ? `${collection.priced} priced` : null,
+                              ].filter(Boolean).join(" · ")}
+                      </Txt>
+                    </View>
+                  </View>
+                  <Fan art={heldArt} />
+                </Pressable>
+
+              </>
             ) : (
-              <View style={s.valueCard}>
-                <LinearGradient
-                  colors={["#2C3D4B", colors.dark, "#0B131B"]}
-                  locations={[0, 0.5, 1]}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={s.cardBloom} pointerEvents="none">
-                  <Bloom size={340} color={colors.accent} opacity={0.34} />
-                </View>
-                <View style={s.watermark} pointerEvents="none">
-                  <Mark size={190} onDark />
-                </View>
-                <View style={s.goldRule} pointerEvents="none" />
-                <View style={s.cardBody}>
+              <View style={s.hero}>
+                <View style={{ flex: 1 }}>
                   <Txt variant="h1" color={colors.onDark}>Every card, priced honestly.</Txt>
                   <Txt variant="bodySmall" color={colors.onDarkMuted} style={{ marginTop: 6 }}>
                     Browse and search freely. Scanning, collections and selling need an
@@ -347,304 +249,244 @@ export default function Home() {
                   </Txt>
                   <Pressable onPress={() => router.push("/signup")} style={s.join}>
                     <Txt variant="button" color={colors.dark}>Create an account</Txt>
-                    <Icon name="profile" size={16} color={colors.dark} />
+                    <Feather name="arrow-right" size={16} color={colors.dark} />
                   </Pressable>
                 </View>
+                <View style={s.guestMark} pointerEvents="none"><Mark size={64} onDark /></View>
               </View>
             )}
-
           </SafeAreaView>
         </LinearGradient>
 
         {/* Everything below the value arrives on a sheet that overlaps the
-            band. The overlap is what makes the two read as foreground and
-            background rather than as two blocks stacked on each other. */}
+            band, so the two read as foreground and background rather than as
+            two blocks stacked on each other. */}
         <View style={s.sheet}>
-          {/* The grab handle. It is not draggable and does not pretend to be —
-              it is the mark that says "this is a surface lying over the one
-              behind it", which is the whole reason the sheet has a rounded
-              top and an overlap. Without it the join reads as two blocks
-              that happen to have different colours. */}
-          <View style={s.handle} />
-
-        {/* ---- what I am following ------------------------------------- */}
-        {signedIn && watched && watched.length > 0 && (
-          <>
-            <Section
-              title="Following"
-              sub="Tap one to see where it is"
-              action={{ label: "Watchlist", onPress: () => router.push("/watchlist") }}
-            />
-            <FollowRing
-              items={watched.slice(0, 12).map((w) => ({
-                id: w.watchId,
-                name: w.cardName,
-                imageUrl: w.imageUrl,
-                since: w.since,
-                alerting: w.alertPct != null,
-              }))}
-              onPress={(it) => {
-                const w = watched.find((x) => x.watchId === it.id);
-                if (w?.catalogId) router.push(`/card/${w.catalogId}` as any);
-              }}
-              onAdd={() => router.push("/watchlist")}
-            />
-          </>
-        )}
-
-        {/* ---- the market as one line --------------------------------------- */}
-        <MarketIndex />
-
-        {/* ---- what moved --------------------------------------------------- */}
-        <Section
-          title="On The Move"
-          // Not "realtime". The pulse is cached for twelve hours, so the
-          // honest claim is the one that also conveys the tracking: it says
-          // how often we look, which is the thing a live feed is actually
-          // promising.
-          sub="Ranked on the week · refreshed twice a day"
-          action={
-            pulse && pulse.length > 3
-              ? { label: "See all", onPress: () => router.push("/movers") }
-              : undefined
-          }
-        />
-        {/* Bars from a shared zero, not a treemap and not a rail.
-          *
-          * The rail could only say the order things were in. The treemap that
-          * replaced it said magnitude and direction at once, but paid for it
-          * with the names — below about 62pt a tile could only be a colour.
-          * This keeps every name and lets the bar carry the same two facts.
-          *
-          * Growing from a CENTRE line is the part that matters: a bar always
-          * starting at the left needs its colour read before you know which
-          * way it went, and colour alone is the one channel some people
-          * cannot use. Here the direction is the geometry. */}
-        {pulse === undefined ? (
-          <View style={s.movers}>
-            {[0, 1, 2].map((i) => <Bone key={i} h={54} r={10} />)}
-          </View>
-        ) : pulse.length === 0 ? (
-          <Empty icon="activity" title="No Big Moves"
-            body="Prices held steady this week, or too few cards sold to tell." />
-        ) : (
-          <View style={s.movers}>
-            {/* One panel, everything in it.
-              *
-              * There were three cards under this chart repeating what the
-              * chart already had, and the whole section is one idea: what is
-              * moving. So the chart carries it — the selected card in
-              * candles, every other mover behind it as a faint line, its four
-              * windows underneath, and the names as the way to switch. */}
-            <View style={s.compare}>
-              <View style={s.leadHead}>
-                <View style={{ flex: 1 }}>
-                  <Txt variant="h3" numberOfLines={1}>{lead?.label}</Txt>
-                  <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
-                    {[lead?.setName, money(lead?.price, { fx, from: "USD" })]
-                      .filter(Boolean).join(" · ")}
-                  </Txt>
-                </View>
-                <Txt
-                  style={[
-                    s.leadPct,
-                    { color: (lead?.change7d ?? 0) >= 0 ? colors.up : colors.down },
-                  ]}
-                >
-                  {(lead?.change7d ?? 0) >= 0 ? "+" : "−"}
-                  {Math.abs(lead?.change7d ?? 0).toFixed(1)}%
-                </Txt>
-              </View>
-
-              {/* Whatever the picker asked for, drawn from what came back.
-                *
-                * This used to require five real candles before it would draw
-                * the range's own data, and fall back to `lead.spark` — which
-                * is a fixed seven-point series that does not know the range
-                * exists. Nothing we hold clears five candles yet, so every
-                * range fell through to the same line and Daily and Weekly
-                * drew an identical chart. The picker changed the data and the
-                * chart threw it away.
-                *
-                * `ohlc` still decides candles versus closes: a daily bar is
-                * one reading, and four numbers off one reading is three
-                * claims we cannot make. CandleChart draws it as a close. */}
-              {leadBars.candles.length > 0 ? (
-                <CandleChart
-                  candles={leadBars.candles}
-                  ohlc={leadBars.ohlc}
-                  height={160}
-                  note={
-                    leadBars.ohlc
-                      ? "Each bar opens where the period began and closes where it ended. The wick is the high and the low."
-                      : `${leadBars.candles.length} ${BAR_NOUN[leadBars.range] ?? "periods"} recorded, one reading each — drawn as the close rather than a candle.`
-                  }
-                />
-              ) : (
-                <MarketChart points={lead?.spark ?? []} height={150} />
-              )}
-
-              {/* The picker sits outside the chart, so switching bar size can
-                  never take the control away with it — whatever the chart
-                  above decides to draw, the way back is in the same place. */}
-              {leadBars.rangeLabels.length > 1 && (
-                <View style={s.ranges}>
-                  {leadBars.rangeLabels.map((r) => (
-                    <Pressable
-                      key={r.id}
-                      onPress={() => setLeadRange(r.id)}
-                      style={[s.rangeBtn, r.id === leadBars.range && s.rangeOn]}
-                    >
-                      <Txt
-                        variant="button"
-                        color={r.id === leadBars.range ? colors.onPrimary : colors.inkMuted}
-                      >
-                        {r.label}
-                      </Txt>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-
-              {lead && (
-                <PeriodStrip
-                  periods={{
-                    day: lead.change24h, week: lead.change7d,
-                    month: lead.change30d, quarter: lead.change90d,
-                  }}
-                />
-              )}
-
-              {/* The names are the only way to change which card is in
-                  candles now that the rows are gone, so this is a control
-                  rather than the duplicate legend it was. */}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={s.picks}
-              >
-                {pulse.slice(0, 8).map((p) => {
-                  const id = p.cardId ?? p.label;
-                  const on = id === leadId;
-                  return (
-                    <Pressable
-                      key={id}
-                      onPress={() => setPicked(id)}
-                      style={[s.pick, on && s.pickOn]}
-                    >
-                      <Txt variant="bodySmall" color={on ? colors.onPrimary : colors.inkMuted}
-                        numberOfLines={1}>
-                        {p.label}
-                      </Txt>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-              <Pressable
-                onPress={() =>
-                  lead?.cardId
-                    ? router.push(`/card/${lead.cardId}` as any)
-                    : router.push({ pathname: "/market", params: { q: lead?.label ?? "" } })
-                }
-                style={s.openCard}
-              >
-                <Txt variant="button">Open {lead?.label}</Txt>
-                <Feather name="chevron-right" size={15} color={colors.ink} />
-              </Pressable>
-            </View>
-          </View>
-        )}
-
-        {/* ---- what is for sale ---------------------------------------------- */}
-        <Section
-          title="Cards For Sale"
-          sub="From ID-checked sellers, each one reviewed by hand"
-          action={forSale && forSale.length > 0 ? { label: "See all", onPress: () => router.push("/market") } : undefined}
-        />
-        {forSale === undefined ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.rail}
-            contentContainerStyle={s.railInner} scrollEnabled={false}>
-            {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
-          </ScrollView>
-        ) : forSale.length === 0 ? (
-          <Empty
-            icon="shopping-bag"
-            title="Nothing For Sale Yet"
-            body={signedIn
-              ? "Listings appear once a person has checked them. Your own never show here — you already own those."
-              : "Listings appear once a person has checked them."}
-            action={signedIn ? { label: "List a card", onPress: () => router.push("/(tabs)/scan") } : undefined}
-          />
-        ) : (
-          <FocusRail
-            data={forSale}
-            itemWidth={196}
-            keyOf={(l) => l.listing_id}
-            render={(l) => {
-              const img = l.photos?.[0]?.url ?? l.image_url;
-              const market = num(l.market_value);
-              const asking = num(l.price) ?? 0;
-              const under = market != null && asking < market;
+          {/* ---- the games, in their own colours -------------------------- */}
+          {/* The dashboard had no colour in it and no way into the catalogue.
+              This is both: a row of games, each in the colour people already
+              hold for it, opening that game's sets. */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.games}
+            style={{ flexGrow: 0 }}
+          >
+            {GAME_IDS.slice(0, 8).map((id) => {
+              const th = gameTheme(id);
               return (
                 <Pressable
-                  onPress={() => router.push(`/listing/${l.listing_id}` as any)}
-                  style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  key={id}
+                  onPress={() => router.push({ pathname: "/(tabs)/search", params: { game: id } })}
+                  style={({ pressed }) => [s.game, pressed && { transform: [{ scale: 0.96 }] }]}
                 >
-                  <View style={s.focusThumb}>
-                    <CardArt uri={img} iconSize={22} />
-                    <View style={s.badgeOnArt}>
-                      <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
-                    </View>
-                    {l.featured && (
-                      <View style={s.featured}>
-                        <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
-                          Featured
-                        </Txt>
-                      </View>
-                    )}
+                  <View style={[s.gameDisc, { backgroundColor: th.wash, borderColor: th.tint }]}>
+                    <Txt style={[s.gameShort, { color: th.tint }]}>{th.short}</Txt>
                   </View>
-                  <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
-                    {l.card_name}
+                  <Txt variant="overline" color={colors.inkMuted} numberOfLines={1} style={s.gameLabel}>
+                    {th.label}
                   </Txt>
-                  <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
-                    {l.set_name ?? ""}
-                  </Txt>
-                  <View style={s.cardFoot}>
-                    <Txt variant="h3">{aud(asking)}</Txt>
-                    {market != null && (
-                      <View style={[s.marketPill, under ? s.underPill : s.overPill]}>
-                        <Txt variant="overline" color={under ? colors.up : colors.inkMuted}
-                          style={{ fontSize: 11.5 }}>
-                          {under ? "UNDER" : "OVER"}
-                        </Txt>
-                      </View>
-                    )}
-                  </View>
                 </Pressable>
               );
-            }}
+            })}
+          </ScrollView>
+
+          {/* ---- what I am following ------------------------------------- */}
+          {signedIn && watched && watched.length > 0 && (
+            <>
+              <Section
+                title="Following"
+                sub="Tap one to see where it is"
+                action={{ label: "Watchlist", onPress: () => router.push("/watchlist") }}
+              />
+              <FollowRing
+                items={watched.slice(0, 12).map((w) => ({
+                  id: w.watchId,
+                  name: w.cardName,
+                  imageUrl: w.imageUrl,
+                  since: w.since,
+                  alerting: w.alertPct != null,
+                }))}
+                onPress={(it) => {
+                  const w = watched.find((x) => x.watchId === it.id);
+                  if (w?.catalogId) router.push(`/card/${w.catalogId}` as any);
+                }}
+                onAdd={() => router.push("/watchlist")}
+              />
+            </>
+          )}
+
+          {/* ---- the market as one line --------------------------------------- */}
+          <MarketIndex />
+
+          {/* ---- what moved --------------------------------------------------- */}
+          <Section
+            title="On The Move"
+            // Not "realtime". The pulse is cached for twelve hours, so the
+            // honest claim is the one that also says how often we look.
+            sub="This week · refreshed twice a day"
+            action={
+              pulse && pulse.length > 5
+                ? { label: "See all", onPress: () => router.push("/movers") }
+                : undefined
+            }
           />
-        )}
+          {pulse === undefined ? (
+            <View style={[s.panel, { padding: space.lg, gap: space.md }]}>
+              <Bone h={20} w="50%" />
+              <Bone h={176} r={12} />
+              <Bone h={34} />
+            </View>
+          ) : pulse.length === 0 ? (
+            <Empty icon="activity" title="No Big Moves"
+              body="Prices held steady this week, or too few cards sold to tell." />
+          ) : (
+            <MarketMovers pulse={pulse} />
+          )}
+
+          {/* ---- what is for sale ---------------------------------------------- */}
+          <Section
+            title="Cards For Sale"
+            sub="From ID-checked sellers, each one reviewed by hand"
+            action={forSale && forSale.length > 0 ? { label: "See all", onPress: () => router.push("/market") } : undefined}
+          />
+          {forSale === undefined ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+              contentContainerStyle={s.railInner} scrollEnabled={false}>
+              {[0, 1, 2].map((i) => <SkeletonCard key={i} />)}
+            </ScrollView>
+          ) : forSale.length === 0 ? (
+            <Empty
+              icon="shopping-bag"
+              title="Nothing For Sale Yet"
+              body={signedIn
+                ? "Listings appear once a person has checked them. Your own never show here — you already own those."
+                : "Listings appear once a person has checked them."}
+              action={signedIn ? { label: "List a card", onPress: () => router.push("/(tabs)/scan") } : undefined}
+            />
+          ) : (
+            <FocusRail
+              data={forSale}
+              itemWidth={196}
+              keyOf={(l) => l.listing_id}
+              render={(l) => {
+                const img = l.photos?.[0]?.url ?? l.image_url;
+                const market = num(l.market_value);
+                const asking = num(l.price) ?? 0;
+                const under = market != null && asking < market;
+                return (
+                  <Pressable
+                    onPress={() => router.push(`/listing/${l.listing_id}` as any)}
+                    style={({ pressed }) => [pressed && { opacity: 0.85 }]}
+                  >
+                    <View style={s.focusThumb}>
+                      <CardArt uri={img} iconSize={22} />
+                      <View style={s.badgeOnArt}>
+                        <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
+                      </View>
+                      {l.featured && (
+                        <View style={s.featured}>
+                          <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+                            Featured
+                          </Txt>
+                        </View>
+                      )}
+                    </View>
+                    <Txt variant="h3" numberOfLines={1} style={{ marginTop: space.sm }}>
+                      {l.card_name}
+                    </Txt>
+                    <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
+                      {l.set_name ?? ""}
+                    </Txt>
+                    <View style={s.cardFoot}>
+                      <Txt variant="h3">{aud(asking)}</Txt>
+                      {market != null && (
+                        <View style={[s.marketPill, under ? s.underPill : s.overPill]}>
+                          <Txt variant="overline" color={under ? colors.up : colors.inkMuted}
+                            style={{ fontSize: 11.5 }}>
+                            {under ? "UNDER" : "OVER"}
+                          </Txt>
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              }}
+            />
+          )}
         </View>
       </ScrollView>
     </View>
   );
 }
 
+/** A round glass control on the band, with a count on it when there is one. */
+function Glass({
+  icon, count, label, onPress,
+}: { icon: IconName; count: number; label: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} style={s.iconBtn} accessibilityLabel={label}>
+      <Icon name={icon} size={20} color={colors.onDark} filled={count > 0} />
+      {count > 0 && (
+        <View style={s.unread}>
+          <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 11 }}>
+            {count > 9 ? "9+" : count}
+          </Txt>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/** The best three cards held, fanned like a hand beside the number.
+ *
+ *  Only pictures another device can fetch: a scanned card keeps the phone's
+ *  own ImagePicker path, which is a real address on one handset and a blank
+ *  on every other. A card we cannot draw is left out rather than drawn empty. */
+function Fan({ art }: { art: (string | null | undefined)[] }) {
+  const faces = art
+    .filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+    .slice(0, 3);
+  if (faces.length === 0) return null;
+  // The last card drawn sits on top and in front, so the best card (first in
+  // the list) is drawn last.
+  const order = [...faces].reverse();
+  const tilt = [-14, 0, 12].slice(3 - order.length);
+  return (
+    <View style={s.fan} pointerEvents="none">
+      {order.map((uri, i) => (
+        <View
+          key={uri + i}
+          style={[
+            s.fanCard,
+            {
+              transform: [{ rotate: `${tilt[i]}deg` }, { translateX: (i - (order.length - 1) / 2) * 22 }],
+              top: i === order.length - 1 ? 0 : 8,
+            },
+          ]}
+        >
+          <Image source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+
 /** One heading, everywhere. Sections that each invent their own spacing are
  *  what makes a page look assembled rather than designed. */
 function Section({
   title, sub, action,
-}: { title: string; sub: string; action?: { label: string; onPress: () => void } }) {
+}: { title: string; sub?: string; action?: { label: string; onPress: () => void } }) {
   return (
     <View style={s.sectionHead}>
       <View style={{ flex: 1 }}>
         <Txt variant="h2">{title}</Txt>
-        <Txt variant="bodySmall" color={colors.inkFaint}>{sub}</Txt>
+        {sub ? <Txt variant="bodySmall" color={colors.inkFaint}>{sub}</Txt> : null}
       </View>
       {action && (
         <Pressable onPress={action.onPress} hitSlop={8} style={s.seeAll}>
-          <Txt variant="bodySmall" color={colors.ink}>{action.label}</Txt>
+          <Txt variant="label" color={colors.ink}>{action.label}</Txt>
           <Feather name="chevron-right" size={14} color={colors.ink} />
         </Pressable>
       )}
@@ -678,6 +520,10 @@ function Empty({
 }
 
 const GUTTER = space.xl;
+/** How many PSA 10 cards, and how many days of them, before a line drawn
+ *  through their average is allowed to call itself the market. */
+const MIN_BASKET = 10;
+const MIN_DAYS = 14;
 
 /** The whole market, rebased to 100.
  *
@@ -697,8 +543,14 @@ function MarketIndex() {
   }, [days]);
 
   if (ix === null) return null;
-  if (ix === undefined) return <Bone h={200} r={14} style={{ marginTop: space.xl }} />;
-  if (ix.points.length < 2) return null;
+  if (ix === undefined) return <Bone h={220} r={radius.lg} style={{ marginHorizontal: GUTTER, marginTop: space.xxl }} />;
+  // "Enough history to say" has to mean something. The first cut checked for
+  // two points, which is nearly always true — and drew a flat line at 100
+  // from two cards over nine days, with "+0.0%" over it, as if the market
+  // had spoken. A basket that small is two cards, not a market, and a window
+  // that short is noise whichever way it went. Until the store holds both,
+  // the section does not exist.
+  if (ix.basket < MIN_BASKET || ix.points.length < MIN_DAYS) return null;
 
   const first = ix.points[0]!.price;
   const last = ix.points[ix.points.length - 1]!.price;
@@ -706,55 +558,51 @@ function MarketIndex() {
   const up = pct >= 0;
 
   return (
-    <View style={s.index}>
-      <View style={s.indexHead}>
-        <View style={{ flex: 1 }}>
-          <Txt variant="h2">The Market</Txt>
-          <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
-            {up ? "Up" : "Down"} {Math.abs(pct).toFixed(1)}% · {ix.basket} cards
-          </Txt>
+    <>
+      <Section title="The Market" sub={`PSA 10s, the ${ix.basket} cards traded most`} />
+      <View style={[s.panel, s.index]}>
+        <View style={s.indexHead}>
+          <View style={[s.pct, { backgroundColor: up ? colors.upWash : colors.downWash }]}>
+            <Feather name={up ? "trending-up" : "trending-down"} size={13} color={up ? colors.up : colors.down} />
+            <Txt variant="label" color={up ? colors.up : colors.down} style={s.pctTxt}>
+              {up ? "+" : "−"}{Math.abs(pct).toFixed(1)}%
+            </Txt>
+          </View>
+          <RangePicker value={days} onChange={setDays} />
         </View>
-        <RangePicker value={days} onChange={setDays} />
+        {/* An index, so the readout is a number, not dollars. */}
+        <PriceChart
+          points={ix.points}
+          height={140}
+          tone={up ? colors.up : colors.down}
+          format={(n) => n.toFixed(1)}
+        />
+        <Txt variant="bodySmall" color={colors.inkFaint}>
+          Set to 100 at the start of the window, so this is the shape of the market rather than a price.
+        </Txt>
       </View>
-      <PriceChart points={ix.points} height={150} tone={up ? colors.up : colors.down} />
-      <Txt variant="bodySmall" color={colors.inkFaint}>
-        {/* Saying what it is stops it being read as dollars. */}
-        Set to 100 at the start, so this is the shape of the market rather than a
-        price. PSA 10s, the cards we see traded most.
-      </Txt>
-    </View>
+    </>
   );
 }
 
 const s = StyleSheet.create({
-  index: {
-    marginTop: space.xl, padding: space.lg, gap: space.sm,
-    borderRadius: 14, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.line,
-  },
-  indexHead: { flexDirection: "row", alignItems: "flex-start", gap: space.md },
   root: { flex: 1, backgroundColor: colors.washBottom },
-  band: { overflow: "hidden", paddingBottom: space.xxl },
+  band: { overflow: "hidden", paddingBottom: space.xxl + space.lg },
   bandMark: { position: "absolute", right: -110, top: -30 },
+  bloom: { position: "absolute", top: -260, right: -140, width: 560, height: 560 },
   sheet: {
     marginTop: -space.xl,
-    borderTopLeftRadius: 26, borderTopRightRadius: 26,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
     backgroundColor: colors.washBottom,
-    paddingTop: space.sm,
+    paddingTop: space.xs,
   },
-  handle: {
-    alignSelf: "center", width: 42, height: 5, borderRadius: 3,
-    backgroundColor: colors.lineStrong, marginBottom: space.md,
-  },
-  bloom: { position: "absolute", top: -260, right: -140, width: 560, height: 560 },
 
   bar: {
     flexDirection: "row", alignItems: "center", gap: space.sm,
     paddingHorizontal: GUTTER, paddingTop: space.sm,
   },
   // Glass on the navy rather than white pills. A white control on a dark band
-  // is a hole punched in it; a translucent one belongs to the surface it sits
-  // on and lets the bloom and the watermark show through.
+  // is a hole punched in it; a translucent one belongs to the surface.
   search: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: space.sm,
     height: 44, paddingHorizontal: space.md,
@@ -771,136 +619,74 @@ const s = StyleSheet.create({
     paddingHorizontal: 4, alignItems: "center", justifyContent: "center",
     backgroundColor: colors.down, borderWidth: 1.5, borderColor: colors.surface,
   },
-  watch: {
-    padding: space.md,
-    borderRadius: 20, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.line,
-    shadowColor: "#0B1622", shadowOpacity: 0.05, shadowRadius: 14,
-    shadowOffset: { width: 0, height: 5 }, elevation: 2,
+
+  // ---- the hero ------------------------------------------------------------
+  hero: {
+    flexDirection: "row", alignItems: "center", gap: space.md,
+    paddingHorizontal: GUTTER, marginTop: space.xxl, minHeight: 120,
   },
-  watchArt: {
-    height: 150, borderRadius: 14, overflow: "hidden",
-    backgroundColor: colors.surfaceSunk,
-    alignItems: "center", justifyContent: "center",
+  heroValue: {
+    ...type.display, fontSize: 46, lineHeight: 52, letterSpacing: -1.6,
+    marginTop: 6, fontVariant: ["tabular-nums"],
   },
-  watchGrade: { position: "absolute", left: 6, bottom: 6 },
-  watchFollow: {
-    position: "absolute", right: 6, top: 6,
+  heroWord: { ...type.h1, marginTop: 8 },
+  heroFacts: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm },
+  gain: {
     flexDirection: "row", alignItems: "center", gap: 3,
-    paddingHorizontal: 6, paddingVertical: 3, borderRadius: 999,
-    backgroundColor: "rgba(11,22,34,0.72)",
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill,
   },
-  watchFoot: { flexDirection: "row", alignItems: "flex-end", gap: space.sm, marginTop: space.sm },
-  move: {
-    flexDirection: "row", alignItems: "center", gap: 3,
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
+  fan: { width: 120, height: 124, alignItems: "center", justifyContent: "flex-start" },
+  fanCard: {
+    position: "absolute", width: 74, height: 103, borderRadius: 8, overflow: "hidden",
+    backgroundColor: colors.darkRaised,
+    borderWidth: 1, borderColor: "rgba(255,255,255,0.18)",
+    shadowColor: "#000", shadowOpacity: 0.35, shadowRadius: 12, shadowOffset: { width: 0, height: 6 },
   },
 
-  valueCard: {
-    marginHorizontal: GUTTER, marginTop: space.lg, marginBottom: space.xl,
-    borderRadius: 26, overflow: "hidden", backgroundColor: colors.dark,
-    shadowColor: "#0B1622", shadowOpacity: 0.28, shadowRadius: 24,
-    shadowOffset: { width: 0, height: 12 }, elevation: 12,
-  },
-  cardBloom: { position: "absolute", right: -120, top: -150, width: 340, height: 340 },
-  watermark: { position: "absolute", right: -46, bottom: -54, opacity: 0.07 },
-  goldRule: {
-    position: "absolute", top: 0, left: 0, right: 0, height: 3,
-    backgroundColor: colors.accent, opacity: 0.85,
-  },
-  cardBody: { padding: space.xl },
-  valueRow: { flexDirection: "row", alignItems: "center", gap: space.md, marginTop: 2 },
-  bigValue: { fontSize: 40, lineHeight: 46 },
-  delta: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill,
-  },
-  cardStats: {
-    flexDirection: "row", alignItems: "center",
-    marginTop: space.xl, paddingTop: space.lg,
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.12)",
-  },
-  statRule: { width: 1, height: 26, backgroundColor: "rgba(255,255,255,0.12)" },
-  strip: {
-    flexDirection: "row", alignItems: "stretch",
-    borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.10)",
-  },
-  stripItem: { flex: 1, alignItems: "center", gap: 6, paddingVertical: space.md },
-  stripDivider: {
-    position: "absolute", left: 0, top: "22%", bottom: "22%", width: 1,
-    backgroundColor: "rgba(255,255,255,0.10)",
-  },
-  valueFoot: { flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.sm, flexWrap: "wrap" },
-  pill: {
-    flexDirection: "row", alignItems: "center", gap: 4,
-    paddingHorizontal: space.sm, paddingVertical: 4, borderRadius: radius.pill,
-  },
-  emptyCta: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
-    height: 44, marginTop: space.lg, borderRadius: radius.pill, backgroundColor: colors.accent,
-  },
   join: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: space.sm,
     height: 48, marginTop: space.lg, borderRadius: radius.pill, backgroundColor: colors.accent,
+    alignSelf: "flex-start", paddingHorizontal: space.xl,
   },
+  guestMark: { opacity: 0.35, marginLeft: space.md },
 
-
+  // ---- sections --------------------------------------------------------------
   sectionHead: {
     flexDirection: "row", alignItems: "flex-end", gap: space.md,
     paddingHorizontal: GUTTER, marginTop: space.xxl, marginBottom: space.md,
   },
-  seeAll: { flexDirection: "row", alignItems: "center", gap: 2 },
+  seeAll: { flexDirection: "row", alignItems: "center", gap: 2, paddingBottom: 2 },
   sectionBody: { paddingHorizontal: GUTTER },
-  rail: { marginHorizontal: 0 },
-  movers: { paddingHorizontal: GUTTER, marginTop: space.sm, gap: space.md },
-  compare: {
-    padding: space.lg, borderRadius: radius.lg,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.outline,
-  },
-  leadHead: { flexDirection: "row", alignItems: "center", gap: space.md, marginBottom: space.md },
-  leadPct: { ...type.h2, fontVariant: ["tabular-nums"] },
-  ranges: { flexDirection: "row", gap: 6, marginTop: space.md },
-  rangeBtn: {
-    paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
-  },
-  rangeOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  picks: { gap: 6, paddingTop: space.md },
-  pick: {
-    paddingHorizontal: space.md, paddingVertical: 6, borderRadius: radius.pill,
-    backgroundColor: colors.surfaceSunk, borderWidth: 1, borderColor: colors.line,
-    maxWidth: 160,
-  },
-  pickOn: { backgroundColor: colors.ink, borderColor: colors.ink },
-  openCard: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4,
-    height: 44, marginTop: space.md, borderRadius: radius.pill,
-    borderWidth: 1.5, borderColor: colors.outline,
-  },
-  railInner: { paddingHorizontal: GUTTER, gap: space.md },
+  railInner: { paddingHorizontal: GUTTER, gap: space.sm },
 
-  moverArt: {
-    height: 184, borderRadius: 14, overflow: "hidden",
-    backgroundColor: colors.surfaceSunk,
-    alignItems: "center", justifyContent: "center",
+  games: { flexDirection: "row", gap: space.md, paddingHorizontal: GUTTER, paddingTop: space.lg },
+  game: { alignItems: "center", width: 62, gap: 6 },
+  gameDisc: {
+    width: 56, height: 56, borderRadius: 28,
+    alignItems: "center", justifyContent: "center", borderWidth: 1.5,
   },
-  moveTag: {
-    position: "absolute", top: 7, left: 7,
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
-  },
-  moverSpark: { position: "absolute", left: 0, right: 0, bottom: 0, opacity: 0.9 },
-  moverFoot: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 1 },
+  gameShort: { ...type.overline, fontSize: 13, letterSpacing: 0.2 },
+  gameLabel: { textAlign: "center" },
 
-  card: { width: 152 },
-  // Taller than the flat rail's 200. The focused tile is the subject of the
-  // section now, and at the old height it was a thumbnail that happened to be
-  // slightly larger than its neighbours.
+  // White on the wash, lifted by a shadow rather than drawn with a line. A
+  // hairline round every panel is what makes a page read as a form.
+  panel: {
+    marginHorizontal: GUTTER, paddingHorizontal: space.md, paddingVertical: space.xs,
+    borderRadius: radius.lg, backgroundColor: colors.surface, ...shadow.card,
+  },
+
+
+  index: { padding: space.lg, gap: space.sm },
+  indexHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md },
+  pct: {
+    flexDirection: "row", alignItems: "center", gap: 3,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.pill,
+  },
+  pctTxt: { fontVariant: ["tabular-nums"] },
+
+
   focusThumb: {
     height: 258, borderRadius: 20, overflow: "hidden",
-    backgroundColor: colors.surfaceSunk, alignItems: "center", justifyContent: "center",
-  },
-  thumb: {
-    height: 200, borderRadius: 20, overflow: "hidden",
     backgroundColor: colors.surfaceSunk, alignItems: "center", justifyContent: "center",
   },
   badgeOnArt: { position: "absolute", left: 6, bottom: 6 },
@@ -915,8 +701,7 @@ const s = StyleSheet.create({
 
   empty: {
     alignItems: "center", paddingVertical: space.xxl, paddingHorizontal: space.xl,
-    borderRadius: radius.lg, backgroundColor: colors.surface,
-    borderWidth: 1, borderColor: colors.line, borderStyle: "dashed",
+    borderRadius: radius.lg, backgroundColor: colors.surface, ...shadow.card,
   },
   emptyIcon: {
     width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",

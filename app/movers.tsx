@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { Screen } from "../components/Screen";
 import { Txt } from "../components/Text";
 import { MoveBars } from "../components/MoveBars";
-import { TrendCompare } from "../components/TrendCompare";
+import { MarketMovers } from "../components/MarketMovers";
 import { Bone } from "../components/Skeleton";
 import { marketPulse, type Pulse } from "../lib/cardmarket";
 import { money, useFx } from "../lib/fx";
@@ -47,17 +47,10 @@ export default function Movers() {
         </Txt>
       ) : (
         <View style={{ marginTop: space.lg }}>
-          <View style={s.compare}>
-            <TrendCompare
-              series={pulse.slice(0, 8).map((p) => ({
-                id: p.cardId ?? p.label,
-                label: p.label,
-                points: p.spark ?? [],
-              }))}
-              selectedId={pulse[0]?.cardId ?? pulse[0]?.label}
-              label={pulse[0]?.label}
-              height={200}
-            />
+          {/* The same chart as the home screen, so the two never disagree
+              about what a card did. */}
+          <View style={{ marginHorizontal: -space.xl }}>
+            <MarketMovers pulse={pulse} />
           </View>
 
           <MoveBars
