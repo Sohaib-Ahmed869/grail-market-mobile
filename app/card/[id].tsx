@@ -639,6 +639,7 @@ export default function CardPage() {
 function CardTrend({
   catalogId, grader, grade,
 }: { catalogId: string; grader: string; grade: string }) {
+  const fx = useFx();
   const [days, setDays] = useState(90);
   const [h, setH] = useState<History | undefined>(undefined);
 
@@ -674,7 +675,10 @@ function CardTrend({
         <Bone h={180} r={radius.lg} style={{ marginTop: space.md }} />
       ) : (
         <>
-          <PriceChart points={h.points} />
+          {/* The series is `price_points`, which is US dollars. Converted
+              here so the line agrees with the figure at the top of the page
+              rather than reading a third higher than it. */}
+          <PriceChart points={h.points} format={(n) => fxMoney(n, { fx, from: "USD" })} />
           <Txt variant="bodySmall" color={colors.inkFaint}>
             {/* The distinction that keeps this honest: how many days we drew
                 against how many we actually observed. */}

@@ -31,16 +31,22 @@ const STATUS: Record<string, { label: string; fg: string; bg: string; body: stri
 export default function MyOffers() {
   const router = useRouter();
   const [rows, setRows] = useState<Offer[] | null>(null);
+  // Offers people have made on MY listings. A separate list, because they are
+  // a different job: these are decisions waiting on me.
+  const [received, setReceived] = useState<Offer[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(() => {
     let alive = true;
-    myOffers().then((r) => { if (alive) setRows(r.offers); });
+    myOffers().then((r) => { if (!alive) return; setRows(r.offers); setReceived(r.received); });
     return () => { alive = false; };
   }, []);
   useFocusEffect(load);
 
-  const refresh = useCallback(async () => setRows((await myOffers()).offers), []);
+  const refresh = useCallback(async () => {
+    const r = await myOffers();
+    setRows(r.offers); setReceived(r.received);
+  }, []);
 
   const takeCounter = async (o: Offer) => {
     setBusy(o.offer_id);
@@ -51,7 +57,50 @@ export default function MyOffers() {
 
   return (
     <Screen onRefresh={refresh} back>
-      <Txt variant="display" style={{ marginTop: space.sm }}>My Offers</Txt>
+      <Txt variant="display" style={{ marginTop: space.sm }}>Offers</Txt>
+
+      {/* ---- waiting on me ------------------------------------------------
+          Offers on my own listings. This screen used to show only the offers
+          I had MADE, so a seller with people bidding on their cards was told
+          "No Offers Yet" — the one message guaranteed to be wrong for them. */}
+      {received && received.length > 0 && (
+        <View style={{ marginTop: space.xl }}>
+          <Txt variant="overline" color={colors.inkFaint}>
+            On your listings · {received.filter((o) => o.status === "pending" || o.status === "open").length} waiting
+          </Txt>
+          <View style={{ gap: space.md, marginTop: space.md }}>
+            {received.map((o) => {
+              const st = STATUS[o.status] ?? STATUS.open;
+              const amt = num(o.amount) ?? 0;
+              return (
+                <Pressable
+                  key={o.offer_id}
+                  onPress={() => router.push(`/offers/${o.listing_id}` as never)}
+                  style={({ pressed }) => [s.recv, pressed && { opacity: 0.8 }]}
+                >
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Txt variant="h3" numberOfLines={1}>{o.card_name ?? "A card"}</Txt>
+                    <Txt variant="bodySmall" color={colors.inkMuted} numberOfLines={1}>
+                      {o.buyer_name ? `${o.buyer_name} offered ` : "Offered "}{aud(amt)}
+                      {o.asking != null ? ` · asking ${aud(num(o.asking) ?? 0)}` : ""}
+                    </Txt>
+                  </View>
+                  <View style={[s.pill, { backgroundColor: st.bg }]}>
+                    <Txt variant="overline" color={st.fg}>{st.label}</Txt>
+                  </View>
+                  <Feather name="chevron-right" size={16} color={colors.inkFaint} />
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+      )}
+
+      {received && received.length > 0 && (
+        <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: space.xxl }}>
+          Offers you made
+        </Txt>
+      )}
 
       {rows == null ? (
         <SkeletonList count={4}>{() => <SkeletonRow />}</SkeletonList>
@@ -137,6 +186,11 @@ export default function MyOffers() {
 }
 
 const s = StyleSheet.create({
+  recv: {
+    flexDirection: "row", alignItems: "center", gap: space.sm,
+    padding: space.md, borderRadius: radius.md, backgroundColor: colors.surface,
+  },
+  pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
   card: {
     padding: space.md, borderRadius: radius.lg,
     borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface,

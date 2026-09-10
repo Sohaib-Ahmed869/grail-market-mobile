@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, FlatList, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { Alert, FlatList, Image, Pressable, RefreshControl, Share, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -9,7 +9,11 @@ import { useGuest } from "../../lib/guest";
 import { Bone, SkeletonList, SkeletonRow } from "../../components/Skeleton";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
-import { getCollection, removeFromCollection, type Entry } from "../../lib/market";
+import {
+  currentShare, getCollection, removeFromCollection, shareCollection,
+  stopSharingCollection, type Entry,
+} from "../../lib/market";
+import { API } from "../../lib/api";
 import { GraderBadge } from "../../components/GraderChips";
 import { Icon } from "../../components/Icon";
 import { useToast } from "../../components/Toast";
@@ -20,7 +24,7 @@ import { collectionHistory } from "../../lib/history";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
 import { colors, radius, space } from "../../theme";
-import { aud, convert, useFx, type Fx } from "../../lib/fx";
+import { aud, convert, money as fxMoney, useFx, type Fx } from "../../lib/fx";
 
 const money = (n: number | null) => aud(n);
 
@@ -56,7 +60,7 @@ export default function Portfolio() {
   const router = useRouter();
   const fx = useFx();
   const [data, setData] = useState({
-    entries: [] as Entry[], value: 0, cost: 0,
+    entries: [] as Entry[], value: 0, cost: 0, spent: 0, gainCards: 0,
     gain: null as number | null, priced: 0,
   });
   const entries = Array.isArray(data?.entries) ? data.entries : [];
@@ -73,6 +77,10 @@ export default function Portfolio() {
   const gainAud = data.gain == null ? null : AUD(data.gain, fx);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  // null = not shared, string = the live token. Read on focus so turning the
+  // link off on one device is reflected on the other.
+  const [share, setShare] = useState<string | null>(null);
+  const [minting, setMinting] = useState(false);
   const toast = useToast();
 
   const load = useCallback(() => {
@@ -84,6 +92,7 @@ export default function Portfolio() {
       // the next card added lands in a screen already in edit mode.
       if (d.entries.length === 0) setEditing(false);
     });
+    currentShare().then(setShare);
   }, []);
   useFocusEffect(load);
 
@@ -125,6 +134,61 @@ export default function Portfolio() {
     );
   }, [load, toast]);
 
+  /** Hand the collection to somebody as a link.
+   *
+   *  The link is a web page, not a deep link into an app the recipient almost
+   *  certainly does not have. It opens in whatever they tapped it in, and if
+   *  they DO have GrailMarket the page offers to open there. A share that
+   *  requires the other person to install something first is not a share.
+   *
+   *  Minted once and reused: tapping Share twice gives the same link, so a
+   *  copy sent last week keeps working and turning it off kills every copy. */
+  const sendLink = useCallback(async () => {
+    setMinting(true);
+    const token = share ?? await shareCollection();
+    setMinting(false);
+    if (!token) {
+      toast("Could not create a share link. Try again in a moment.", { tone: "bad" });
+      return;
+    }
+    setShare(token);
+    const url = `${API}/c/${token}`;
+    try {
+      await Share.share({
+        message: `My card collection on GrailMarket — ${url}`,
+        url,                       // iOS uses this; Android reads the message
+      });
+    } catch {
+      // The sheet was dismissed, or there was nothing to share to. Not an error
+      // worth a toast — the link exists either way and the next tap reuses it.
+    }
+  }, [share, toast]);
+
+  /** What a live link can do. Only offered once one exists. */
+  const manageShare = useCallback(() => {
+    Alert.alert(
+      "Your collection link is live",
+      "Anyone with the link can see your cards and what they are worth. What you paid is never shared.",
+      [
+        { text: "Send link", onPress: () => { void sendLink(); } },
+        {
+          text: "Turn link off",
+          style: "destructive",
+          onPress: async () => {
+            const ok = await stopSharingCollection();
+            if (ok) {
+              setShare(null);
+              toast("Link turned off. Every copy of it stops working.");
+            } else {
+              toast("Could not turn the link off.", { tone: "bad" });
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  }, [sendLink, toast]);
+
   const up = (gainAud ?? 0) >= 0;
 
   if (guest) {
@@ -159,6 +223,20 @@ export default function Portfolio() {
               <Txt variant="display" style={{ flex: 1 }}>Collection</Txt>
               {entries.length > 0 && (
                 <Pressable
+                  onPress={share ? manageShare : sendLink}
+                  disabled={minting}
+                  hitSlop={10}
+                  accessibilityLabel={share ? "Manage your collection link" : "Share your collection"}
+                  style={({ pressed }) => [s.share, share && s.shareOn, pressed && { opacity: 0.7 }]}
+                >
+                  <Feather name="share-2" size={15} color={share ? colors.accent : colors.ink} />
+                  <Txt variant="button" color={share ? colors.accent : colors.ink}>
+                    {share ? "Shared" : "Share"}
+                  </Txt>
+                </Pressable>
+              )}
+              {entries.length > 0 && (
+                <Pressable
                   onPress={() => setEditing((v) => !v)}
                   hitSlop={10}
                   style={({ pressed }) => [s.edit, editing && s.editOn, pressed && { opacity: 0.7 }]}
@@ -184,17 +262,32 @@ export default function Portfolio() {
               {/* Same rule as the dashboard: without a recorded cost there is
                 * no gain to report, and showing the whole value as profit is
                 * the most flattering possible lie. */}
-              {data.cost > 0 ? (
+              {/* Gain over the cards that have BOTH a price and a cost, and
+                * said out loud when that is not all of them.
+                *
+                * This line once read "A$-11,092 against A$11,092 paid" on a
+                * collection of five cards where four had no price yet — the
+                * whole cost set against a value only one card contributed to.
+                * It looked like a wipeout and was arithmetic on two different
+                * sets of cards. */}
+              {gainAud != null && data.cost > 0 ? (
                 <View style={s.deltaRow}>
                   <Feather name={up ? "trending-up" : "trending-down"} size={13}
                     color={up ? colors.up : colors.down} />
                   <Txt variant="bodySmall" color={up ? colors.up : colors.down}>
                     {up ? "+" : ""}{money(gainAud)} against {money(costAud)} paid
                   </Txt>
+                  {data.gainCards < entries.length && (
+                    <Txt variant="bodySmall" color={colors.inkFaint}>
+                      on {data.gainCards} of {entries.length}
+                    </Txt>
+                  )}
                 </View>
               ) : (
                 <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: 4 }}>
-                  Add what you paid to see gain or loss
+                  {data.spent > 0
+                    ? "Nothing here has both a price and a cost yet"
+                    : "Add what you paid to see gain or loss"}
                 </Txt>
               )}
               <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: space.sm }}>
@@ -366,6 +459,7 @@ export default function Portfolio() {
  *  answers "what is it worth now"; this answers "and is that going anywhere",
  *  which needs at least two observations to be a claim rather than a dot. */
 function ValueOverTime() {
+  const fx = useFx();
   const [days, setDays] = useState(90);
   const [h, setH] = useState<Awaited<ReturnType<typeof collectionHistory>> | undefined>(undefined);
 
@@ -396,7 +490,9 @@ function ValueOverTime() {
         </View>
         <RangePicker value={days} onChange={setDays} />
       </View>
-      <PriceChart points={h.points} height={160} />
+      {/* A sum over `price_points`, so US dollars — while the total above
+          this chart is converted. Left alone the two disagreed by the rate. */}
+      <PriceChart points={h.points} height={160} format={(n) => fxMoney(n, { fx, from: "USD" })} />
       {h.priced < h.total && (
         <Txt variant="bodySmall" color={colors.inkFaint}>
           {/* The same honesty as the total above it: a line drawn from half
@@ -426,6 +522,15 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface,
   },
   editOn: { backgroundColor: colors.ink, borderColor: colors.ink },
+  share: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: space.md, paddingVertical: 7,
+    borderRadius: radius.pill,
+    borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface,
+  },
+  // Gold, and only here: a live link is the one thing on this screen worth the
+  // eye, because it is the one thing other people can see.
+  shareOn: { borderColor: colors.accentLine, backgroundColor: colors.accentWash },
   // Red, round and to the LEFT of the artwork, which is where the same control
   // sits in every list on the platform that has one.
   remove: {

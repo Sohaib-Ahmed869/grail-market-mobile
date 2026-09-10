@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  Alert, AppState, Pressable, ScrollView, StyleSheet, TextInput, View,
+  Alert, AppState, FlatList, Pressable, StyleSheet, TextInput, View,
 } from "react-native";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -8,8 +8,10 @@ import { Screen } from "../../components/Screen";
 import { Txt } from "../../components/Text";
 import { Loader } from "../../components/Loader";
 import { Note } from "../../components/Note";
+import { Feather } from "@expo/vector-icons";
 import { Icon } from "../../components/Icon";
 import { Avatar } from "../../components/Avatar";
+import { CardArt } from "../../components/CardArt";
 import { Reactions } from "../../components/Reactions";
 import {
   messagesIn, reactTo, REACTIONS, sendMessage, threads,
@@ -44,7 +46,12 @@ export default function ThreadScreen() {
   const router = useRouter();
   const session = useSession();
   const toast = useToast();
-  const scroller = useRef<ScrollView>(null);
+  // Inverted, so "the bottom" is offset zero and a new message needs no
+  // scrolling at all. The previous version nested a ScrollView inside the
+  // Screen's own ScrollView, which gave the inner one no bounded height —
+  // so it never scrolled itself and scrollToEnd was a no-op. A long
+  // conversation simply did not go to the newest message.
+  const scroller = useRef<FlatList<Message>>(null);
 
   const [msgs, setMsgs] = useState<Message[] | undefined>(undefined);
   const [meta, setMeta] = useState<Thread | null>(null);
@@ -106,6 +113,7 @@ export default function ThreadScreen() {
   return (
     <Screen
       back
+      scroll={false}
       footer={
         <View style={s.composer}>
           <TextInput
@@ -121,28 +129,46 @@ export default function ThreadScreen() {
             returnKeyType="send"
             style={s.input}
           />
+          {/* An arrow, not a speech bubble. The icon on a send button should
+              say where the text is going, not repeat what the screen is. */}
           <Pressable
             onPress={send}
             disabled={busy || !text.trim()}
-            style={[s.send, (!text.trim() || busy) && { opacity: 0.35 }]}
+            accessibilityLabel="Send"
+            style={({ pressed }) => [
+              s.send,
+              (!text.trim() || busy) && s.sendOff,
+              pressed && text.trim() && { transform: [{ scale: 0.94 }] },
+            ]}
           >
-            <Icon name="messages" size={18} color={colors.onPrimary} filled />
+            <Feather name="arrow-up" size={19} color={text.trim() ? colors.onPrimary : colors.inkFaint} />
           </Pressable>
         </View>
       }
     >
       {meta && (
-        <Pressable onPress={() => router.push(`/listing/${meta.listing_id}` as any)} style={s.header}>
-          <Avatar name={meta.other_name ?? "member"} id={meta.other_avatar} size={38} />
-          <View style={{ flex: 1 }}>
+        /* Who, and which card. A thread here is always about one object, so
+           the object belongs in the header — the way a DM about a post shows
+           the post rather than describing it. */
+        <Pressable
+          onPress={() => router.push(`/listing/${meta.listing_id}` as any)}
+          style={({ pressed }) => [s.header, pressed && { opacity: 0.8 }]}
+        >
+          <Avatar name={meta.other_name ?? "member"} id={meta.other_avatar} size={42} />
+          <View style={{ flex: 1, minWidth: 0 }}>
             <Txt variant="h3" numberOfLines={1}>{meta.other_name ?? "Member"}</Txt>
             <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>
               {meta.card_name}
               {meta.grader ? ` · ${meta.grader} ${meta.grade ?? ""}` : ""}
-              {" · "}{aud(Number(meta.price))}
             </Txt>
           </View>
-          <Icon name="card" size={18} color={colors.inkFaint} />
+          <View style={{ alignItems: "flex-end", gap: 2 }}>
+            <Txt variant="label">{aud(Number(meta.price))}</Txt>
+            <Txt variant="overline" color={colors.inkFaint}>{meta.my_role === "buyer" ? "buying" : "selling"}</Txt>
+          </View>
+          {meta.image_url ? (
+            <View style={s.headerArt}><CardArt uri={meta.image_url} iconSize={14} /></View>
+          ) : null}
         </Pressable>
       )}
 
@@ -156,43 +182,48 @@ export default function ThreadScreen() {
           </Note>
         </View>
       ) : (
-        <ScrollView
+        <FlatList
           ref={scroller}
-          onContentSizeChange={() => scroller.current?.scrollToEnd({ animated: true })}
+          // Newest at offset zero. Reversed here rather than in the request so
+          // the day separators and the run-grouping still read forwards.
+          inverted
+          data={[...msgs].reverse()}
+          keyExtractor={(m) => m.message_id}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ gap: 6, paddingTop: space.md, paddingBottom: space.md }}
           style={{ marginTop: space.md }}
-          contentContainerStyle={{ gap: 6, paddingBottom: space.md }}
-        >
-          {msgs.map((m, i) => {
-            const showDay = i === 0 || dayOf(m.created_at) !== dayOf(msgs[i - 1].created_at);
+          renderItem={({ item: m, index }) => {
+            // Inverted: "the one before this in time" is the NEXT index.
+            const order = [...msgs].reverse();
+            const prev = order[index + 1];
+            const next = order[index - 1];
+            const showDay = !prev || dayOf(m.created_at) !== dayOf(prev.created_at);
 
             if (m.kind === "event") {
               return (
-                <View key={m.message_id}>
-                  {showDay && <Day label={dayOf(m.created_at)} />}
+                <View>
                   <View style={s.event}>
                     <Icon name="offer" size={13} color={colors.accent} />
                     <Txt variant="bodySmall" color={colors.inkMuted}>{m.body}</Txt>
                   </View>
+                  {showDay && <Day label={dayOf(m.created_at)} />}
                 </View>
               );
             }
 
             const own = mine(m);
-            // A run of messages from the same person is one block: the tail
-            // and the timestamp go on the last of them only.
-            const next = msgs[i + 1];
             const endsRun = !next || next.sender_id !== m.sender_id || next.kind === "event";
 
             return (
-              <View key={m.message_id}>
-                {showDay && <Day label={dayOf(m.created_at)} />}
+              <View>
                 <Pressable
                   onPress={() => setPicking(picking === m.message_id ? null : m.message_id)}
                   onLongPress={() => setPicking(m.message_id)}
                   delayLongPress={220}
                   style={[s.row, own && { justifyContent: "flex-end" }]}
                 >
-                  <View style={{ maxWidth: "80%" }}>
+                  <View style={{ maxWidth: "78%" }}>
                     <View style={[
                       s.bubble,
                       own ? s.mine : s.theirs,
@@ -234,10 +265,12 @@ export default function ThreadScreen() {
                     ))}
                   </Animated.View>
                 )}
+
+                {showDay && <Day label={dayOf(m.created_at)} />}
               </View>
             );
-          })}
-        </ScrollView>
+          }}
+        />
       )}
     </Screen>
   );
@@ -254,6 +287,7 @@ function Day({ label }: { label: string }) {
 }
 
 const s = StyleSheet.create({
+  headerArt: { width: 34, height: 47, borderRadius: 5, overflow: "hidden", backgroundColor: colors.surfaceSunk },
   header: {
     flexDirection: "row", alignItems: "center", gap: space.md,
     padding: space.md, marginTop: space.sm,
@@ -294,6 +328,7 @@ const s = StyleSheet.create({
     borderRadius: radius.pill, borderWidth: 1.5, borderColor: colors.fieldLine,
     backgroundColor: colors.field,
   },
+  sendOff: { backgroundColor: colors.field },
   send: {
     width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",
     backgroundColor: colors.ink,

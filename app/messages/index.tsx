@@ -10,7 +10,7 @@ import { GraderBadge } from "../../components/GraderChips";
 import { SkeletonList, SkeletonRow } from "../../components/Skeleton";
 import { threads as fetchThreads, type Thread } from "../../lib/messages";
 import { ago } from "../../lib/community";
-import { colors, radius, space } from "../../theme";
+import { colors, radius, shadow, space } from "../../theme";
 
 /** Every conversation, newest first.
  *
@@ -50,21 +50,21 @@ export default function Messages() {
           <View style={s.emptyIcon}>
             <Feather name="message-circle" size={20} color={colors.inkFaint} />
           </View>
-          <Txt variant="h3" center style={{ marginTop: space.md }}>No Conversations</Txt>
+          <Txt variant="h3" center style={{ marginTop: space.md }}>No conversations</Txt>
           <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: 4 }}>
             Making an offer or tapping Message on a listing starts one. Community talk
             lives in its own tab — this is only about deals.
           </Txt>
         </View>
       ) : (
-        <View style={{ gap: space.sm, marginTop: space.xl }}>
+        <View style={{ gap: 4, marginTop: space.lg }}>
           {rows.map((t) => {
             const img = t.photos?.[0]?.url ?? t.image_url;
             return (
               <Pressable
                 key={t.thread_id}
                 onPress={() => router.push(`/messages/${t.thread_id}` as any)}
-                style={({ pressed }) => [s.row, pressed && { backgroundColor: colors.surfaceSunk }]}
+                style={({ pressed }) => [s.row, t.unread > 0 && s.rowUnread, pressed && { opacity: 0.72 }]}
               >
                 <View>
                   {img ? (
@@ -103,7 +103,7 @@ export default function Messages() {
 
                 {t.unread > 0 && (
                   <View style={s.badge}>
-                    <Txt variant="overline" color={colors.onPrimary} style={{ fontSize: 10 }}>
+                    <Txt variant="overline" color={colors.dark} style={{ fontSize: 10.5 }}>
                       {t.unread}
                     </Txt>
                   </View>
@@ -118,11 +118,15 @@ export default function Messages() {
 }
 
 const s = StyleSheet.create({
+  // Flat by default. A conversation list is a list, not fourteen bordered
+  // objects — and a border round every row leaves nothing to say "this one
+  // is waiting on you", which is the only thing the list is really for.
   row: {
     flexDirection: "row", alignItems: "center", gap: space.md,
-    padding: space.md, borderRadius: radius.lg,
-    borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface,
+    paddingVertical: space.md, paddingHorizontal: space.md,
+    borderRadius: radius.md, backgroundColor: "transparent",
   },
+  rowUnread: { backgroundColor: colors.surface, ...shadow.card },
   thumb: { width: 46, height: 62, borderRadius: 5, backgroundColor: colors.surfaceSunk },
   thumbEmpty: { alignItems: "center", justifyContent: "center" },
   face: { position: "absolute", bottom: -6, right: -8 },
@@ -130,9 +134,9 @@ const s = StyleSheet.create({
   cardLine: { flexDirection: "row", alignItems: "center", gap: 5 },
   badge: {
     minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6,
-    alignItems: "center", justifyContent: "center", backgroundColor: colors.ink,
+    alignItems: "center", justifyContent: "center", backgroundColor: colors.accent,
   },
-  empty: { alignItems: "center", marginTop: space.xxl, paddingHorizontal: space.lg },
+  empty: { alignItems: "center", marginTop: space.xxxl, paddingHorizontal: space.lg },
   emptyIcon: {
     width: 46, height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center",
     backgroundColor: colors.surfaceSunk,

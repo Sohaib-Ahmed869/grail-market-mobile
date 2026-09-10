@@ -263,8 +263,58 @@ export type Entry = {
   } | null;
 };
 
+/** A link that shows this collection to somebody who is not signed in.
+ *
+ *  Minted once and reused, so tapping Share twice gives the same link and
+ *  turning it off kills every copy at once. */
+export async function shareCollection(): Promise<string | null> {
+  try {
+    const r = await post<{ token?: string }>("/collection/share", {});
+    return r?.token ?? null;
+  } catch { return null; }
+}
+
+export async function currentShare(): Promise<string | null> {
+  try { return (await get<{ token?: string | null }>("/collection/share")).token ?? null; }
+  catch { return null; }
+}
+
+export async function stopSharingCollection(): Promise<boolean> {
+  try { return Boolean((await del<{ revoked?: boolean }>("/collection/share")).revoked); }
+  catch { return false; }
+}
+
+export type SharedEntry = {
+  entryId: string; catalogId: string | null; cardName: string;
+  setName: string | null; cardNumber: string | null; imageUrl: string | null;
+  grader: string | null; grade: string | null; variant: string | null;
+  quantity: number;
+  /** US dollars, like every price this API serves. Null where unpriced. */
+  value: number | null;
+};
+
+/** Somebody else's collection, by link. No sign-in, and deliberately no
+ *  `paid`, `cost` or `gain` — what a person spent is theirs. */
+export async function sharedCollection(token: string): Promise<{
+  owner: string; entries: SharedEntry[]; priced: number; cards: number; value: number;
+} | null> {
+  try {
+    const r = await get<any>(`/collection/shared/${encodeURIComponent(token)}`);
+    return r?.error ? null : r;
+  } catch { return null; }
+}
+
 export async function getCollection(): Promise<{
-  entries: Entry[]; value: number; cost: number; priced: number;
+  entries: Entry[]; value: number; priced: number;
+  /** What was paid for the cards the gain covers — the ones that have both a
+   *  price and a recorded cost. Compared against a value built from those same
+   *  cards, so the two sides are the same cards. */
+  cost: number;
+  /** What was paid for everything still held, priced or not. */
+  spent: number;
+  /** How many cards the gain is computed over. Below `held`, the app says so:
+   *  a gain over three of forty cards is not the collection's gain. */
+  gainCards: number;
   /** Null when the cost and the value are not in the same currency and there
    *  is no rate to bring them together. Not zero — zero is a claim that the
    *  collection is exactly break even. */
@@ -275,7 +325,8 @@ export async function getCollection(): Promise<{
   realised: number; held: number; sold: number;
 }> {
   const empty = {
-    entries: [] as Entry[], value: 0, cost: 0, gain: 0 as number | null,
+    entries: [] as Entry[], value: 0, cost: 0, spent: 0, gainCards: 0,
+    gain: null as number | null,
     priced: 0, realised: 0, held: 0, sold: 0,
   };
   try {
