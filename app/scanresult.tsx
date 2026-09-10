@@ -611,6 +611,39 @@ export default function ScanResult() {
           ambiguous={variantsAmbiguous}
         />
 
+        {/* THE NUMBER.
+         *
+         *  It used to live inside the asking/sold cards below, which are
+         *  built from a marketplace search that cannot tell five printings
+         *  apart. Hiding those left the screen with a chosen printing, a
+         *  green tick and no price at all. This is the figure for the card
+         *  the person says they are holding, and it is the only one on the
+         *  screen. */}
+        {variants.length > 1 && (
+          <View style={s.printPrice}>
+            {printing ? (
+              <>
+                <Txt style={s.printPriceValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {headline != null ? fxMoney(headline, { fx, from: "USD" }) : "—"}
+                </Txt>
+                <Txt variant="bodySmall" color={colors.inkMuted} center>
+                  {printing.variant ?? "Base printing"}
+                  {headline != null
+                    ? priceOf(printing)!.sold ? " · last sold" : " · asking now"
+                    : " · no price on any source we read"}
+                </Txt>
+              </>
+            ) : (
+              <>
+                <Txt style={s.printPriceValue}>—</Txt>
+                <Txt variant="bodySmall" color={colors.inkMuted} center>
+                  Pick the version above and this becomes its price
+                </Txt>
+              </>
+            )}
+          </View>
+        )}
+
         {printing ? (
           <View style={{ marginTop: space.lg }}>
             <Note icon="check-circle" tone="good">
@@ -884,6 +917,11 @@ const s = StyleSheet.create({
     height: 48, paddingHorizontal: space.md, ...type.body, color: colors.ink,
     borderRadius: radius.sm, borderWidth: 1.5, borderColor: colors.fieldLine,
     backgroundColor: colors.field,
+  },
+  printPrice: { alignItems: "center", marginTop: space.lg, gap: 2 },
+  printPriceValue: {
+    ...type.display, fontSize: 40, lineHeight: 46, letterSpacing: -1.2,
+    color: colors.ink, fontVariant: ["tabular-nums"],
   },
   priceBlock: { marginTop: space.xl },
   evidence: {
