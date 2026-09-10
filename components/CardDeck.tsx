@@ -72,7 +72,10 @@ export function CardDeck({
       <Animated.FlatList
         ref={list}
         data={cards}
-        keyExtractor={(c) => c.cardId}
+        // With the index, because a catalogue can list the same id twice —
+        // an alternate art under its parent's number — and two children
+        // with one key is a list that draws one of them and warns.
+        keyExtractor={(c, i) => `${c.cardId}:${i}`}
         horizontal
         showsHorizontalScrollIndicator={false}
         // Snapping to the card, not free scrolling: a hand of cards has a

@@ -37,7 +37,7 @@ export function GraderChips({
             onPress={() => onChange(g.id)}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
-            style={[s.chip, g.id === "RAW" && s.wide, on && s.chipOn]}
+            style={({ pressed }) => [s.chip, g.id === "RAW" && s.wide, on && s.chipOn, pressed && !on && { opacity: 0.6 }]}
           >
             {/* The company's own logo once the file is in assets/graders.
               * Until then a drawn wordmark stands in — never a recoloured
@@ -94,15 +94,20 @@ export function GraderBadge({ grader, grade }: { grader?: string | null; grade?:
 }
 
 const s = StyleSheet.create({
+  // A segmented track, the way an exchange switches Spot and Futures: one
+  // sunk rail, and the chosen company is a filled segment sliding along it.
+  // Eight outlined boxes in a row read as a form; this reads as a switch.
   scroll: { marginHorizontal: -space.xl },
-  row: { paddingHorizontal: space.xl, gap: 6 },
-  chip: {
-    minWidth: 70, height: 46, paddingHorizontal: space.md,
-    alignItems: "center", justifyContent: "center",
-    borderRadius: radius.sm, borderWidth: 1.5, borderColor: colors.fieldLine,
-    backgroundColor: colors.surface,
+  row: {
+    marginHorizontal: space.xl, padding: 4, gap: 2,
+    borderRadius: radius.md, backgroundColor: colors.field,
   },
-  chipOn: { backgroundColor: colors.ink, borderColor: colors.ink, ...shadow.card },
+  chip: {
+    minWidth: 66, height: 40, paddingHorizontal: space.md,
+    alignItems: "center", justifyContent: "center",
+    borderRadius: radius.sm,
+  },
+  chipOn: { backgroundColor: colors.ink, ...shadow.card },
   logo: { width: 54, height: 22 },
   // A dark chip needs a light mark. Most of these logos are dark on
   // transparent, so they are inverted rather than recoloured.
