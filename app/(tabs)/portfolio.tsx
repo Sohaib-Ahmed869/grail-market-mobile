@@ -47,6 +47,9 @@ const AUD = (n: number | null | undefined, fx: Fx | null) =>
 export default function Portfolio() {
   const navScroll = useNavScroll();
   const clearance = useTabBarClearance();
+  // Read once, guarded. A screen must not be one malformed response away from
+  // a red box: `lib/market` now guarantees an array, and this is the second
+  // lock on the same door.
   // Browsing is open to anyone; this is not. See JoinGate for why the
   // line is drawn here rather than at the front door.
   const guest = useGuest();
@@ -56,6 +59,7 @@ export default function Portfolio() {
     entries: [] as Entry[], value: 0, cost: 0,
     gain: null as number | null, priced: 0,
   });
+  const entries = Array.isArray(data?.entries) ? data.entries : [];
 
   /* The totals in one currency.
    *
@@ -145,7 +149,7 @@ export default function Portfolio() {
       <PageWash />
       <FlatList
         {...navScroll}
-        data={data.entries}
+        data={entries}
         keyExtractor={(e) => e.entryId}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={load} tintColor={colors.inkFaint} />}
         contentContainerStyle={[s.list, { paddingBottom: clearance }]}
@@ -153,7 +157,7 @@ export default function Portfolio() {
           <View style={s.head}>
             <View style={s.titleRow}>
               <Txt variant="display" style={{ flex: 1 }}>Collection</Txt>
-              {data.entries.length > 0 && (
+              {entries.length > 0 && (
                 <Pressable
                   onPress={() => setEditing((v) => !v)}
                   hitSlop={10}
@@ -175,7 +179,7 @@ export default function Portfolio() {
                 * the largest type on the screen. A dash says we do not know,
                 * and the line underneath says how many. */}
               <Txt variant="price" style={{ marginTop: 2 }}>
-                {data.entries.length > 0 && data.priced === 0 ? "—" : money(valueAud)}
+                {entries.length > 0 && data.priced === 0 ? "—" : money(valueAud)}
               </Txt>
               {/* Same rule as the dashboard: without a recorded cost there is
                 * no gain to report, and showing the whole value as profit is
@@ -194,11 +198,11 @@ export default function Portfolio() {
                 </Txt>
               )}
               <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: space.sm }}>
-                {data.entries.length} card{data.entries.length === 1 ? "" : "s"}
-                {data.priced === 0 && data.entries.length > 0
+                {entries.length} card{entries.length === 1 ? "" : "s"}
+                {data.priced === 0 && entries.length > 0
                   ? " · none of them priced yet"
-                  : data.priced < data.entries.length
-                    ? ` · ${data.priced} priced, ${data.entries.length - data.priced} we can't value yet`
+                  : data.priced < entries.length
+                    ? ` · ${data.priced} priced, ${entries.length - data.priced} we can't value yet`
                     : ""}
               </Txt>
             </View>
@@ -229,7 +233,7 @@ export default function Portfolio() {
           </View>
         }
         ListEmptyComponent={
-          busy && data.entries.length === 0 ? (
+          busy && entries.length === 0 ? (
             <SkeletonList count={4}>{() => <SkeletonRow />}</SkeletonList>
           ) : !busy ? (
             <View style={s.empty}>

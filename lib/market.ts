@@ -194,10 +194,16 @@ export async function offersFor(listingId: string): Promise<OffersOnListing> {
 }
 
 /** Every offer this member has made, across all listings. */
-export async function myOffers(): Promise<{ offers: Offer[] }> {
+/** Offers in both directions.
+ *
+ *  `offers` are the ones you made on other people's cards; `received` are the
+ *  ones people have made on yours. One screen showed only the first, so a
+ *  seller with three offers waiting was told "No Offers Yet". */
+export async function myOffers(): Promise<{ offers: Offer[]; received: Offer[] }> {
   try {
-    return await get("/listings/offers/mine");
-  } catch { return { offers: [] }; }
+    const r = await get<{ offers?: Offer[]; received?: Offer[] }>("/listings/offers/mine");
+    return { offers: r.offers ?? [], received: r.received ?? [] };
+  } catch { return { offers: [], received: [] }; }
 }
 
 export async function settleOffer(
@@ -268,11 +274,26 @@ export async function getCollection(): Promise<{
    *  wrong in the owner's favour every time. */
   realised: number; held: number; sold: number;
 }> {
+  const empty = {
+    entries: [] as Entry[], value: 0, cost: 0, gain: 0 as number | null,
+    priced: 0, realised: 0, held: 0, sold: 0,
+  };
   try {
     const r = await get<any>("/collection");
-    return { realised: 0, held: r?.entries?.length ?? 0, sold: 0, ...r };
+    // Spread the answer over the defaults, then put `entries` back as an
+    // ARRAY whatever happened.
+    //
+    // This used to spread `r` last over a partial default that did not
+    // mention `entries` at all. An error the server returns rather than
+    // throws — `{error:"unauthenticated"}` on an expired session — carries no
+    // entries key, so the caller got an object with no `entries`, and the
+    // collection screen crashed on `data.entries.length` with a red box. A
+    // failed read must degrade to an empty collection, never to a shape the
+    // screen cannot render.
+    const entries = Array.isArray(r?.entries) ? (r.entries as Entry[]) : [];
+    return { ...empty, ...r, entries, held: entries.length };
   } catch {
-    return { entries: [], value: 0, cost: 0, gain: 0, priced: 0, realised: 0, held: 0, sold: 0 };
+    return empty;
   }
 }
 
