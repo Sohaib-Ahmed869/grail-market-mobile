@@ -1,4 +1,5 @@
 import { get, post, del } from "./api";
+import { artFor, isLoadable } from "./art";
 
 // Following a card you do not own.
 //
@@ -20,8 +21,21 @@ export type Watch = {
 
 export async function watchlist(): Promise<{ watches: Watch[]; priced: number }> {
   try {
-    return await get("/watchlist");
+    const r = await get<{ watches: Watch[]; priced: number }>("/watchlist");
+    return { ...r, watches: await withArt(r.watches ?? []) };
   } catch { return { watches: [], priced: 0 }; }
+}
+
+/** A picture for the watches that were saved without one — see lib/art. */
+async function withArt(watches: Watch[]): Promise<Watch[]> {
+  const bare = watches.filter((w) => !isLoadable(w.imageUrl) && w.catalogId);
+  if (!bare.length) return watches;
+  const found = await artFor(bare.map((w) => w.catalogId!));
+  return watches.map((w) =>
+    !isLoadable(w.imageUrl) && w.catalogId && found.has(w.catalogId)
+      ? { ...w, imageUrl: found.get(w.catalogId)! }
+      : w,
+  );
 }
 
 export const follow = (w: {

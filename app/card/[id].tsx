@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { Image, Pressable, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Screen } from "../../components/Screen";
@@ -12,11 +12,13 @@ import { Picker } from "../../components/Picker";
 import { CardMarket } from "../../components/CardMarket";
 import { BuyAt } from "../../components/BuyAt";
 import { cardMeta, cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
-import { conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
+import { aud, conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
 import { CardReveal } from "../../components/CardReveal";
-import { CardDeck, type DeckCard } from "../../components/CardDeck";
+import { CardDeck } from "../../components/CardDeck";
+import { SetList, type SetCard } from "../../components/SetList";
+import { PrintingPicker } from "../../components/PrintingPicker";
 import { CardActions } from "../../components/CardActions";
 import { InterestBar } from "../../components/InterestBar";
 import { cardCandles, cardInterest, cardTrend, type CardTrend, type Interest } from "../../lib/cards";
@@ -26,11 +28,11 @@ import { CandleChart } from "../../components/CandleChart";
 import { Bone } from "../../components/Skeleton";
 import { cardHistory, type History } from "../../lib/history";
 import { clearDraft, setDraftSeed } from "../../lib/selldraft";
-import { follow } from "../../lib/watchlist";
+import { follow, unfollow, watchlist } from "../../lib/watchlist";
 import { Icon } from "../../components/Icon";
 import { useToast } from "../../components/Toast";
 import { useSession } from "../../lib/session";
-import { colors, radius, space, type } from "../../theme";
+import { colors, radius, shadow, space, type } from "../../theme";
 
 /** A card's page, reached from a set or a search.
  *
@@ -44,9 +46,70 @@ export default function CardPage() {
   const router = useRouter();
   const fx = useFx();
 
-  const [meta, setMeta] = useState<{
+  const [fetched, setMeta] = useState<{
     name: string; setName: string; number: string; imageUrl: string | null;
   } | null | undefined>(undefined);
+  // The rest of the set, when we came from one. Opened from a set, the card
+  // is one of a hand and the hand is what you swipe through; opened from a
+  // scan or a link it is on its own, and gets the single flip-in instead.
+  // The full catalogue row, not just what the pager draws: the set list
+  // below shows a price against each card, and that lives on the same row.
+  const [deck, setDeck] = useState<SetCard[] | null>(null);
+  const [listing, setListing] = useState(false);
+  const [deckSetName, setDeckSetName] = useState<string>("");
+  useEffect(() => {
+    let alive = true;
+    if (!setParam) { setDeck(null); return; }
+    setDetail(String(setParam)).then((d) => {
+      if (!alive) return;
+      setDeck(d?.cards ?? null);
+      setDeckSetName(d?.name ?? "");
+    });
+    return () => { alive = false; };
+  }, [setParam]);
+
+  // Opened from a set with no card chosen: the first card of the hand.
+  //
+  // The set route used to fetch the set itself, pick card one, and only then
+  // replace itself with this page — which then fetched the card's metadata
+  // and showed a full-screen loader until it came back. Two screens and two
+  // round trips before a picture, and a dark band left half-painted in the
+  // corner while the second screen slid in. Now the set route hands over at
+  // once with `id=first`, and this page names the card as soon as the deck
+  // it was going to load anyway has arrived.
+  const wantsFirst = String(id) === "first";
+  useEffect(() => {
+    if (wantsFirst && deck?.[0]) {
+      router.setParams({ id: deck[0].cardId, set: String(setParam) } as never);
+    }
+  }, [wantsFirst, deck, setParam]);
+
+  // What the deck already knows about this card. Enough to draw the page —
+  // the name, the number, the picture — while the store is asked for the
+  // rest, and a picture for the cards the store has none for: `/market/card`
+  // returns imageUrl null for a card it has only a row about, and a follow
+  // saved from that had no art on the watchlist.
+  const fromDeck = useMemo(() => {
+    const c = deck?.find((x) => x.cardId === String(id));
+    return c ? { name: c.name, setName: deckSetName, number: c.localId, imageUrl: c.imageUrl } : null;
+  }, [deck, deckSetName, id]);
+  // MEMOISED, and that is not a nicety.
+  //
+  // This was an object literal evaluated on every render. The price effect
+  // below lists it as a dependency, so: render → effect → `setPrice(undefined)`
+  // → render → a NEW meta object, unequal to the last one → effect again,
+  // forever. The price block sat in its loading skeleton and flickered,
+  // asking the server for the same figure several times a second.
+  //
+  // The deps are the primitives it is built from, so it changes when the card
+  // changes and not when React happens to redraw.
+  const meta = useMemo(
+    () =>
+      fetched
+        ? { ...fetched, imageUrl: fetched.imageUrl ?? fromDeck?.imageUrl ?? null }
+        : fromDeck ?? (fetched === undefined ? undefined : null),
+    [fetched, fromDeck],
+  );
   const [grader, setGrader] = useState<GraderId>("PSA");
   const [grade, setGrade] = useState<string | null>("10");
   const [interest, setInterest] = useState<Interest>({
@@ -82,18 +145,46 @@ export default function CardPage() {
   const [price, setPrice] = useState<CardPrice | null | undefined>(undefined);
   const session = useSession();
 
-  // The rest of the set, when we came from one. Opened from a set, the card
-  // is one of a hand and the hand is what you swipe through; opened from a
-  // scan or a link it is on its own, and gets the single flip-in instead.
-  const [deck, setDeck] = useState<DeckCard[] | null>(null);
+  // WHICH CARDS ARE FOLLOWED, not whether "the card" is.
+  //
+  // This was a boolean on the screen. Swiping the deck re-points the URL at
+  // the next card and the screen does NOT remount, so the boolean survived
+  // the card it described: follow one, swipe, and every card after it said
+  // Following. It was also always false on arrival, so a card you already
+  // follow offered to follow it again.
+  //
+  // The watchlist is the answer to both. It is read once when the page
+  // opens, kept as catalogue id → watch id, and the button reads whichever
+  // card is in the middle. A follow edits the map, so the next swipe back
+  // is right without another request.
+  const [watches, setWatches] = useState<Map<string, string> | null>(null);
+  const [following, setFollowing] = useState(false);
+  // Which printing of this collector number the person says they hold. Null
+  // until they pick, and cleared whenever the card changes.
+  const [printingId, setPrintingId] = useState<number | null>(null);
+  useEffect(() => { setPrintingId(null); }, [id]);
+
+  // Once per open, not per swipe. Every card in the set reads the same map.
   useEffect(() => {
     let alive = true;
-    if (!setParam) { setDeck(null); return; }
-    setDetail(String(setParam)).then((d) => { if (alive) setDeck(d?.cards ?? null); });
+    if (!session) { setWatches(new Map()); return; }
+    watchlist().then((r) => {
+      if (!alive) return;
+      setWatches(new Map(
+        r.watches.filter((w) => w.catalogId).map((w) => [w.catalogId!, w.watchId] as const),
+      ));
+    });
     return () => { alive = false; };
-  }, [setParam]);
-  const [followed, setFollowed] = useState(false);
-  const [following, setFollowing] = useState(false);
+  }, [session?.userId]);
+
+  const followed = watches?.has(String(id)) ?? false;
+  const watchId = watches?.get(String(id)) ?? null;
+  const setWatch = (cardId: string, watch: string | null) =>
+    setWatches((m) => {
+      const next = new Map(m ?? []);
+      if (watch) next.set(cardId, watch); else next.delete(cardId);
+      return next;
+    });
   const toast = useToast();
 
   // Who this card is. Asked, not worked out.
@@ -113,6 +204,14 @@ export default function CardPage() {
   useEffect(() => {
     let alive = true;
     const raw = String(id);
+    if (raw === "first") return;
+    // Forget the last card's answer the moment the id changes. A swipe
+    // re-points the URL at once and the store answers later, and in between
+    // the page was still holding the previous card's name against the new
+    // card's id — a Follow tapped in that gap saved "Tropius" with Grubbin's
+    // catalogue id. With the deck's own entry filling in immediately, there
+    // is nothing to be gained by keeping the stale one.
+    setMeta(undefined);
     cardMeta(raw, setParam ? String(setParam) : null).then((m) => {
       if (!alive) return;
       if (m) {
@@ -140,23 +239,39 @@ export default function CardPage() {
     return () => { alive = false; };
   }, [id, setParam]);
 
+  // Keyed on the FIELDS it sends, not on the object holding them. An object
+  // dependency is only ever as stable as the identity of that object, and
+  // this one is rebuilt from two sources — see the note on `meta`.
   useEffect(() => {
-    if (!meta) return;
+    if (!meta?.name) return;
+    let alive = true;
     setPrice(undefined);
     cardPrice({
       cardId: String(id), name: meta.name, setName: meta.setName,
       number: meta.number, grader: grader === "RAW" ? null : grader,
       grade: grader === "RAW" ? null : grade,
-    }).then(setPrice);
-  }, [meta, grader, grade, id]);
+    }).then((p) => { if (alive) setPrice(p); });
+    return () => { alive = false; };
+  }, [id, meta?.name, meta?.setName, meta?.number, grader, grade]);
 
   const money = (n: number | null | undefined) => fxMoney(n, { fx, from: "USD" });
 
+  const variants = price?.variants ?? [];
+  const chosen = variants.find((v) => v.productId === printingId) ?? null;
+  // Ambiguous UNTIL they choose. Once a printing is named, that printing's
+  // own market price is the answer and nothing is ambiguous about it.
+  const unresolved = Boolean(price?.variantsAmbiguous) && !chosen;
+
   const headline = useMemo(() => {
     if (!price) return null;
+    // A named printing outranks every other source: it is the only figure
+    // here that is about one physical card rather than about a number that
+    // several cards share.
+    if (chosen?.marketUsd != null) return chosen.marketUsd;
+    if (unresolved) return null;
     if (grader === "RAW") return price.rawUsd;
     return price.slabPrice?.price ?? price.sold?.price ?? price.liveAsk?.median ?? null;
-  }, [price, grader]);
+  }, [price, grader, chosen, unresolved]);
 
   const ladder = useMemo(() => {
     const rows = price?.byGrader?.[grader] ?? null;
@@ -202,22 +317,48 @@ export default function CardPage() {
           followed={followed}
           following={following}
           onSell={sell}
+          worth={headline != null ? aud(convert(headline, { fx, from: "USD" })) : null}
+          /* Tapped, the button changes at once and the request follows it.
+             A follow is a preference, not a payment: waiting on a round trip
+             to redraw a button is how a tap comes to feel unregistered, and
+             a failure here costs nothing to undo. So the state flips, and
+             only a refusal puts it back — with a word about why. */
           onFollow={async () => {
             if (!session) return router.push("/signup");
+
+            // Captured, because a swipe during the round trip must not put
+            // the answer on whichever card is in the middle when it lands.
+            const card = String(id);
+            const name = meta.name;
+
+            if (followed) {
+              const had = watchId;
+              setWatch(card, null);
+              if (!had) return;
+              const r = await unfollow(had);
+              if (!r?.removed) {
+                setWatch(card, had);
+                toast("Could not unfollow that card.", { tone: "bad" });
+              }
+              return;
+            }
+
+            setWatch(card, "pending");
             setFollowing(true);
             const r = await follow({
-              catalogId: String(id), cardName: meta.name, setName: meta.setName,
+              catalogId: card, cardName: name, setName: meta.setName,
               cardNumber: meta.number, imageUrl: meta.imageUrl,
               grader: grader === "RAW" ? null : grader, grade,
               alertPct: 10, alertDir: "any",
             });
             setFollowing(false);
             if (r.watchId) {
-              setFollowed(true);
-              toast(`Following ${meta.name}. We'll tell you if it moves 10%.`, {
+              setWatch(card, r.watchId);
+              toast(`Following ${name}. We'll tell you if it moves 10%.`, {
                 action: { label: "Watchlist", onPress: () => router.push("/watchlist") },
               });
             } else {
+              setWatch(card, null);
               toast(r.message ?? "Could not follow that card.", { tone: "bad" });
             }
           }}
@@ -230,6 +371,18 @@ export default function CardPage() {
            runs again for the new card, and there is no stack of two hundred
            card pages behind the back button. */
         <View style={s.deck}>
+          {/* Thumbing through is the default; this is the way to stop
+              thumbing and see the whole set at once. It sits with the
+              counter because that is where the question "how many, and
+              which is the good one" gets asked. */}
+          <Pressable
+            onPress={() => setListing(true)}
+            style={({ pressed }: { pressed: boolean }) => [s.browse, pressed && { opacity: 0.7 }]}
+            accessibilityLabel={`See all ${deck.length} cards in this set`}
+          >
+            <Feather name="list" size={14} color={colors.ink} />
+            <Txt variant="label">All {deck.length}</Txt>
+          </Pressable>
           <CardDeck
             cards={deck}
             currentId={String(id)}
@@ -242,6 +395,17 @@ export default function CardPage() {
         <View style={s.hero}>
           <CardReveal uri={meta.imageUrl} width={190} height={264} />
         </View>
+      )}
+
+      {deck && deck.length > 1 && (
+        <SetList
+          visible={listing}
+          cards={deck}
+          currentId={String(id)}
+          setName={meta.setName}
+          onClose={() => setListing(false)}
+          onPick={(cardId) => router.setParams({ id: cardId, set: String(setParam) } as never)}
+        />
       )}
 
       <Txt variant="display" center style={{ marginTop: space.lg }}>{meta.name}</Txt>
@@ -265,22 +429,46 @@ export default function CardPage() {
        *
        *  The percentages stay the feed's. A change over 24 hours is a claim
        *  about a series, and ours is a point. */}
-      {trend && (
+      {/* ALWAYS, not only when the feed knows the card.
+       *
+       *  This block used to be gated on `trend`, so a card the feed has
+       *  never heard of showed its name, then a row of grading companies,
+       *  then a grade menu, and only under all of that the figure — off the
+       *  bottom of the screen. The price is the reason the page was opened.
+       *  It goes first, and the controls that change it go under it. */}
+      {(
         <View style={s.quote}>
-          <Txt variant="overline" color={colors.inkFaint}>
-            {grader === "RAW" ? "Ungraded" : `${graderById(grader)?.mark} ${gradeLabel(grader, grade)}`}
+          <Txt variant="overline" color={colors.inkFaint} center>
+            {chosen
+              ? (chosen.variant ?? "Base printing")
+              : unresolved
+                ? "Which version is this?"
+                : grader === "RAW"
+                  ? "Ungraded"
+                  : `${graderById(grader)?.mark} ${gradeLabel(grader, grade)}`}
           </Txt>
           {price === undefined ? (
             <Bone h={40} w={140} r={radius.sm} />
           ) : (
+            unresolved ? (
+              /* A dash, and the question under it. The whole defect this
+                 fixes was a confident figure for a card we could not name:
+                 A$197 against a market in four figures. No number is a real
+                 answer; someone else's number is not. */
+              <Txt style={s.quotePrice}>—</Txt>
+            ) : (
             <Txt style={s.quotePrice}>
               {/* The feed's figure only where we have none of our own — a
                   price from somewhere is better than no price, and it is the
                   same number the movement below was measured on. */}
-              {money(headline ?? trend.price)}
+              {money(headline ?? trend?.price)}
             </Txt>
+            )
           )}
-          {trend.change24h != null && (
+          {/* Percentages are a claim about a series, and until we know which
+              printing this is we do not know whose series. Everything the
+              feed says goes with the figure it was measured on. */}
+          {!unresolved && trend?.change24h != null && (
             <View
               style={[
                 s.quotePill,
@@ -296,17 +484,19 @@ export default function CardPage() {
             </View>
           )}
 
-          <View style={{ alignSelf: "stretch" }}>
-            <PeriodStrip
-              periods={{
-                day: trend.change24h, week: trend.change7d,
-                month: trend.change30d, quarter: trend.change90d,
-              }}
-            />
-          </View>
+          {trend && !unresolved && (
+            <View style={{ alignSelf: "stretch" }}>
+              <PeriodStrip
+                periods={{
+                  day: trend.change24h, week: trend.change7d,
+                  month: trend.change30d, quarter: trend.change90d,
+                }}
+              />
+            </View>
+          )}
 
           <View style={s.quoteChart}>
-            {bars.candles.length > 0 ? (
+            {unresolved ? null : bars.candles.length > 0 ? (
               <CandleChart
                 candles={bars.candles}
                 ohlc={bars.ohlc}
@@ -320,7 +510,7 @@ export default function CardPage() {
                     : "A daily bar is one reading, so it is drawn as the close rather than a candle."
                 }
               />
-            ) : trend.spark.length > 1 ? (
+            ) : trend && trend.spark.length > 1 ? (
               <MarketChart
                 points={trend.spark}
                 height={140}
@@ -330,6 +520,17 @@ export default function CardPage() {
           </View>
         </View>
       )}
+
+      {/* Which physical card this is, before how it is graded. Grade is a
+          question about condition; this is a question about which object is
+          in your hand, and answering it in the wrong order prices the wrong
+          card very confidently. */}
+      <PrintingPicker
+        variants={variants}
+        selected={printingId}
+        onSelect={setPrintingId}
+        ambiguous={Boolean(price?.variantsAmbiguous)}
+      />
 
       <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: space.xl }}>
         Price It As
@@ -354,12 +555,10 @@ export default function CardPage() {
           <Loader fill />
         ) : (
           <>
-            {/* Only when the quote above did not already say it. That block
-                renders on a trend and this one always does, so without the
-                condition the same figure appears twice a screen apart — and
-                with it, a card the feed has never heard of still shows a
-                price rather than nothing. */}
-            {!trend && <Txt variant="price">{money(headline)}</Txt>}
+            {/* The figure itself is up top now, so this block is the
+                evidence under it: where the number came from, how many
+                sales, how sure. Printing it again here is the two-figures
+                fault this file's header exists to prevent. */}
             {conversionNote(headline, fx) && (
               <Txt variant="bodySmall" color={colors.inkFaint}>{conversionNote(headline, fx)}</Txt>
             )}
@@ -496,6 +695,12 @@ const s = StyleSheet.create({
   // Full-bleed: the neighbours have to be able to peek in past the page's
   // own gutter, or the "hand of cards" is one card in a box.
   deck: { marginHorizontal: -space.xl, marginTop: space.sm },
+  browse: {
+    position: "absolute", right: space.xl, top: 0, zIndex: 2,
+    flexDirection: "row", alignItems: "center", gap: 5,
+    paddingHorizontal: 12, height: 34, borderRadius: radius.pill,
+    backgroundColor: colors.surface, ...shadow.card,
+  },
   quote: {
     alignItems: "center", marginTop: space.xl, padding: space.lg,
     borderRadius: radius.lg, backgroundColor: colors.surface,

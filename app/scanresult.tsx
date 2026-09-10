@@ -11,7 +11,8 @@ import { PriceChoice, PrintingAndLiquidity, type PriceSide } from "../components
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
-import { liveAsks, type LiveAsks } from "../lib/cardmarket";
+import { cardPrintings, liveAsks, printingFromName, type LiveAsks, type Variant } from "../lib/cardmarket";
+import { PrintingPicker } from "../components/PrintingPicker";
 import { conversionNote, convert, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
 import { getLastScan, getLastShots, setLastScan } from "../lib/lastscan";
@@ -264,6 +265,36 @@ export default function ScanResult() {
     return () => { alive = false; };
   }, [v?.liveAsk, form.name, form.setName, form.number, form.grader, form.grade, scan?.identification?.game]);
 
+  // Every printing of this collector number, and which one the scan says it
+  // saw. This is the fix for the card that priced at A$197 in a meeting: five
+  // printings share one catalogue id, and the figures above are built from a
+  // marketplace text search that cannot tell them apart. The identifier CAN —
+  // it read "Red Super Alternate Art" off the card — so on a scan the answer
+  // is usually already known and only has to be believed.
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [variantsAmbiguous, setVariantsAmbiguous] = useState(false);
+  const [printingId, setPrintingId] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    if (!form.number) return;
+    cardPrintings({
+      catalogId: id?.cardId ?? null, number: form.number,
+      setName: form.setName || null, game: scan?.identification?.game ?? null,
+    }).then((r) => {
+      if (!alive) return;
+      setVariants(r.variants);
+      setVariantsAmbiguous(r.ambiguous);
+      const guess = printingFromName(id?.name ?? form.name ?? "", r.variants);
+      if (guess) setPrintingId(guess.productId);
+    });
+    return () => { alive = false; };
+  }, [form.number, form.setName, id?.cardId, id?.name, scan?.identification?.game]);
+
+  const printing = variants.find((x) => x.productId === printingId) ?? null;
+  // Ambiguous only while nobody has named a printing. Once one is named, that
+  // printing's own market price is a fact about one physical card.
+  const printingUnresolved = variantsAmbiguous && !printing;
+
   const ask = v?.liveAsk ?? (fetchedAsks?.medianAsk != null
     ? {
         median: fetchedAsks.medianAsk,
@@ -330,7 +361,14 @@ export default function ScanResult() {
       : picked === "sold"
         ? sold?.median ?? sold?.price ?? null
         : price?.price ?? sold?.median ?? sold?.price ?? null;
-  const headline = chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
+  // A named printing outranks everything below it: it is the only figure here
+  // that is about ONE physical card rather than about a number several cards
+  // share. And while the printing is unknown, no figure is offered at all.
+  const headline = printing?.marketUsd != null
+    ? printing.marketUsd
+    : printingUnresolved
+      ? null
+      : chosen ?? sold?.price ?? price?.price ?? ask?.median ?? v?.tcgplayer?.market ?? null;
 
   const ladder = useMemo(() => {
     const g = form.grader || v?.slabGrader;
@@ -562,6 +600,29 @@ export default function ScanResult() {
           * "A$24,184" can mean "three copies sold for about that" or "one
           * person has been failing to sell one at that for ten months", and
           * those call for opposite decisions. */}
+        {/* Which physical card this is, before what it is worth. The
+            identifier normally answers it and this shows the answer; when
+            the printings disagree and none is named, it asks instead of
+            letting a median over five different cards stand. */}
+        <PrintingPicker
+          variants={variants}
+          selected={printingId}
+          onSelect={setPrintingId}
+          ambiguous={variantsAmbiguous}
+        />
+
+        {printing ? (
+          <View style={{ marginTop: space.lg }}>
+            <Note icon="check-circle" tone="good">
+              Priced as the {printing.variant ?? "base printing"}
+              {printing.marketUsd == null
+                ? " — TCGplayer has no market price for it, which for a card this scarce means nobody has one listed."
+                : "."}
+            </Note>
+          </View>
+        ) : null}
+
+        {printingUnresolved ? null : (
         <PriceChoice
           sold={sold}
           ours={price ? { ...price, low: price.low ?? null, high: price.high ?? null } : null}
@@ -570,6 +631,7 @@ export default function ScanResult() {
           picked={picked}
           onPick={setSide}
         />
+        )}
 
         {/* Which printing, and how often one trades. Both change how every
             figure above should be read. */}
