@@ -19,6 +19,10 @@ export type Listing = {
 export type Offer = {
   offer_id: string; listing_id: string; buyer_id: string; buyer_name?: string | null;
   amount: string | number; currency: string; note: string | null;
+  /** What the seller countered with. Kept beside `amount` rather than over it,
+   *  so a countered offer still knows what the buyer originally said. Null on
+   *  rows countered before the column existed — those carry it in `amount`. */
+  counter_amount?: string | number | null;
   status: string; created_at: string;
   card_name?: string; image_url?: string | null; asking?: string | number;
   grader?: string | null; grade?: string | null; set_name?: string | null;
@@ -210,6 +214,36 @@ export async function settleOffer(
   offerId: string, action: "accepted" | "declined" | "countered", amount?: number,
 ) {
   return post(`/listings/offers/${offerId}/settle`, { action, amount });
+}
+
+/** The buyer answering a counter: take it, walk away, or name another number.
+ *
+ *  The seller's `settleOffer` had no opposite, so a counter was somewhere a
+ *  negotiation went to die — a figure on screen with nothing to do about it.
+ *  Accepting strikes the deal at the seller's number, which is the one on the
+ *  table. Countering back opens a fresh offer, so the seller answers it with
+ *  the same controls as any other. */
+export async function replyToCounter(
+  offerId: string, action: "accepted" | "declined" | "countered", amount?: number,
+): Promise<{ status?: string; dealId?: string | null; error?: string }> {
+  try {
+    return await post(`/listings/offers/${offerId}/reply`, { action, amount });
+  } catch {
+    return { error: "network" };
+  }
+}
+
+/** What the seller is asking on a countered offer, and what the buyer said
+ *  before that. One place, because three screens were each working it out. */
+export function counterSides(o: Offer): { asked: number; yours: number | null } {
+  const counter = num(o.counter_amount);
+  const amount = num(o.amount) ?? 0;
+  // Rows countered before `counter_amount` existed had the counter written
+  // straight over the offer, so the amount IS the counter and the buyer's own
+  // figure is simply gone. Saying nothing beats inventing it.
+  return counter != null
+    ? { asked: counter, yours: amount }
+    : { asked: amount, yours: null };
 }
 
 // ---- sellers ---------------------------------------------------------------

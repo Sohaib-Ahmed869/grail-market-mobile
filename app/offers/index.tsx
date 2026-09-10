@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
 import { Screen } from "../../components/Screen";
@@ -9,8 +9,9 @@ import { Txt } from "../../components/Text";
 import { Note } from "../../components/Note";
 import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
-import { makeOffer, myOffers, num, type Offer } from "../../lib/market";
-import { colors, radius, space } from "../../theme";
+import { counterSides, myOffers, num, replyToCounter, type Offer } from "../../lib/market";
+import { useToast } from "../../components/Toast";
+import { colors, radius, space, type } from "../../theme";
 import { aud } from "../../lib/fx";
 
 const money = (v: string | number | null | undefined) => aud(num(v));
@@ -19,15 +20,19 @@ const STATUS: Record<string, { label: string; fg: string; bg: string; body: stri
   open: { label: "Waiting", fg: colors.info, bg: colors.infoWash, body: "The seller hasn't answered yet." },
   accepted: { label: "Accepted", fg: colors.up, bg: colors.upWash, body: "Agree a handover with the seller. We don't hold the money." },
   declined: { label: "Declined", fg: colors.inkFaint, bg: colors.surfaceSunk, body: "You can offer again if the price moves." },
-  countered: { label: "Countered", fg: colors.accent, bg: colors.accentWash, body: "The seller named a different number." },
+  countered: { label: "Countered", fg: colors.accent, bg: colors.accentWash, body: "The seller named a different number. It is yours to take, leave, or answer." },
 };
 
 /** Offers this member has made.
  *
- *  A counter arrives as a number, not a negotiation thread — so the only thing
- *  to do with it is take it or leave it, and taking it is a fresh offer at the
- *  countered amount. That keeps one rule true everywhere: an offer is always
- *  something the buyer sent. */
+ *  A counter used to arrive as a number with one button under it, and taking
+ *  it opened a NEW offer the seller then had to accept — so a deal both people
+ *  had agreed to still needed another round trip, and walking away or naming a
+ *  third number was not offered at all.
+ *
+ *  All three moves live here now. Accepting strikes the deal at the seller's
+ *  figure, which is the one on the table. Countering back opens a fresh offer,
+ *  so an offer is still always something the buyer sent. */
 export default function MyOffers() {
   const router = useRouter();
   const [rows, setRows] = useState<Offer[] | null>(null);
@@ -35,6 +40,10 @@ export default function MyOffers() {
   // a different job: these are decisions waiting on me.
   const [received, setReceived] = useState<Offer[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // Which offer is having a number typed into it, and what that number is.
+  const [countering, setCountering] = useState<string | null>(null);
+  const [draft, setDraft] = useState("");
+  const toast = useToast();
 
   const load = useCallback(() => {
     let alive = true;
@@ -48,12 +57,40 @@ export default function MyOffers() {
     setRows(r.offers); setReceived(r.received);
   }, []);
 
-  const takeCounter = async (o: Offer) => {
+  const reply = async (
+    o: Offer, action: "accepted" | "declined" | "countered", amount?: number,
+  ) => {
     setBusy(o.offer_id);
-    await makeOffer(o.listing_id, num(o.amount) ?? 0, "Accepting your counter.");
+    const r = await replyToCounter(o.offer_id, action, amount);
     setBusy(null);
-    load();
+    if (r?.error) {
+      toast("That counter could not be answered. Pull to refresh and try again.", { tone: "bad" });
+      return;
+    }
+    setCountering(null);
+    setDraft("");
+    await refresh();
+    if (action === "accepted") {
+      toast("Deal agreed. Arrange the handover in your messages.", { tone: "good" });
+      // Straight to the deal. Agreeing and then being left on a list to find
+      // it is the gap this whole flow exists to close.
+      if (r.dealId) router.push(`/deals/${r.dealId}` as never);
+    } else if (action === "declined") {
+      toast("Counter declined.", { tone: "info" });
+    } else {
+      toast(`Offered ${aud(amount ?? 0)}. Back with the seller.`, { tone: "good" });
+    }
   };
+
+  const confirmDecline = (o: Offer, asked: number) =>
+    Alert.alert(
+      "Decline this counter?",
+      `The seller wants ${aud(asked)}. Declining closes this offer — you can always make a new one while the card is live.`,
+      [
+        { text: "Keep it open", style: "cancel" },
+        { text: "Decline", style: "destructive", onPress: () => { void reply(o, "declined"); } },
+      ],
+    );
 
   return (
     <Screen onRefresh={refresh} back>
@@ -118,6 +155,7 @@ export default function MyOffers() {
             const st = STATUS[o.status] ?? STATUS.open;
             const amt = num(o.amount) ?? 0;
             const ask = num(o.asking);
+            const sides = counterSides(o);
             return (
               <View key={o.offer_id} style={s.card}>
                 <Pressable
@@ -146,7 +184,9 @@ export default function MyOffers() {
                     </Txt>
                     <Txt variant="bodySmall" color={colors.inkMuted}>
                       {o.status === "countered" ? "Seller countered at " : "You offered "}
-                      <Txt variant="bodySmall" color={colors.ink}>{money(amt)}</Txt>
+                      <Txt variant="bodySmall" color={colors.ink}>
+                        {money(o.status === "countered" ? sides.asked : amt)}
+                      </Txt>
                       {ask != null ? ` · asking ${money(ask)}` : ""}
                     </Txt>
                   </View>
@@ -158,16 +198,97 @@ export default function MyOffers() {
                 </Txt>
 
                 {o.status === "countered" && (
-                  <Pressable
-                    onPress={() => takeCounter(o)}
-                    disabled={busy === o.offer_id}
-                    style={s.take}
-                  >
-                    <Feather name="check" size={13} color={colors.onPrimary} />
-                    <Txt variant="button" color={colors.onPrimary}>
-                      {busy === o.offer_id ? "Sending" : `Take it at ${money(amt)}`}
-                    </Txt>
-                  </Pressable>
+                  <View style={{ marginTop: space.md, gap: space.sm }}>
+                    {/* Both numbers, side by side. A counter is a gap between
+                        two figures, and showing only the seller's turns the
+                        decision into arithmetic the buyer has to do from
+                        memory. */}
+                    {sides.yours != null && (
+                      <View style={s.gap}>
+                        <View style={{ flex: 1 }}>
+                          <Txt variant="overline" color={colors.inkFaint}>You offered</Txt>
+                          <Txt variant="h3">{money(sides.yours)}</Txt>
+                        </View>
+                        <Feather name="arrow-right" size={15} color={colors.inkFaint} />
+                        <View style={{ flex: 1, alignItems: "flex-end" }}>
+                          <Txt variant="overline" color={colors.accent}>They want</Txt>
+                          <Txt variant="h3" color={colors.accent}>{money(sides.asked)}</Txt>
+                        </View>
+                      </View>
+                    )}
+
+                    {countering === o.offer_id ? (
+                      <View style={{ gap: space.sm }}>
+                        <View style={s.field}>
+                          <Txt variant="h3" color={colors.inkFaint}>A$</Txt>
+                          <TextInput
+                            value={draft}
+                            onChangeText={setDraft}
+                            keyboardType="number-pad"
+                            autoFocus
+                            placeholder={String(Math.round((sides.yours ?? sides.asked)))}
+                            placeholderTextColor={colors.inkFaint}
+                            style={s.input}
+                          />
+                        </View>
+                        <View style={s.gap}>
+                          <Pressable
+                            onPress={() => { setCountering(null); setDraft(""); }}
+                            style={[s.btn, s.btnGhost]}
+                          >
+                            <Txt variant="button" color={colors.ink}>Cancel</Txt>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => {
+                              const v = Number(draft.replace(/[^0-9.]/g, ""));
+                              if (!(v > 0)) {
+                                toast("Enter an amount.", { tone: "bad" });
+                                return;
+                              }
+                              void reply(o, "countered", v);
+                            }}
+                            disabled={busy === o.offer_id}
+                            style={[s.btn, s.btnDark]}
+                          >
+                            <Txt variant="button" color={colors.onPrimary}>
+                              {busy === o.offer_id ? "Sending" : "Send offer"}
+                            </Txt>
+                          </Pressable>
+                        </View>
+                      </View>
+                    ) : (
+                      <>
+                        <Pressable
+                          onPress={() => reply(o, "accepted")}
+                          disabled={busy === o.offer_id}
+                          style={s.take}
+                        >
+                          <Feather name="check" size={13} color={colors.onPrimary} />
+                          <Txt variant="button" color={colors.onPrimary}>
+                            {busy === o.offer_id ? "Sending" : `Accept ${money(sides.asked)}`}
+                          </Txt>
+                        </Pressable>
+                        <View style={s.gap}>
+                          <Pressable
+                            onPress={() => {
+                              setCountering(o.offer_id);
+                              setDraft(String(Math.round(sides.yours ?? sides.asked)));
+                            }}
+                            style={[s.btn, s.btnGhost]}
+                          >
+                            <Feather name="repeat" size={13} color={colors.ink} />
+                            <Txt variant="button" color={colors.ink}>Counter back</Txt>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => confirmDecline(o, sides.asked)}
+                            style={[s.btn, s.btnGhost]}
+                          >
+                            <Txt variant="button" color={colors.inkMuted}>Decline</Txt>
+                          </Pressable>
+                        </View>
+                      </>
+                    )}
+                  </View>
                 )}
               </View>
             );
@@ -203,6 +324,20 @@ const s = StyleSheet.create({
   chipTxt: { fontSize: 11, letterSpacing: 0.1 },
   take: {
     flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
-    height: 40, marginTop: space.md, borderRadius: radius.sm, backgroundColor: colors.ink,
+    height: 44, borderRadius: radius.sm, backgroundColor: colors.ink,
   },
+  gap: { flexDirection: "row", alignItems: "center", gap: space.sm },
+  btn: {
+    flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+    height: 42, borderRadius: radius.sm,
+  },
+  btnGhost: { borderWidth: 1, borderColor: colors.outline, backgroundColor: colors.surface },
+  btnDark: { backgroundColor: colors.ink },
+  field: {
+    flexDirection: "row", alignItems: "center", gap: 6,
+    paddingHorizontal: space.md, height: 48,
+    borderRadius: radius.sm, borderWidth: 1, borderColor: colors.outline,
+    backgroundColor: colors.field,
+  },
+  input: { flex: 1, ...type.h2, color: colors.ink, padding: 0 },
 });

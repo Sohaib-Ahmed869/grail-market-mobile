@@ -10,7 +10,7 @@ import { Note } from "../../components/Note";
 import { useToast } from "../../components/Toast";
 import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
-import { num, offersFor, settleOffer, type Offer } from "../../lib/market";
+import { counterSides, num, offersFor, settleOffer, type Offer } from "../../lib/market";
 import { colors, radius, space, type } from "../../theme";
 import { aud } from "../../lib/fx";
 
@@ -85,6 +85,9 @@ export default function ListingOffers() {
   const market = data?.marketValue != null ? num(data.marketValue) : null;
   const asking = data ? num(data.asking) ?? 0 : 0;
   const open = data?.offers.filter((o) => o.status === "open") ?? [];
+  // A counter is not a closed offer. It is the seller's move made and the ball
+  // in the buyer's court, and the header read "0 open" over a live negotiation.
+  const waiting = data?.offers.filter((o) => o.status === "countered") ?? [];
 
   return (
     <Screen back>
@@ -106,6 +109,7 @@ export default function ListingOffers() {
         <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 4 }}>
           Asking {money(asking)}{market ? ` · market ${money(market)}` : ""}
           {" · "}{open.length} open
+          {waiting.length > 0 ? ` · ${waiting.length} with the buyer` : ""}
         </Txt>
       )}
 
@@ -128,7 +132,11 @@ export default function ListingOffers() {
       ) : (
         <View style={{ gap: space.md, marginTop: space.xl }}>
           {data.offers.map((o) => {
-            const amt = num(o.amount) ?? 0;
+            const sides = counterSides(o);
+            // On a countered row the number that matters is what YOU asked
+            // for, and the readings underneath have to be about that figure
+            // and not the offer it replaced.
+            const amt = o.status === "countered" ? sides.asked : num(o.amount) ?? 0;
             const vsAsk = asking ? Math.round(((amt - asking) / asking) * 100) : null;
             const vsMarket = market ? Math.round(((amt - market) / market) * 100) : null;
             const st = STATUS[o.status] ?? STATUS.open;
@@ -159,6 +167,13 @@ export default function ListingOffers() {
                 <Txt variant="bodySmall" color={colors.inkFaint} style={{ marginTop: 2 }}>
                   {o.buyer_name ?? "A verified member"}
                 </Txt>
+                {o.status === "countered" && (
+                  <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 2 }}>
+                    {sides.yours != null
+                      ? `They offered ${money(sides.yours)}. Your counter is with them.`
+                      : "Your counter is with them."}
+                  </Txt>
+                )}
                 {o.note && (
                   <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: space.sm }}>
                     “{o.note}”
