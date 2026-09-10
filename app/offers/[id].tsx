@@ -153,7 +153,18 @@ export default function ListingOffers() {
                         </Txt>
                       )}
                       {vsMarket != null && (
-                        <Txt variant="bodySmall" color={vsMarket >= 0 ? colors.up : colors.down}>
+                        /* Green means somebody is offering you more than the
+                           card is worth. On a COUNTERED row the figure is the
+                           seller's own number, and colouring their own ask
+                           green congratulated them on asking for a lot. */
+                        <Txt
+                          variant="bodySmall"
+                          color={
+                            o.status === "countered"
+                              ? colors.inkMuted
+                              : vsMarket >= 0 ? colors.up : colors.down
+                          }
+                        >
                           · {Math.abs(vsMarket)}% {vsMarket >= 0 ? "over" : "under"} market
                         </Txt>
                       )}
