@@ -214,9 +214,18 @@ export default function ThreadScreen() {
 
             const own = mine(m);
             const endsRun = !next || next.sender_id !== m.sender_id || next.kind === "event";
+            const startsRun = !prev || prev.sender_id !== m.sender_id || prev.kind === "event";
+            const reactions = m.reactions ?? [];
 
             return (
-              <View>
+              /* Consecutive lines from one person are one block.
+               *
+               * The list is inverted, so what reads as space ABOVE a bubble is
+               * a margin on the BOTTOM of it. A run of short replies was
+               * spaced exactly like a change of speaker, which in a chat of
+               * one-word messages made every line look like a separate
+               * conversation. */
+              <View style={{ marginBottom: startsRun ? 8 : 0 }}>
                 <Pressable
                   onPress={() => setPicking(picking === m.message_id ? null : m.message_id)}
                   onLongPress={() => setPicking(m.message_id)}
@@ -232,14 +241,24 @@ export default function ThreadScreen() {
                       <Txt variant="body" color={own ? colors.onDark : colors.ink}>{m.body}</Txt>
                     </View>
 
-                    <View style={[s.reactions, own && { alignSelf: "flex-end" }]}>
-                      <Reactions
-                        reactions={m.reactions ?? []}
-                        mine={session?.userId}
-                        onPick={(e) => react(m.message_id, e)}
-                        compact
-                      />
-                    </View>
+                    {/* Only where somebody has actually reacted.
+                      *
+                      * There used to be a permanent star under every message,
+                      * added back when reactions were invisible and nothing
+                      * else revealed them. The bubble answers a tap now, so
+                      * the star bought discoverability that already exists and
+                      * paid for it with a piece of furniture under every line
+                      * of the conversation. */}
+                    {reactions.length > 0 && (
+                      <View style={[s.reactions, own && { alignSelf: "flex-end" }]}>
+                        <Reactions
+                          reactions={reactions}
+                          mine={session?.userId}
+                          onPick={(e) => react(m.message_id, e)}
+                          compact
+                        />
+                      </View>
+                    )}
 
                     {endsRun && (
                       <Txt
