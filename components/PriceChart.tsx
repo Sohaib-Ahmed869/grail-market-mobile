@@ -3,13 +3,21 @@ import { PanResponder, StyleSheet, View, type LayoutChangeEvent } from "react-na
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from "react-native-svg";
 import { Txt } from "./Text";
 import { colors, radius, space } from "../theme";
-import { aud } from "../lib/fx";
 
 export type ChartPoint = { day: string; price: number };
 
-// The axis, in the app's one money format. It had its own copy of the
-// cents-below-ten rule, which was right, and its own copy is how the two drift.
-const money = (n: number) => aud(n);
+/** The fallback axis format: a bare number, with no currency on it.
+ *
+ *  This used to be `aud(n)`, which prefixes "A$" and converts nothing. Every
+ *  series this chart draws comes from `price_points`, and that table is
+ *  US dollars — so the card page and the collection both printed a US figure
+ *  behind an Australian symbol while the converted headline sat directly
+ *  above it. The two disagreed by the exchange rate, on the same screen.
+ *
+ *  A default that silently asserts a currency is the trap. A caller that
+ *  knows the currency passes `format`; one that does not gets a number with
+ *  no claim attached to it. */
+const plain = (n: number) => (Math.abs(n) < 10 ? n.toFixed(2) : Math.round(n).toLocaleString());
 
 const shortDay = (iso: string) =>
   new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
@@ -22,7 +30,7 @@ const shortDay = (iso: string) =>
  *  chart you cannot interrogate only answers "up or down", which the
  *  percentage beside it already said. */
 export function PriceChart({
-  points, height = 180, tone, format = money,
+  points, height = 180, tone, format = plain,
 }: {
   points: ChartPoint[];
   height?: number;

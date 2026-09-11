@@ -12,6 +12,7 @@ import { JoinGate } from "../../components/JoinGate";
 import { useGuest } from "../../lib/guest";
 import { Txt } from "../../components/Text";
 import { Icon } from "../../components/Icon";
+import { PasteImage } from "../../components/PasteImage";
 import { PageWash } from "../../components/PageWash";
 import { useTabBarClearance } from "../../components/TabBar";
 import { scanCard, scanQuota, type ScanQuota } from "../../lib/scan";
@@ -253,6 +254,21 @@ export default function Scan() {
             </Txt>
           )}
         </View>
+
+        {/* A screenshot is a photograph too.
+          *
+          * It shows only when there is actually an image on the clipboard, so
+          * the row below keeps its three-slot geometry the rest of the time.
+          * A pasted shot lands in whichever side is being captured, exactly as
+          * a photographed one does. */}
+        <PasteImage
+          label={`Paste the ${side}`}
+          style={{ alignSelf: "center", marginTop: space.lg }}
+          onPaste={(uri) => {
+            (side === "front" ? setFront : setBack)(uri);
+            if (side === "front" && !back) setSide("back");
+          }}
+        />
 
         {/* ---- the controls ---------------------------------------------- */}
         <View style={[s.controls, { paddingBottom: clearance }]}>

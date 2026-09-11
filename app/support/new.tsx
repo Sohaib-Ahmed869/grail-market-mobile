@@ -8,6 +8,7 @@ import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
 import { Note } from "../../components/Note";
 import { useToast } from "../../components/Toast";
+import { pasteImage, clipboardHasImage } from "../../lib/paste";
 import { fileTicket, supportOptions, type TicketKind } from "../../lib/support";
 import { colors, radius, space } from "../../theme";
 
@@ -45,6 +46,16 @@ export default function NewTicket() {
 
   useEffect(() => {
     supportOptions().then((o) => setCategories(o.categories));
+  }, []);
+
+  // Whether anything is on the clipboard, checked once on mount. Asking
+  // whether an image EXISTS does not trip the iOS paste banner; reading it
+  // does, and that only happens when the member taps.
+  const [pasteable, setPasteable] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    clipboardHasImage().then((h) => { if (alive) setPasteable(h); });
+    return () => { alive = false; };
   }, []);
 
   const addPhotos = async () => {
@@ -214,6 +225,21 @@ export default function NewTicket() {
                 <Feather name="camera" size={17} color={colors.inkMuted} />
                 <Txt variant="bodySmall" color={colors.inkMuted}>Camera</Txt>
               </Pressable>
+              {/* A report is usually about something already on screen, so the
+                  screenshot is the evidence. Shown only when there is one. */}
+              {pasteable && (
+                <Pressable
+                  onPress={async () => {
+                    const uri = await pasteImage();
+                    if (uri) setPhotos((p) => [...p, uri].slice(0, 10));
+                    else setPasteable(false);
+                  }}
+                  style={s.add}
+                >
+                  <Feather name="clipboard" size={17} color={colors.inkMuted} />
+                  <Txt variant="bodySmall" color={colors.inkMuted}>Paste</Txt>
+                </Pressable>
+              )}
             </>
           )}
         </View>

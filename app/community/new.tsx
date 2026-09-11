@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Feather } from "@expo/vector-icons";
 import { Screen } from "../../components/Screen";
+import { PasteImage } from "../../components/PasteImage";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
 import { Note } from "../../components/Note";
@@ -125,10 +126,13 @@ export default function NewPost() {
           </Pressable>
         </View>
       ) : (
-        <Pressable onPress={pick} style={s.addImage}>
-          <Feather name="image" size={16} color={colors.ink} />
-          <Txt variant="button">Add a picture</Txt>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: space.sm }}>
+          <Pressable onPress={pick} style={[s.addImage, { flex: 1 }]}>
+            <Feather name="image" size={16} color={colors.ink} />
+            <Txt variant="button">Add a picture</Txt>
+          </Pressable>
+          <PasteImage onPaste={setImage} />
+        </View>
       )}
 
       <View style={{ marginTop: space.lg }}>

@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, TextInput, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Screen } from "../../components/Screen";
+import { PasteImage } from "../../components/PasteImage";
 import { Txt } from "../../components/Text";
 import { Button } from "../../components/Button";
 import { Icon } from "../../components/Icon";
@@ -178,6 +179,15 @@ export default function NewDispute() {
             <Icon name="photo" size={20} color={colors.inkMuted} />
             <Txt variant="bodySmall" color={colors.inkMuted}>Add</Txt>
           </Pressable>
+        )}
+        {/* The evidence in a dispute is very often a screenshot — a message,
+            a tracking page, a listing as it was when it was bought. */}
+        {photos.length < MAX_PHOTOS && (
+          <PasteImage
+            label="Paste"
+            style={[s.thumb, s.addTile, { flexDirection: "column", height: undefined }]}
+            onPaste={(uri) => setPhotos((p) => [...p, uri].slice(0, MAX_PHOTOS))}
+          />
         )}
       </View>
 
