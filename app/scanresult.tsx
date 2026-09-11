@@ -11,7 +11,10 @@ import { PriceChoice, PrintingAndLiquidity, type PriceSide } from "../components
 import { Picker } from "../components/Picker";
 import { GraderChips } from "../components/GraderChips";
 import { CardMarket } from "../components/CardMarket";
-import { alsoSold, cardPrintings, liveAsks, priceOf, printingFromName, type LiveAsks, type Variant } from "../lib/cardmarket";
+import {
+  alsoSold, cardPrintings, liveAsks, priceOf, printingFromChoice, printingFromName,
+  type LiveAsks, type Variant,
+} from "../lib/cardmarket";
 import { PrintingPicker } from "../components/PrintingPicker";
 import { conversionNote, convert, money as fxMoney, useFx } from "../lib/fx";
 import { gradeLabel, graderById, ladderFor, VARIANTS, type GraderId } from "../lib/grading";
@@ -284,7 +287,15 @@ export default function ScanResult() {
       if (!alive) return;
       setVariants(r.variants);
       setVariantsAmbiguous(r.ambiguous);
-      const guess = printingFromName(id?.name ?? form.name ?? "", r.variants);
+      /* What the scanner decided, before what its name happens to say.
+       *
+       * The vision service ranks the printings by picture; that decision now
+       * travels with the scan and is read first. The name match stays as the
+       * second line — it is the only thing that works for games whose
+       * identifier does not rank printings — and the question is asked only
+       * when neither can answer. */
+      const decided = printingFromChoice((id as any)?.printingChoice, r.variants);
+      const guess = decided ?? printingFromName(id?.name ?? form.name ?? "", r.variants);
       if (guess) setPrintingId(guess.productId);
     });
     return () => { alive = false; };

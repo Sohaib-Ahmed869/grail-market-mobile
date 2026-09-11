@@ -74,6 +74,45 @@ export async function cardPrintings(a: {
  *  variant words appearing in the scanned name, longest first, because "Super
  *  Alternate Art" is a substring of "Red Super Alternate Art" and matching
  *  the shorter one would pick a printing two thousand dollars away. */
+/** What the scanner decided this printing is, if it decided.
+ *
+ *  The vision service ranks the candidate printings by picture and now sends
+ *  that decision with the scan. Reading it beats re-deriving the printing from
+ *  the card's NAME, which is what this file did before and which only worked
+ *  when the catalogue happened to spell the variant into the title — and never
+ *  worked on a low-confidence result, because the name that arrives then is
+ *  the base card's.
+ *
+ *  A `fallback` is not a decision and is deliberately not honoured here: it
+ *  means the pictures did not settle it, and the honest response to that is
+ *  the question, not the cheapest printing. */
+export type ScanPrintingChoice = {
+  method?: string | null;
+  margin?: number | null;
+  label?: string | null;
+  ranked?: { label: string; imageUrl?: string | null; score?: number | null }[];
+};
+
+export function printingFromChoice(
+  choice: ScanPrintingChoice | null | undefined,
+  variants: Variant[],
+): Variant | null {
+  if (!choice || (choice.method !== "visual" && choice.method !== "single")) return null;
+  const label = (choice.label ?? "").toLowerCase();
+  if (!label) return null;
+  // Same longest-first rule as below: "Super Alternate Art" is a substring of
+  // "Red Super Alternate Art", and matching the shorter one picks a printing
+  // two thousand dollars away.
+  const named = variants
+    .filter((v) => v.variant)
+    .sort((a, b) => b.variant!.length - a.variant!.length);
+  for (const v of named) if (label.includes(v.variant!.toLowerCase())) return v;
+  // The decided printing carries no variant word, which on a multi-printing
+  // card means the base print.
+  const base = variants.find((v) => !v.variant);
+  return named.length > 0 && base ? base : null;
+}
+
 export function printingFromName(name: string, variants: Variant[]): Variant | null {
   const n = name.toLowerCase();
   const named = variants
