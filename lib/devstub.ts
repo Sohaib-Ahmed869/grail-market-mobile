@@ -15,36 +15,45 @@
 // any guard can run.
 const isDev = typeof __DEV__ !== "undefined" && __DEV__ === true;
 
-/** How the bypass is switched off: `EXPO_PUBLIC_PHONE_STUB=off` in `.env`.
+/** How the bypass is switched ON for a test build: `EXPO_PUBLIC_PHONE_STUB=on`.
  *
  *  Read through a literal `process.env.X` because Expo INLINES these at bundle
  *  time by matching the source text. `process.env[name]` is a lookup on an
  *  object that does not exist on the device, and it silently reads undefined. */
 const flag = (process.env.EXPO_PUBLIC_PHONE_STUB ?? "").trim().toLowerCase();
 
+/** Which EAS profile built this bundle — set per profile in eas.json. A
+ *  `production` bundle is the one that goes to the store. */
+const profile = (process.env.EXPO_PUBLIC_BUILD_PROFILE ?? "").trim().toLowerCase();
+
 /** The code that stands in for a real SMS, or null when there is none.
  *
- *  This used to be gated on `__DEV__` alone, which was the right instinct and
- *  the wrong mechanism: a release build for a device — the only way to run on
- *  a phone without Metro — has `__DEV__` false, so the bypass vanished and
- *  signup fell through to Firebase, which is not paid for and fails. The
- *  screens after it became unreachable on the one build that matters.
+ *  History, because the direction of this switch is the whole point. It was
+ *  first gated on `__DEV__` alone, which broke device test builds (no Metro,
+ *  `__DEV__` false, Firebase not paid for). The fix made it ON in every build
+ *  unless someone remembered to write `off` — so a release build accepted
+ *  123456 from anyone, and nothing but memory stood between that and the
+ *  store. GM001-66 flagged it.
  *
- *  So the switch is explicit now rather than incidental. Until Firebase
- *  billing is on this is deliberately ON in every build, including release —
- *  ANYONE CAN PASS PHONE VERIFICATION WITH 123456. That is the agreed state
- *  for testing and it must not go to the store.
+ *  Now it is OFF unless asked for, and it cannot be asked for in a store
+ *  build:
  *
- *  To turn it off, one line in `.env`:
+ *    - a development build (Metro, `__DEV__`) has it, as before
+ *    - an internal test build has it only with `EXPO_PUBLIC_PHONE_STUB=on`
+ *      (the `preview` profile in eas.json sets that)
+ *    - a `production` profile build never has it, whatever the flag says
  *
- *      EXPO_PUBLIC_PHONE_STUB=off
- *
- *  It needs a rebuild, not a reload, because the value is inlined.
- *
- *  What keeps it visible in the meantime: the code screen prints a banner
- *  while it is active, and `sendCode` logs a line every time it stands in. A
- *  bypass you cannot see is how one ships. */
-export const STUB_CODE: string | null = flag === "off" ? null : "123456";
+ *  It needs a rebuild, not a reload, because the values are inlined. The code
+ *  screen still prints a banner while it is active, and `sendCode` logs every
+ *  time it stands in. */
+export function stubCodeFor(a: { isDev: boolean; flag: string; profile: string }): string | null {
+  if (a.profile === "production") return null;
+  if (a.flag === "off") return null;
+  if (a.isDev || a.flag === "on") return "123456";
+  return null;
+}
+
+export const STUB_CODE: string | null = stubCodeFor({ isDev, flag, profile });
 
 export const usingStub = (): boolean => STUB_CODE != null;
 

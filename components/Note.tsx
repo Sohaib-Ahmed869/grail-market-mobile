@@ -14,7 +14,7 @@ export function Note({
   tone?: Tone;
   icon?: keyof typeof Feather.glyphMap;
 }) {
-  const fg = tone === "accent" ? colors.accent
+  const fg = tone === "accent" ? colors.accentText
     : tone === "good" ? colors.up
     : tone === "bad" ? colors.down
     : colors.info;

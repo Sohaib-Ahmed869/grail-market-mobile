@@ -114,7 +114,7 @@ export function TrendCompare({
     };
   }, [series, width, height, selectedId]);
 
-  const front = geo?.lines.find((l) => l.id === selectedId) ?? null;
+  const front = geo?.lines?.find((l) => l.id === selectedId) ?? null;
   const tone = front ? (front.up ? colors.up : colors.down) : colors.ink;
 
   return (

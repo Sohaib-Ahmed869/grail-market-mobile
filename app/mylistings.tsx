@@ -22,7 +22,7 @@ const STATUS: Record<string, { label: string; fg: string; bg: string }> = {
   live: { label: "Live", fg: colors.up, bg: colors.upWash },
   rejected: { label: "Needs changes", fg: colors.down, bg: colors.downWash },
   withdrawn: { label: "Withdrawn", fg: colors.inkFaint, bg: colors.surfaceSunk },
-  sold: { label: "Sold", fg: colors.accent, bg: colors.accentWash },
+  sold: { label: "Sold", fg: colors.accentText, bg: colors.accentWash },
 };
 
 /** Everything the seller has put up, and what it is doing.
@@ -138,13 +138,13 @@ export default function MyListings() {
                       </View>
                       {l.featured && (
                         <View style={[s.chip, { backgroundColor: colors.accentWash }]}>
-                          <Txt variant="overline" color={colors.accent} style={s.chipTxt}>Featured</Txt>
+                          <Txt variant="overline" color={colors.accentText} style={s.chipTxt}>Featured</Txt>
                         </View>
                       )}
                       <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
                       {l.photo_verified && (
                         <View style={[s.chip, { backgroundColor: colors.upWash }]}>
-                          <Txt variant="overline" color={colors.up} style={s.chipTxt}>Photo verified</Txt>
+                          <Txt variant="overline" color={colors.up} style={s.chipTxt}>All 10 angles</Txt>
                         </View>
                       )}
                     </View>

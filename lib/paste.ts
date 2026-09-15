@@ -1,4 +1,5 @@
 import { File, Paths } from "expo-file-system";
+import { requireOptionalNativeModule } from "expo-modules-core";
 
 /* Loaded on use, not on import.
  *
@@ -11,7 +12,27 @@ let clipboard: ClipboardModule | null | undefined;
 
 function load(): ClipboardModule | null {
   if (clipboard !== undefined) return clipboard;
+  clipboard = null;
+
+  // The try below is not enough on its own, which is the whole reason this
+  // looks the way it does.
+  //
+  // `expo-clipboard`'s entry point is `build/Clipboard.js`, and the first
+  // thing it imports runs `requireNativeModule('ExpoClipboard')` at MODULE
+  // SCOPE. On a binary built before the dependency was added, that throws
+  // while the module is still being evaluated, and the failure surfaces as an
+  // uncaught error rather than something this catch block sees: the Scan tab
+  // went to a full-screen "Cannot find native module 'ExpoClipboard'" instead
+  // of quietly not offering a paste button. Measured on a simulator build from
+  // 8 September against the paste feature added on the 11th — which is exactly
+  // the case described above, and exactly the case this was supposed to
+  // survive.
+  //
+  // `requireOptionalNativeModule` asks the same question and answers null
+  // instead of throwing, so the JS wrapper is only ever imported once its
+  // native half is known to be there.
   try {
+    if (!requireOptionalNativeModule("ExpoClipboard")) return null;
     clipboard = require("expo-clipboard") as ClipboardModule;
   } catch {
     clipboard = null;

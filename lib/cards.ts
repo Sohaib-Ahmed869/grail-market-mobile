@@ -4,6 +4,10 @@ export type CardHit = {
   cardId: string; name: string; nameLocal: string | null;
   setId: string; setName: string; localId: string;
   rarity: string | null; imageUrl: string | null; game: string; score: number;
+  /** The catalogue's own ungraded price for this exact card id, US$ — the
+   *  figure its set list shows. Null (or absent from an older API) when the
+   *  catalogue has none, and always null for Yu-Gi-Oh and sports. */
+  rawUsd?: number | null;
 };
 
 /** Search the catalogue.

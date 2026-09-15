@@ -238,8 +238,8 @@ export default function Portfolio() {
                   accessibilityLabel={share ? "Manage your collection link" : "Share your collection"}
                   style={({ pressed }) => [s.share, share && s.shareOn, pressed && { opacity: 0.7 }]}
                 >
-                  <Feather name="share-2" size={15} color={share ? colors.accent : colors.ink} />
-                  <Txt variant="button" color={share ? colors.accent : colors.ink}>
+                  <Feather name="share-2" size={15} color={share ? colors.accentText : colors.ink} />
+                  <Txt variant="button" color={share ? colors.accentText : colors.ink}>
                     {share ? "Shared" : "Share"}
                   </Txt>
                 </Pressable>
@@ -426,7 +426,7 @@ export default function Portfolio() {
                 {item.value == null && item.unpriced && (
                   <Txt
                     variant="bodySmall"
-                    color={item.unpriced === "grade" ? colors.accent : colors.inkFaint}
+                    color={item.unpriced === "grade" ? colors.accentText : colors.inkFaint}
                   >
                     {item.unpriced === "grade"
                       ? "Add the grade"
@@ -442,7 +442,7 @@ export default function Portfolio() {
                 {item.market && (
                   <Txt
                     variant="bodySmall"
-                    color={item.market.settled ? colors.up : colors.accent}
+                    color={item.market.settled ? colors.up : colors.accentText}
                     style={{ fontWeight: "600" }}
                   >
                     {item.market.label}

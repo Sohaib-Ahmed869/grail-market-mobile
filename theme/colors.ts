@@ -37,6 +37,14 @@ export const colors = {
   outline: "#B5BEC7",
 
   accent: palette.gold,
+  // Gold as TEXT or an icon on a light surface. The brand gold measures 3.16:1
+  // on white and 2.57:1 on the top of the page wash — under the 4.5 the
+  // guidelines ask of text, which is the contrast point raised in the brand
+  // pack review and again on GM001-63. This is the same hue at a lower
+  // lightness: 5.76:1 on white, 5.39:1 on accentWash, 4.68:1 on washTop, the
+  // darkest light ground in the app. The brand gold stays for the logo, fills,
+  // glows and anything on a dark surface, where it already reads.
+  accentText: "#776341",
   accentWash: "#FBF7F0",           // the cream panel behind a gold moment
   accentLine: "#EADFCB",
 

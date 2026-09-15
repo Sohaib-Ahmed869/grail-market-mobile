@@ -38,10 +38,14 @@ export async function liveAsks(a: {
   name: string; setName?: string | null; number?: string | null;
   grader?: string | null; grade?: string | null; game?: string | null;
   printing?: string | null;
+  /** Sent so the server can recognise a sports entry by its id and blank the
+   *  median — a player-in-set spans base to one-of-one, and a median across
+   *  that is a price for no card in particular. */
+  cardId?: string | null;
 }): Promise<LiveAsks | null> {
   try {
     return await get<LiveAsks>(`/market/listings?${q({
-      name: a.name, set: a.setName, number: a.number,
+      cardId: a.cardId, name: a.name, set: a.setName, number: a.number,
       grader: a.grader, grade: a.grade, game: a.game, printing: a.printing,
     })}`);
   } catch { return null; }
@@ -193,6 +197,11 @@ export async function availableNow(catalogId: string): Promise<Listing[]> {
 export type SetSummary = {
   setId: string; name: string; logo: string | null; symbol: string | null;
   total: number; official: number; releasedAt: string | null;
+  /** Sports sets only: how many copies are listed on eBay under this set.
+   *  NOT a card count — nobody publishes a free sports checklist, so `total`
+   *  stays 0 for these rather than carrying a number that means something
+   *  else. */
+  listed?: number;
 };
 
 export type SetDetail = SetSummary & {
@@ -206,7 +215,19 @@ export type SetDetail = SetSummary & {
   }[];
 };
 
-export type BrowseGame = { id: string; name: string; sets?: number; preview?: string | null };
+/** `category` is tcg | sports | entertainment, decided server-side in
+ *  games.ts. Optional because an older API build does not send it, and a
+ *  missing category means "trading card game" — which is what the
+ *  overwhelming majority are. */
+export type BrowseGame = {
+  id: string; name: string; sets?: number; preview?: string | null;
+  category?: string;
+  /** Language editions only. `baseGame` is the English game this is an
+   *  edition of ("pokemon"), `languageName` what to call it ("Japanese").
+   *  A Japanese card is a different object at a different price from its
+   *  English twin, so each edition is its own game rather than a filter. */
+  baseGame?: string; language?: string; languageName?: string;
+};
 
 /** The games we can browse. Cheap — the server answers from whatever it has
  *  already cached rather than asking four catalogues to draw four tiles. */
@@ -326,6 +347,13 @@ export type CardPrice = {
    *  figure describes this number. The page must ask which one rather than
    *  pick. */
   variantsAmbiguous?: boolean;
+  /** Set when the server refuses to price this entry at all. Today that is
+   *  only "player-in-set": a sports catalogue row is every card of one player
+   *  in one set, and no single figure describes that. */
+  unpriceable?: string;
+  /** Where `rawUsd` came from: a market feed, or the catalogue's own list
+   *  price for this exact card id. */
+  rawSource?: "market" | "catalogue" | null;
 };
 
 export type Variant = {
@@ -407,11 +435,14 @@ export type ShopQuote = {
 export async function cardPrice(a: {
   cardId?: string | null; name: string; setName?: string | null; number?: string | null;
   grader?: string | null; grade?: string | null; game?: string | null;
+  /** The set the page was opened from, so the server can read that set's own
+   *  price for this card id when no market feed has one. */
+  setId?: string | null;
 }): Promise<CardPrice | null> {
   try {
     return await get<CardPrice>(`/market/price?${q({
       cardId: a.cardId, name: a.name, set: a.setName, number: a.number,
-      grader: a.grader, grade: a.grade, game: a.game,
+      grader: a.grader, grade: a.grade, game: a.game, setId: a.setId,
     })}`);
   } catch { return null; }
 }
@@ -424,6 +455,9 @@ export type Pulse = {
   change30d?: number | null; change90d?: number | null;
   low7: number | null; high7: number | null; spark: number[];
   imageUrl?: string | null; cardId?: string | null;
+  /** The feed's variant the price is for ("Near Mint", "Holofoil"). Absent
+   *  from an older API — then say nothing about condition. */
+  condition?: string | null; printing?: string | null;
 };
 
 /** What has actually moved, with the week's shape attached.
@@ -456,4 +490,98 @@ export async function marketPulse(): Promise<Pulse[]> {
     }
     return [];
   } catch { return []; }
+}
+
+// ---- sealed product ---------------------------------------------------------
+
+export type SealedProduct = {
+  productId: number; name: string; imageUrl: string | null; url: string | null;
+  /** TCGplayer market price for this exact product, US$. Null is "nobody has
+   *  one yet" — a pre-order, or too scarce to have sold — never zero. */
+  marketUsd: number | null; lowUsd: number | null;
+};
+export type SealedGroup = { setId: string; setName: string; releasedAt: string | null; products: SealedProduct[] };
+
+/** One page of a game's boxes, tins and collections, newest set first.
+ *  `supported: false` means the game has no sealed catalogue at all. */
+export async function sealedPage(game: string, cursor = 0): Promise<{ groups: SealedGroup[]; next: number | null; supported: boolean } | null> {
+  try {
+    const r = await get<{ groups?: SealedGroup[]; next?: number | null; supported?: boolean }>(
+      `/market/sealed?game=${encodeURIComponent(game)}&cursor=${cursor}`,
+    );
+    return { groups: r.groups ?? [], next: r.next ?? null, supported: r.supported !== false };
+  } catch { return null; }
+}
+
+// ---- listing guidance ------------------------------------------------------------
+
+export type ListingGuidance = {
+  quick: number; market: number; patient: number; currency: string;
+  sampleSize: number; lastSaleAt: string; spreadDays: number;
+  confidence: "high" | "medium" | "low";
+  sales: { price: number; soldAt: string; source: string }[];
+  /** Recent sales set aside as far from the rest before the three were
+   *  chosen. Optional: an older API build does not send it. */
+  excluded?: number;
+};
+export type NoListingGuidance = {
+  reason: "no-sales" | "too-few" | "too-spread" | "no-rate" | "unavailable";
+  message: string; sampleSize: number; lastSaleAt: string | null;
+};
+
+/** What to list a graded card for, from settled sales — the client's rule on
+ *  GM001-59: the three most recent sales, only when they sit close together
+ *  in time, as quick / market / patient.
+ *
+ *  Graded only, and the grader and grade are required. The ledger keeps raw
+ *  sales under a null grader and the route reads a missing grader as "any
+ *  grader", so asking for a raw card would average PSA 10 sales into it —
+ *  invariant 1, a grade is never a property of the card alone. */
+export async function listingGuidance(a: {
+  cardId: string; grader: string; grade: string;
+}): Promise<{ guidance: ListingGuidance } | { guidance: null; why: NoListingGuidance }> {
+  try {
+    const r = await get<({ guidance: ListingGuidance }) | ({ guidance: null } & NoListingGuidance) | { error: string; message: string }>(
+      `/market/guidance?${q({ cardId: a.cardId, grader: a.grader, grade: a.grade, currency: "AUD" })}`,
+    );
+    if ("error" in r) return { guidance: null, why: { reason: "unavailable", message: r.message, sampleSize: 0, lastSaleAt: null } };
+    if (r.guidance) return { guidance: r.guidance };
+    const { guidance: _none, ...why } = r as { guidance: null } & NoListingGuidance;
+    return { guidance: null, why };
+  } catch {
+    return { guidance: null, why: { reason: "unavailable", message: "Sales history couldn't be loaded right now.", sampleSize: 0, lastSaleAt: null } };
+  }
+}
+
+// ---- our own sales windows ----------------------------------------------------
+
+export type SalesWindow = {
+  days: number; count: number; excluded: number;
+  median: number | null; mean: number | null; low: number | null; high: number | null;
+  changePct: number | null; previousCount: number;
+  confidence: "high" | "medium" | "low" | "none";
+};
+
+export type SalesWindows = {
+  currency: string;
+  lastSale: { aud: number | null; usd: number | null; price: number; currency: string; soldAt: string; source: string } | null;
+  window7: SalesWindow; window30: SalesWindow;
+  daily7: { days: number; changePct: number | null; observed: number; from: string | null; to: string | null };
+  daily30: { days: number; changePct: number | null; observed: number; from: string | null; to: string | null };
+  unconvertible: number; asOf: string | null;
+};
+
+/** Last sale and 7 / 30-day figures for one exact card, grader and grade,
+ *  from our own sales ledger (GM001-28). `grader: "RAW"` is ungraded only.
+ *  Null when the route is missing or refuses the key — the page then shows
+ *  the feed's figures, labelled as the feed's. */
+export async function salesWindows(a: {
+  cardId: string; grader: string; grade?: string | null;
+}): Promise<SalesWindows | null> {
+  try {
+    const r = await get<{ windows?: SalesWindows; error?: string }>(
+      `/market/windows?${q({ cardId: a.cardId, grader: a.grader, grade: a.grade })}`,
+    );
+    return r.error ? null : r.windows ?? null;
+  } catch { return null; }
 }

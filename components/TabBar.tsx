@@ -8,15 +8,31 @@ import { Icon, type IconName } from "./Icon";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
 import { Txt } from "./Text";
 import { useNavCollapsed, useNavHidden } from "../lib/navbar";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { colors, radius, space } from "../theme";
+
+/** The wash's blue, sea glass and blush, lifted almost to white. Enough of the
+ *  page's colour to read as the same material; light enough that the grey
+ *  icons still carry. */
+// 0.96, not 0.9: at 0.9 the navy Market Lens panel scrolling underneath
+// showed its own labels through the bar.
+const GLASS = ["rgba(238,242,248,0.96)", "rgba(231,242,240,0.96)", "rgba(244,236,239,0.96)"] as const;
 
 // Route name to icon. Watchlist joins the bar; profile moves to the avatar
 // in the home header, which is where people already look for themselves.
+//
+// Search is back in the bar as Catalogue. It left because it read as a thing
+// you DO to the content rather than a place you go - true of a search box,
+// and not true of what that screen became. It is now the whole catalogue:
+// sixty-two games, their sets, and the cards inside them, which is somewhere
+// you browse rather than something you perform. The header box stays for the
+// other reading.
 const ICONS: Record<string, IconName> = {
   home: "home",
   community: "community",
   scan: "scan",
-  watchlist: "watchlist",
+  search: "search",
   portfolio: "collection",
 };
 
@@ -93,6 +109,18 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         layout={LinearTransition.duration(320)}
         style={[s.bar, collapsed && s.barTight]}
       >
+        {/* Frosted glass carrying the page's own wash, so the bar belongs to
+            the ground it floats over instead of being a white strip on it.
+            In its own clipped layer: clipping the bar itself would cut off
+            the raised Scan button, which breaks above the top edge. */}
+        <View style={s.glass} pointerEvents="none">
+          <BlurView intensity={60} tint="light" style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={GLASS}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         {state.routes.map((route, i) => {
           const focused = state.index === i;
           const { options } = descriptors[route.key];
@@ -212,17 +240,18 @@ const s = StyleSheet.create({
   bar: {
     flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 2,
     padding: 6, borderRadius: radius.pill,
-    backgroundColor: colors.surface,
-    // colors.outline: the token for a border that has to be SEEN. This was
-    // colors.line and then colors.lineStrong, and neither was visible on a
-    // phone.
-    borderWidth: 1.5, borderColor: colors.outline,
+    // Transparent: the glass layer inside draws the surface. A white rim
+    // rather than colors.outline — on the blue-grey wash, white is the edge
+    // that reads, the way the lit edge of real glass does.
+    backgroundColor: "transparent",
+    borderWidth: 1.5, borderColor: "rgba(255,255,255,0.85)",
     // the lift is what makes it read as floating rather than as a strip of
     // white someone forgot to colour
     shadowColor: "#0B1622", shadowOpacity: 0.26, shadowRadius: 28,
     shadowOffset: { width: 0, height: 14 }, elevation: 20,
     ...Platform.select({ web: { boxShadow: "0 14px 28px rgba(11,22,34,0.26)" } }),
   },
+  glass: { ...StyleSheet.absoluteFillObject, borderRadius: radius.pill, overflow: "hidden" },
   item: {
     flexDirection: "row", alignItems: "center", gap: 6,
     height: 46, paddingHorizontal: 12, borderRadius: radius.pill,

@@ -94,6 +94,9 @@ export default function SellDeclare() {
         });
         if (r.error === "no-plan") {
           setBusy(false);
+          // The server says which way forward: verify for the free listing,
+          // or choose a plan. The plans screen offers both.
+          if (r.message) toast(r.message);
           router.push("/plans");
           return;
         }
@@ -133,15 +136,28 @@ export default function SellDeclare() {
         }
       }
 
-      // 3. Into the queue. Nothing reaches a buyer without a human looking.
-      setStep("Sending for review");
+      // 3. Checked, then either live or into the queue. Below the
+      // auto-publish value a listing that passes every automatic check goes
+      // straight up; anything else waits for a person, as it always did.
+      setStep("Checking your listing");
       const sub = await submitListing(listingId);
+      if (sub.error === "identity-required") {
+        toast(sub.message ?? "Listings at this price need a verified identity.", { tone: "bad" });
+        setBusy(false);
+        router.push("/idcheck");
+        return;
+      }
       if (sub.error) {
         toast(sub.message ?? "The listing was created but could not be submitted.", { tone: "bad" });
         setBusy(false);
         return;
       }
       clearDraft();
+      if (sub.status === "live") {
+        toast("It's live on the market.");
+        router.replace(`/listing/${listingId}` as never);
+        return;
+      }
       toast("Sent for review. Usually under 24 hours.");
       router.replace({ pathname: "/sell/submitted", params: { id: listingId } });
     } catch {

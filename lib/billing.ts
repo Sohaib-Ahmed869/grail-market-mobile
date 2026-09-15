@@ -1,19 +1,42 @@
 import * as WebBrowser from "expo-web-browser";
 import { get, post } from "./api";
 
-export type PlanId = "starter" | "collector" | "dealer";
+/** "starter" is retired but can still come back on an old subscription row. */
+export type PlanId = "free" | "collector" | "dealer" | "starter";
+export type Interval = "month" | "year";
 
 export type Plan = {
   id: PlanId; name: string; blurb: string;
-  /** What Stripe charges, resolved live — not a constant on either side. */
+  /** Monthly. What Stripe charges, resolved live — not a constant on either side. */
   amountCents: number;
+  /** Yearly. Stripe's figure when it sells one, otherwise the configured one. */
+  annualCents?: number | null;
   currency?: string;
-  /** False when Stripe has no active price for this plan. Checkout would be
-   *  refused, so the plan is shown as unavailable rather than offered at a
-   *  figure that cannot be honoured. */
+  /** False when Stripe has no active monthly price for this plan. Checkout
+   *  would be refused, so the plan is shown as unavailable rather than offered
+   *  at a figure that cannot be honoured. */
   available?: boolean;
+  /** Same, for the yearly price. */
+  availableAnnual?: boolean;
   listings: number | null;
   perks: string[]; popular?: boolean;
+  /** One free listing for a verified seller; nothing to check out. */
+  free?: boolean;
+  /** Unlimited under the Fair Use Policy. */
+  fairUse?: boolean;
+};
+
+export type PriceNote = { amountCents: number; currency: string; available: boolean };
+export type BoostOffer = PriceNote & {
+  key: string; name: string; hours: number; featured: boolean; spotlight: boolean; detail: string;
+};
+
+export type PlansAnswer = {
+  configured: boolean;
+  plans: Plan[];
+  /** Priced, not yet sold — see the plans screen. */
+  extraListing?: PriceNote;
+  boosts?: BoostOffer[];
 };
 
 /** The plans come from the backend, not a copy in here.
@@ -21,9 +44,9 @@ export type Plan = {
  *  Two lists of prices is one list of prices and one lie. The figures are
  *  charged by Stripe and described by the backend; the app renders whatever it
  *  is given. */
-export async function fetchPlans(): Promise<{ configured: boolean; plans: Plan[] }> {
+export async function fetchPlans(): Promise<PlansAnswer> {
   try {
-    return await get<{ configured: boolean; plans: Plan[] }>("/billing/plans");
+    return await get<PlansAnswer>("/billing/plans");
   } catch {
     return { configured: false, plans: [] };
   }
@@ -43,11 +66,13 @@ export type CheckoutResult =
  *  What it returns is NOT proof of payment. Landing on the success URL only
  *  means a browser reached it. Entitlement is written by the Stripe webhook
  *  and read back from our own backend. */
-export async function startCheckout(userId: string, planId: PlanId): Promise<CheckoutResult> {
+export async function startCheckout(
+  userId: string, planId: PlanId, interval: Interval = "month",
+): Promise<CheckoutResult> {
   let url: string;
   try {
     const r = await post<{ url?: string; message?: string }>(
-      "/billing/checkout", { planId, userId }, { "x-user-id": userId },
+      "/billing/checkout", { planId, userId, interval }, { "x-user-id": userId },
     );
     if (!r.url) return { outcome: "failed", message: r.message ?? "Could not start checkout." };
     url = r.url;

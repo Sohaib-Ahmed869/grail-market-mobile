@@ -113,12 +113,12 @@ export default function SellPhotos() {
       footer={
         <>
           <Button label="Next · Price" onPress={next} disabled={!enough} />
-          <Txt variant="bodySmall" color={enough ? colors.inkFaint : colors.accent} center>
+          <Txt variant="bodySmall" color={enough ? colors.inkFaint : colors.accentText} center>
             {!enough
               ? `${MIN_SHOTS - taken} more photo${MIN_SHOTS - taken === 1 ? "" : "s"} needed to list`
               : allTen
-                ? "All ten captured · Photo Verified"
-                : `${ANGLES.length - taken} more for the Photo Verified mark`}
+                ? "All ten angles captured"
+                : `${ANGLES.length - taken} more for the all-angles mark`}
           </Txt>
         </>
       }
@@ -188,8 +188,8 @@ export default function SellPhotos() {
       <View style={{ marginTop: space.lg }}>
         <Note tone={allTen ? "good" : "accent"} icon={allTen ? "check-circle" : "alert-triangle"}>
           {allTen
-            ? "All ten captured. This listing carries the Photo Verified mark."
-            : `At least ${MIN_SHOTS} photos to list; all ten earns the Photo Verified mark, which buyers filter on. A video never replaces them — it just sells the card faster.`}
+            ? "All ten captured. Buyers will see that every angle was photographed."
+            : `At least ${MIN_SHOTS} photos to list; all ten earns the all-angles mark, which buyers filter on. A video never replaces them — it just sells the card faster.`}
         </Note>
       </View>
     </Screen>

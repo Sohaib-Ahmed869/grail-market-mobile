@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   FlatList, Image, Pressable, ScrollView, StyleSheet, TextInput, View,
 } from "react-native";
@@ -42,7 +42,16 @@ const GAMES = [
 
 // TAG is in this list deliberately. It is small, it grades to 1000 points, and
 // leaving it out of the filter is how a TAG slab ends up mis-sorted as raw.
-const GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG", "AGS"];
+const GRADERS = ["PSA", "BGS", "CGC", "SGC", "TAG", "ACE", "AGS"];
+
+/** The language edition of the card listed. Read by the server off the card
+ *  the seller listed against — a Japanese Pokémon card is its own catalogue
+ *  entry — so there is nothing extra for a seller to fill in. */
+const LANGUAGES = [
+  { id: "en", label: "English" },
+  { id: "ja", label: "Japanese" },
+  { id: "other", label: "Other languages" },
+];
 
 const SORTS = [
   { id: "featured", label: "Featured" },
@@ -74,23 +83,52 @@ export default function Market() {
   const [variant, setVariant] = useState<string | null>(null);
   const [grade, setGrade] = useState<string | null>(null);
   const [band, setBand] = useState<{ min?: number; max?: number } | null>(null);
+  const [language, setLanguage] = useState<string | null>(null);
+  /** Where the next page starts; null once the server says there is none. */
+  const [next, setNext] = useState<number | null>(null);
+  const [more, setMore] = useState(false);
+  /** Bumped on every fresh load, so a page still arriving for the previous
+   *  filters cannot be appended to the new list. */
+  const generation = useRef(0);
+
+  const query = useCallback(() => ({
+    game: game || undefined,
+    grader: grader ?? undefined,
+    graded: raw ? false : undefined,
+    q: q.trim() || undefined,
+    set: setName.trim() || undefined,
+    number: cardNumber.trim() || undefined,
+    variant: variant ?? undefined,
+    grade: grade ?? undefined,
+    language: language ?? undefined,
+    min: band?.min, max: band?.max,
+    sort,
+  }), [game, grader, raw, sort, q, setName, cardNumber, variant, grade, band, language]);
 
   const load = useCallback(async (opts?: { keepRows?: boolean }) => {
+    const mine = ++generation.current;
     if (!opts?.keepRows) setRows(null);
-    const r = await browse({
-      game: game || undefined,
-      grader: grader ?? undefined,
-      graded: raw ? false : undefined,
-      q: q.trim() || undefined,
-      set: setName.trim() || undefined,
-      number: cardNumber.trim() || undefined,
-      variant: variant ?? undefined,
-      grade: grade ?? undefined,
-      min: band?.min, max: band?.max,
-      sort,
-    });
+    const r = await browse(query());
+    if (mine !== generation.current) return;
     setRows(r.listings);
-  }, [game, grader, raw, sort, q, setName, cardNumber, variant, grade, band]);
+    setNext(r.next);
+  }, [query]);
+
+  const loadMore = useCallback(async () => {
+    if (more || next == null || rows == null) return;
+    const mine = generation.current;
+    setMore(true);
+    const r = await browse({ ...query(), offset: next });
+    setMore(false);
+    if (mine !== generation.current) return;
+    setRows((cur) => {
+      // Keyed by id: a listing that moved between pages while scrolling (a new
+      // one went live above it) must not appear twice.
+      const seen = new Set((cur ?? []).map((l) => l.listing_id));
+      return [...(cur ?? []), ...r.listings.filter((l) => !seen.has(l.listing_id))];
+    });
+    setNext(r.next);
+  }, [more, next, rows, query]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -109,12 +147,12 @@ export default function Market() {
 
   const filters = [
     game && GAMES.find((g) => g.id === game)?.label, grader, raw && "Raw only",
-    setName.trim(), cardNumber.trim(), variant, grade, band,
+    setName.trim(), cardNumber.trim(), variant, grade, band, language,
   ].filter(Boolean).length;
 
   const clearAll = () => {
     setGame(""); setGrader(null); setRaw(false);
-    setSetName(""); setCardNumber(""); setVariant(null); setGrade(null); setBand(null);
+    setSetName(""); setCardNumber(""); setVariant(null); setGrade(null); setBand(null); setLanguage(null);
   };
 
   return (
@@ -129,7 +167,7 @@ export default function Market() {
             <Txt variant="display">Market</Txt>
             <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 2 }}>
               {sort === "featured" ? "Featured first, then newest" : SORTS.find((x) => x.id === sort)?.label}
-              {rows ? ` · ${rows.length} listing${rows.length === 1 ? "" : "s"}` : ""}
+              {rows ? ` · ${rows.length}${next != null ? "+" : ""} listing${rows.length === 1 ? "" : "s"}` : ""}
             </Txt>
           </View>
           <Pressable onPress={() => setOpen((o) => !o)} style={[s.filterBtn, filters > 0 && s.filterOn]}>
@@ -155,6 +193,14 @@ export default function Market() {
                 <Chip key={g} label={g} on={grader === g} onPress={() => { setGrader(g); setRaw(false); }} />
               ))}
               <Chip label="Raw only" on={raw} onPress={() => { setRaw(true); setGrader(null); }} />
+            </View>
+
+            <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: space.md }}>Language</Txt>
+            <View style={s.wrap}>
+              <Chip label="Any" on={language == null} onPress={() => setLanguage(null)} />
+              {LANGUAGES.map((l) => (
+                <Chip key={l.id} label={l.label} on={language === l.id} onPress={() => setLanguage(l.id)} />
+              ))}
             </View>
 
             <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: space.md }}>Grade</Txt>
@@ -232,6 +278,13 @@ export default function Market() {
         contentContainerStyle={s.list}
         onRefresh={refresh}
         refreshing={refreshing}
+        onEndReachedThreshold={0.5}
+        onEndReached={() => { void loadMore(); }}
+        ListFooterComponent={more ? (
+          <View style={s.skeletonGrid}>
+            {[0, 1].map((i) => <SkeletonCard key={i} grid />)}
+          </View>
+        ) : null}
         ListEmptyComponent={
           rows == null ? (
             <View style={s.skeletonGrid}>

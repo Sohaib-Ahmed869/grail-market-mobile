@@ -86,7 +86,7 @@ export default function IdReview() {
         ) : status === "In Review" ? (
           <>
             <View style={[s.badge, s.wait]}>
-              <Feather name="clock" size={30} color={colors.accent} />
+              <Feather name="clock" size={30} color={colors.accentText} />
             </View>
             <Txt variant="display" center style={s.head}>A person is checking</Txt>
             <Txt variant="body" color={colors.inkMuted} center>
@@ -97,7 +97,7 @@ export default function IdReview() {
         ) : (
           <>
             <Animated.View style={[s.badge, s.wait, { transform: [{ rotate }] }]}>
-              <Feather name="loader" size={30} color={colors.accent} />
+              <Feather name="loader" size={30} color={colors.accentText} />
             </Animated.View>
             <Txt variant="display" center style={s.head}>Checking</Txt>
             <Txt variant="body" color={colors.inkMuted} center>

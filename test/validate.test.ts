@@ -73,3 +73,17 @@ test("the stub is impossible in a release build", async () => {
   assert.equal(STUB_CODE, null, "a release build must have no stub code");
   assert.equal(usingStub(), false);
 });
+
+test("the stub is opt-in for test builds and refused in a store build", async () => {
+  const { stubCodeFor } = await import("../lib/devstub.ts");
+  // development (Metro) keeps it
+  assert.equal(stubCodeFor({ isDev: true, flag: "", profile: "development" }), "123456");
+  // a device test build only with the flag
+  assert.equal(stubCodeFor({ isDev: false, flag: "on", profile: "preview" }), "123456");
+  assert.equal(stubCodeFor({ isDev: false, flag: "", profile: "preview" }), null);
+  // a store build never, even if someone leaves the flag on
+  assert.equal(stubCodeFor({ isDev: false, flag: "on", profile: "production" }), null);
+  assert.equal(stubCodeFor({ isDev: true, flag: "on", profile: "production" }), null);
+  // off always wins
+  assert.equal(stubCodeFor({ isDev: true, flag: "off", profile: "" }), null);
+});

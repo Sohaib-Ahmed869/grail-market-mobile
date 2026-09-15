@@ -20,7 +20,7 @@ const when = (iso: string) => {
 const STATE: Record<string, { label: string; tone: string }> = {
   new: { label: "With us", tone: colors.info },
   open: { label: "Being looked at", tone: colors.info },
-  waiting: { label: "Waiting on you", tone: colors.accent },
+  waiting: { label: "Waiting on you", tone: colors.accentText },
   resolved: { label: "Closed", tone: colors.up },
 };
 

@@ -95,7 +95,7 @@ export function MarketMovers({ pulse }: { pulse: Pulse[] }) {
     return v.length > 1 ? ((v[v.length - 1]! - v[0]!) / v[0]!) * 100 : null;
   };
 
-  const drawable = built?.series.filter((sr) => sr.points.filter((v) => v != null).length > 1) ?? [];
+  const drawable = built?.series?.filter((sr) => sr.points.filter((v) => v != null).length > 1) ?? [];
   const selectedId = picked && drawable.some((sr) => sr.id === picked)
     ? picked
     : drawable[0]?.id ?? movers[0]?.cardId ?? movers[0]?.label ?? null;
@@ -127,7 +127,7 @@ export function MarketMovers({ pulse }: { pulse: Pulse[] }) {
   }, [built, closes, lead]);
 
 
-  const leadPct = change(built?.series.find((sr) => sr.id === selectedId));
+  const leadPct = change(built?.series?.find((sr) => sr.id === selectedId));
   const leadUp = (leadPct ?? 0) >= 0;
 
   if (!built || !lead) {

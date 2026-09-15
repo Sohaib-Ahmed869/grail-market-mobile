@@ -136,7 +136,7 @@ function CountrySheet({
               <Txt style={s.flag}>{flag(item.code)}</Txt>
               <Txt variant="body" style={{ flex: 1 }}>{item.name}</Txt>
               <Txt variant="body" color={colors.inkMuted}>{dialCode(item.code)}</Txt>
-              {item.code === selected && <Feather name="check" size={17} color={colors.accent} />}
+              {item.code === selected && <Feather name="check" size={17} color={colors.accentText} />}
             </Pressable>
           )}
         />

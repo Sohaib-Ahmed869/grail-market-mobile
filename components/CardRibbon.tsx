@@ -15,16 +15,20 @@ import { colors, radius } from "../theme";
  *  outermost card's centre lands at 190 — just inside the 195pt half-screen —
  *  and every card contributes something visible while the band still runs off
  *  both edges the way it should. */
+/*  Sports sit in the band too — the marketplace lists them — and in the two
+ *  slots that project largest after the outermost card, so they read at a
+ *  glance rather than hiding near the vanishing point. Both are the team's
+ *  own photographs from demo-cards/sports, cropped to the card. */
 const ART = [
   require("../assets/cards/giratina-tg.jpg"),
-  require("../assets/cards/blastoise-base.jpg"),
+  require("../assets/cards/doncic-prizm-2018.jpg"),
   require("../assets/cards/rayquaza-gg.jpg"),
   require("../assets/cards/charizard-base.jpg"),
   require("../assets/cards/umbreon-vmax.jpg"),   // centre
-  require("../assets/cards/charizard-151.jpg"),
+  require("../assets/cards/blastoise-base.jpg"),
   require("../assets/cards/sylveon-vmax.jpg"),
   require("../assets/cards/venusaur-base.jpg"),
-  require("../assets/cards/charizard-pf.jpg"),
+  require("../assets/cards/brady-bowman-2000.jpg"),
 ];
 
 const W = 116;

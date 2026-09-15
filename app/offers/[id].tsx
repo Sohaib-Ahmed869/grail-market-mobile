@@ -11,6 +11,7 @@ import { useToast } from "../../components/Toast";
 import { GraderBadge } from "../../components/GraderChips";
 import { gradeLabel } from "../../lib/grading";
 import { counterSides, num, offersFor, settleOffer, type Offer } from "../../lib/market";
+import { offerPushAfterAction } from "../../lib/push";
 import { colors, radius, space, type } from "../../theme";
 import { aud } from "../../lib/fx";
 
@@ -20,7 +21,7 @@ const STATUS: Record<string, { label: string; fg: string; bg: string }> = {
   open: { label: "Open", fg: colors.info, bg: colors.infoWash },
   accepted: { label: "Accepted", fg: colors.up, bg: colors.upWash },
   declined: { label: "Declined", fg: colors.inkFaint, bg: colors.surfaceSunk },
-  countered: { label: "Countered", fg: colors.accent, bg: colors.accentWash },
+  countered: { label: "Countered", fg: colors.accentText, bg: colors.accentWash },
 };
 
 /** Offers on one listing, seller side.
@@ -56,6 +57,7 @@ export default function ListingOffers() {
         declined: "Offer declined.",
         countered: `Countered at ${aud(amount ?? 0)}.`,
       }[action], { tone: action === "declined" ? "info" : "good" });
+      if (action !== "declined") void offerPushAfterAction(toast);
     }
     setCountering(null);
     setCounter("");
@@ -84,10 +86,10 @@ export default function ListingOffers() {
 
   const market = data?.marketValue != null ? num(data.marketValue) : null;
   const asking = data ? num(data.asking) ?? 0 : 0;
-  const open = data?.offers.filter((o) => o.status === "open") ?? [];
+  const open = data?.offers?.filter((o) => o.status === "open") ?? [];
   // A counter is not a closed offer. It is the seller's move made and the ball
   // in the buyer's court, and the header read "0 open" over a live negotiation.
-  const waiting = data?.offers.filter((o) => o.status === "countered") ?? [];
+  const waiting = data?.offers?.filter((o) => o.status === "countered") ?? [];
 
   return (
     <Screen back>

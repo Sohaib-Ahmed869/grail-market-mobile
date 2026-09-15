@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { Stack } from "expo-router";
+// TEMPORARY (screenshot capture for the design handover): the LogBox toast
+// sits over the bottom of every screen. Revert this line when done.
+import { LogBox } from "react-native";
+LogBox.ignoreAllLogs(true);
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
@@ -13,6 +17,7 @@ import {
 import { ToastHost } from "../components/Toast";
 import { colors } from "../theme";
 import { loadSession } from "../lib/session";
+import { listenForTaps } from "../lib/push";
 
 // Hold the native splash until the fonts are in. Called at module scope, as
 // the SDK 57 docs require — inside a component it races the first render.
@@ -42,6 +47,17 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  // A tapped notification opens what it is about. Started once the first
+  // frame is up, and the push waits a beat: the index route replaces itself
+  // with home or welcome on launch, and a route pushed before that would be
+  // replaced along with it.
+  useEffect(() => {
+    if (!ready) return;
+    return listenForTaps((href) => {
+      setTimeout(() => router.push(href as never), 600);
+    });
   }, [ready]);
 
   if (!ready) return null;

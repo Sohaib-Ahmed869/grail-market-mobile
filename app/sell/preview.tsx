@@ -81,7 +81,7 @@ export default function SellPreview() {
             {verified && (
               <View style={[s.badge, s.badgeVerified]}>
                 <Feather name="camera" size={10} color={colors.up} />
-                <Txt variant="overline" color={colors.up} style={s.badgeTxt}>Photo verified</Txt>
+                <Txt variant="overline" color={colors.up} style={s.badgeTxt}>All 10 angles photographed</Txt>
               </View>
             )}
             <GraderBadge grader={d.isRaw ? "RAW" : d.grader} grade={d.grade} />
@@ -134,8 +134,8 @@ export default function SellPreview() {
               </Txt>
             </View>
             <View style={s.sellerVerified}>
-              <Feather name="shield" size={11} color={colors.accent} />
-              <Txt variant="overline" color={colors.accent} style={s.badgeTxt}>Seller verified</Txt>
+              <Feather name="shield" size={11} color={colors.accentText} />
+              <Txt variant="overline" color={colors.accentText} style={s.badgeTxt}>Seller verified</Txt>
             </View>
           </View>
 
@@ -157,7 +157,7 @@ export default function SellPreview() {
       {!verified && (
         <View style={{ marginTop: space.lg }}>
           <Note tone="accent" icon="alert-triangle">
-            Without all ten angles this listing has no Photo Verified mark, and buyers
+            Without all ten angles this listing has no all-angles mark, and buyers
             filtering for it will not see it.
           </Note>
         </View>

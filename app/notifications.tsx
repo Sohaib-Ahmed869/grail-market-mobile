@@ -100,7 +100,7 @@ export default function Notifications() {
           </View>
           {anyFresh ? (
             <Pressable onPress={readAll} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.6 }}>
-              <Txt variant="label" color={colors.accent}>Mark all as read</Txt>
+              <Txt variant="label" color={colors.accentText}>Mark all as read</Txt>
             </Pressable>
           ) : items && items.length > 0 ? (
             <Txt variant="bodySmall" color={colors.inkFaint}>You’re all caught up</Txt>

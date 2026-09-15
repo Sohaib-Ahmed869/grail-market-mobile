@@ -46,7 +46,7 @@ export function CardMarket({ card }: { card: CardRef }) {
   useEffect(() => {
     let alive = true;
     liveAsks({
-      name: card.name, setName: card.setName, number: card.number,
+      cardId: card.cardId, name: card.name, setName: card.setName, number: card.number,
       grader: card.grader, grade: card.grade, game: card.game, printing: card.printing,
     }).then((r) => { if (alive) setAsks(r); });
 
@@ -252,7 +252,7 @@ export function CardMarket({ card }: { card: CardRef }) {
                   <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
                   <Txt variant="bodySmall" numberOfLines={1}>{l.card_name}</Txt>
                   {l.photo_verified && (
-                    <Txt variant="overline" color={colors.up}>Photo verified</Txt>
+                    <Txt variant="overline" color={colors.up}>All 10 angles photographed</Txt>
                   )}
                 </View>
                 <Txt variant="h3">

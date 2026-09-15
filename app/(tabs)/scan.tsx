@@ -311,7 +311,7 @@ export default function Scan() {
         </View>
 
         {front && !busy && (
-          <Txt variant="bodySmall" color={colors.accent} center
+          <Txt variant="bodySmall" color={colors.accentText} center
             style={{ position: "absolute", left: 0, right: 0, bottom: 96 }}>
             Tap the gold button to price it
           </Txt>

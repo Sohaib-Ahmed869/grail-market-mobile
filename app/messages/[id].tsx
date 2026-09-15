@@ -192,7 +192,10 @@ export default function ThreadScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ gap: 6, paddingTop: space.md, paddingBottom: space.md }}
-          style={{ marginTop: space.md }}
+          // Bounded. Unbounded, the list took the height of its content, ran
+          // past the bottom of the screen, and — because an inverted list is
+          // drawn flipped — painted over the composer.
+          style={{ flex: 1, marginTop: space.md }}
           renderItem={({ item: m, index }) => {
             // Inverted: "the one before this in time" is the NEXT index.
             const order = [...msgs].reverse();
@@ -203,11 +206,16 @@ export default function ThreadScreen() {
             if (m.kind === "event") {
               return (
                 <View>
+                  {/* The day line goes ABOVE the first item of its day. An
+                      inverted list flips each cell back upright, so inside a
+                      cell the order on screen is the order written here —
+                      after the item put the date under the message it
+                      introduces. */}
+                  {showDay && <Day label={dayOf(m.created_at)} />}
                   <View style={s.event}>
-                    <Icon name="offer" size={13} color={colors.accent} />
+                    <Icon name="offer" size={13} color={colors.accentText} />
                     <Txt variant="bodySmall" color={colors.inkMuted}>{m.body}</Txt>
                   </View>
-                  {showDay && <Day label={dayOf(m.created_at)} />}
                 </View>
               );
             }
@@ -226,6 +234,7 @@ export default function ThreadScreen() {
                * one-word messages made every line look like a separate
                * conversation. */
               <View style={{ marginBottom: startsRun ? 8 : 0 }}>
+                {showDay && <Day label={dayOf(m.created_at)} />}
                 <Pressable
                   onPress={() => setPicking(picking === m.message_id ? null : m.message_id)}
                   onLongPress={() => setPicking(m.message_id)}
@@ -284,8 +293,6 @@ export default function ThreadScreen() {
                     ))}
                   </Animated.View>
                 )}
-
-                {showDay && <Day label={dayOf(m.created_at)} />}
               </View>
             );
           }}

@@ -127,5 +127,16 @@ export default (): ExpoConfig => ({
     // Only worth adding when there is a project for them to read. The plugins
     // themselves fail the prebuild if the files are missing.
     ...(firebase ? ["@react-native-firebase/app", "@react-native-firebase/auth"] : []),
+    // Foreground only. Home measures how far each card for sale is from the
+    // person looking; nothing reads location in the background, so the ask is
+    // "while using the app" and Android's background permission stays off.
+    [
+      "expo-location",
+      {
+        locationWhenInUsePermission:
+          "GrailMarket uses your location to show how far away cards for sale are. Your location is not stored.",
+        isAndroidBackgroundLocationEnabled: false,
+      },
+    ],
   ] as ExpoConfig["plugins"],
 });

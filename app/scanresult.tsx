@@ -501,6 +501,26 @@ export default function ScanResult() {
         </View>
       </View>
 
+      {/* Why there is no price, said where the match is shown. A blank price
+          with no reason reads as a broken screen; the reason is that we would
+          otherwise be quoting a different printing, or a guessed name. */}
+      {id?.printingConfirmed === false && (
+        <View
+          style={{
+            flexDirection: "row", alignItems: "flex-start", gap: space.sm,
+            marginTop: space.md, padding: space.md, borderRadius: 14,
+            backgroundColor: colors.accentWash,
+          }}
+        >
+          <Feather name="alert-circle" size={16} color={colors.accentText} style={{ marginTop: 2 }} />
+          <Txt variant="bodySmall" color={colors.inkMuted} style={{ flex: 1 }}>
+            {id.unconfirmedReason === "name-not-on-card"
+              ? "We couldn't find this name printed on your card, so it's a best guess from the picture. Check it before relying on it. No price is shown."
+              : "We couldn't read the card number or set code, so we can't tell which printing this is. Printings can differ in price by hundreds of dollars, so no price is shown. Pick yours below or search for it."}
+          </Txt>
+        </View>
+      )}
+
       <OtherMatches
         scanId={scan?.id}
         candidates={scan?.candidates ?? []}
@@ -748,7 +768,7 @@ export default function ScanResult() {
                   <Txt variant="bodySmall" color={colors.inkFaint}>
                     {row.sampleSize ? `${row.sampleSize} sales` : "—"}
                   </Txt>
-                  {here && <Feather name="chevron-left" size={16} color={colors.accent} />}
+                  {here && <Feather name="chevron-left" size={16} color={colors.accentText} />}
                 </View>
               );
             })}

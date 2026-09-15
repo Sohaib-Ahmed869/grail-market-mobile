@@ -20,7 +20,7 @@ const STATUS: Record<string, { label: string; fg: string; bg: string; body: stri
   open: { label: "Waiting", fg: colors.info, bg: colors.infoWash, body: "The seller hasn't answered yet." },
   accepted: { label: "Accepted", fg: colors.up, bg: colors.upWash, body: "Agree a handover with the seller. We don't hold the money." },
   declined: { label: "Declined", fg: colors.inkFaint, bg: colors.surfaceSunk, body: "You can offer again if the price moves." },
-  countered: { label: "Countered", fg: colors.accent, bg: colors.accentWash, body: "The seller named a different number. It is yours to take, leave, or answer." },
+  countered: { label: "Countered", fg: colors.accentText, bg: colors.accentWash, body: "The seller named a different number. It is yours to take, leave, or answer." },
 };
 
 /** Offers this member has made.
@@ -211,8 +211,8 @@ export default function MyOffers() {
                         </View>
                         <Feather name="arrow-right" size={15} color={colors.inkFaint} />
                         <View style={{ flex: 1, alignItems: "flex-end" }}>
-                          <Txt variant="overline" color={colors.accent}>They want</Txt>
-                          <Txt variant="h3" color={colors.accent}>{money(sides.asked)}</Txt>
+                          <Txt variant="overline" color={colors.accentText}>They want</Txt>
+                          <Txt variant="h3" color={colors.accentText}>{money(sides.asked)}</Txt>
                         </View>
                       </View>
                     )}

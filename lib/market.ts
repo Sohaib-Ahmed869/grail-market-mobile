@@ -2,7 +2,7 @@ import { API, del, get, post, deadline, UPLOAD_TIMEOUT_MS } from "./api";
 import { authHeader } from "./session";
 
 export type Listing = {
-  listing_id: string; card_name: string; set_name: string | null;
+  listing_id: string; catalog_id?: string | null; card_name: string; set_name: string | null;
   card_number: string | null; game: string | null; image_url: string | null;
   grader: string | null; grade: string | null; cert_number: string | null;
   variant: string | null; is_raw: boolean; condition_note: string | null;
@@ -14,6 +14,10 @@ export type Listing = {
   photo_verified: boolean; featured: boolean;
   views?: number; saves?: number;
   live_at: string | null; created_at: string;
+  /** Whole km from the viewer's location, when `lat`/`lon` were sent. Null
+   *  when the listing's suburb has not been placed on the map yet — unknown,
+   *  not zero. 0 means under a kilometre. */
+  distance_km?: number | null;
 };
 
 export type Offer = {
@@ -37,13 +41,23 @@ export async function browse(q: {
   game?: string; grader?: string; graded?: boolean;
   set?: string; number?: string; variant?: string; grade?: string; q?: string;
   min?: number; max?: number; sort?: string; catalogId?: string;
-} = {}): Promise<{ listings: Listing[]; sort: string }> {
+  /** en | ja | other — the language edition of the card listed. */
+  language?: string;
+  /** Rows already shown; the server answers the page after them. */
+  offset?: number;
+  /** The viewer's point, for distances. With `sort: "nearest"` the closest
+   *  come first; `within` (km) drops anything further. */
+  lat?: number; lon?: number; within?: number;
+} = {}): Promise<{ listings: Listing[]; sort: string; next: number | null }> {
   const p = new URLSearchParams();
   for (const [k, v] of Object.entries(q)) if (v != null && v !== "") p.set(k, String(v));
   try {
-    return await get(`/listings${p.toString() ? `?${p}` : ""}`);
+    const r = await get<{ listings: Listing[]; sort: string; next?: number | null }>(`/listings${p.toString() ? `?${p}` : ""}`);
+    // An older API build sends no `next`; treat that as the last page rather
+    // than asking for page two forever.
+    return { ...r, next: r.next ?? null };
   } catch {
-    return { listings: [], sort: "featured" };
+    return { listings: [], sort: "featured", next: null };
   }
 }
 
@@ -192,9 +206,21 @@ export type OffersOnListing = {
 };
 
 export async function offersFor(listingId: string): Promise<OffersOnListing> {
+  const empty: OffersOnListing = { offers: [], marketValue: null, asking: 0 };
   try {
-    return await get<OffersOnListing>(`/listings/${listingId}/offers`);
-  } catch { return { offers: [], marketValue: null, asking: 0 }; }
+    const r = await get<Partial<OffersOnListing> & { error?: string }>(
+      `/listings/${listingId}/offers`,
+    );
+    // The catch below only covers a request that THREW. An id that resolves to
+    // nothing answers 200 with `{error:"not-found"}` and no `offers` key at
+    // all, and the type above quietly promises an array — so the screen ran
+    // `data.offers.length` on undefined and died with a render error rather
+    // than showing its empty state. A stale notification link is enough to do
+    // it. Normalised here, once, the way `myOffers` below already does, rather
+    // than guarded at each of the three places that read it.
+    if (!r || r.error || !Array.isArray(r.offers)) return empty;
+    return { ...r, offers: r.offers } as OffersOnListing;
+  } catch { return empty; }
 }
 
 /** Every offer this member has made, across all listings. */

@@ -150,7 +150,7 @@ export function SetList({
                 <Txt style={[s.price, item.rawUsd == null && { color: colors.inkFaint }]}>
                   {item.rawUsd != null ? money(item.rawUsd, { fx, from: "USD" }) : "—"}
                 </Txt>
-                {here && <Feather name="check" size={16} color={colors.accent} />}
+                {here && <Feather name="check" size={16} color={colors.accentText} />}
               </Pressable>
             );
           }}

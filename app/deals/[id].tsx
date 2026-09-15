@@ -9,6 +9,7 @@ import { Button } from "../../components/Button";
 import { Note } from "../../components/Note";
 import { CardArt } from "../../components/CardArt";
 import { useToast } from "../../components/Toast";
+import { MeetupShops } from "../../components/MeetupShops";
 import {
   callOff, confirmReceived, deal as fetchDeal, handOver, stepsFor, type Deal,
 } from "../../lib/deals";
@@ -162,6 +163,8 @@ export default function DealPage() {
           </Note>
         </View>
       )}
+
+      {d.state === "agreed" && <MeetupShops dealId={d.dealId} role={d.role} />}
 
       <View style={s.steps}>
         {steps.map((st, i) => (

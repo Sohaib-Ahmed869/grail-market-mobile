@@ -30,7 +30,7 @@ export function TierLadder({ tier }: { tier: Tier | null }) {
               <View style={s.rungHead}>
                 <Txt variant="h3" color={done ? colors.ink : colors.inkMuted}>{rung.name}</Txt>
                 {done && <Txt variant="bodySmall" color={colors.up}>Done</Txt>}
-                {next && <Txt variant="bodySmall" color={colors.accent}>Next</Txt>}
+                {next && <Txt variant="bodySmall" color={colors.accentText}>Next</Txt>}
               </View>
               <Txt variant="bodySmall" color={colors.inkFaint}>{rung.need}</Txt>
               <Txt variant="bodySmall" color={colors.inkMuted} style={{ marginTop: 2 }}>

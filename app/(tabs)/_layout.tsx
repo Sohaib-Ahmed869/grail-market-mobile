@@ -23,17 +23,17 @@ export default function TabsLayout() {
       }}
       tabBar={(props) => <TabBar {...props} />}
     >
-      {/* Five, with Scan raised in the middle. Search moved into the home
-          header — it is a thing you do to the content, not a place you go,
-          and it was taking a slot the product's own verb deserved. */}
+      {/* Five, with Scan raised in the middle. Catalogue sits opposite Home:
+          the two places you arrive at, either side of the verb. */}
       <Tabs.Screen name="home" options={{ title: "Home" }} />
       <Tabs.Screen name="community" options={{ title: "Community" }} />
       <Tabs.Screen name="scan" options={{ title: "Scan" }} />
-      <Tabs.Screen name="watchlist" options={{ title: "Watching" }} />
+      <Tabs.Screen name="search" options={{ title: "Catalogue" }} />
       <Tabs.Screen name="portfolio" options={{ title: "Collection" }} />
-      {/* Reachable, not a tab. Search lives in the home header; profile is
-          the avatar next to it, which is where people look for themselves. */}
-      <Tabs.Screen name="search" options={{ href: null }} />
+      {/* Reachable, not a tab. Watching is one tap from Home and from the
+          Collection header; profile is the avatar in the home header, which is
+          where people look for themselves. */}
+      <Tabs.Screen name="watchlist" options={{ href: null }} />
       <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );

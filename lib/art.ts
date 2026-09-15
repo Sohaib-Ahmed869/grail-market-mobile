@@ -27,7 +27,18 @@ export async function artFor(ids: string[]): Promise<Map<string, string>> {
   return found;
 }
 
-export const isLoadable = (u: string | null | undefined) => Boolean(u && /^https?:\/\//.test(u));
+/** A picture another device can actually fetch.
+ *
+ *  Not just "starts with http". A seller's photo lives in the private
+ *  listings bucket, and the API hands it out signed; the same object's bare
+ *  address answers 403. The pulse and some listings carry that bare address,
+ *  and treating it as loadable drew an empty frame on the home screen AND
+ *  stopped `artFor` from being asked for the catalogue picture instead. */
+export const isLoadable = (u: string | null | undefined) =>
+  Boolean(
+    u && /^https?:\/\//.test(u) &&
+    !(/\.amazonaws\.com\/listings\//.test(u) && !/[?&]X-Amz-Signature=/.test(u)),
+  );
 
 /** The set a catalogue id belongs to, for the ids that say. Pokemon's
  *  `me05-001` is card 001 of `me05`; One Piece's `optcg-OP13-119` is card

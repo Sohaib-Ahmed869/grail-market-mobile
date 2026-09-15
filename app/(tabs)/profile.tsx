@@ -148,7 +148,7 @@ export default function Profile() {
               <Feather
                 name={reviewing ? "clock" : "alert-circle"}
                 size={16}
-                color={reviewing ? colors.info : colors.accent}
+                color={reviewing ? colors.info : colors.accentText}
               />
             )}
             <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: 6 }}>Level</Txt>
@@ -157,7 +157,7 @@ export default function Profile() {
             </Txt>
           </Pressable>
           <Pressable style={s.statusCell} onPress={() => router.push("/plans")}>
-            <Feather name="credit-card" size={16} color={plan ? colors.accent : colors.inkFaint} />
+            <Feather name="credit-card" size={16} color={plan ? colors.accentText : colors.inkFaint} />
             <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: 6 }}>Plan</Txt>
             <Txt variant="h3" style={{ textTransform: "capitalize" }}>{plan ?? "None"}</Txt>
           </Pressable>

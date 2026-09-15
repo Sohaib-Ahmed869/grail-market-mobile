@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
@@ -9,9 +9,10 @@ import { Button } from "../../components/Button";
 import { Note } from "../../components/Note";
 import { GraderChips } from "../../components/GraderChips";
 import { Picker } from "../../components/Picker";
+import { useSportsArt } from "../../lib/sportsart";
 import { CardMarket } from "../../components/CardMarket";
 import { BuyAt } from "../../components/BuyAt";
-import { cardMeta, cardPrice, setDetail, type CardPrice } from "../../lib/cardmarket";
+import { cardMeta, cardPrice, salesWindows, setDetail, type CardPrice, type SalesWindows } from "../../lib/cardmarket";
 import { aud, conversionNote, money as fxMoney, useFx, convert } from "../../lib/fx";
 import { gradeLabel, graderById, ladderFor, type GraderId } from "../../lib/grading";
 import { PriceChart, RangePicker } from "../../components/PriceChart";
@@ -90,10 +91,25 @@ export default function CardPage() {
   // rest, and a picture for the cards the store has none for: `/market/card`
   // returns imageUrl null for a card it has only a row about, and a follow
   // saved from that had no art on the watchlist.
+  // A sports set is a list of players, most without a picture until one is
+  // asked for. Asked for the card in front of you and its neighbours, so the
+  // next swipe lands on a picture rather than on the card icon.
+  const { art, want } = useSportsArt();
+  const deckArt = useMemo(
+    () => deck?.map((c) => (c.imageUrl || !art[c.cardId] ? c : { ...c, imageUrl: art[c.cardId]! })) ?? null,
+    [deck, art],
+  );
+  useEffect(() => {
+    if (!deck) return;
+    const at = deck.findIndex((c) => c.cardId === String(id));
+    if (at < 0) return;
+    want(deck.slice(Math.max(0, at - 2), at + 4).filter((c) => !c.imageUrl).map((c) => c.cardId));
+  }, [deck, id]);
+
   const fromDeck = useMemo(() => {
-    const c = deck?.find((x) => x.cardId === String(id));
+    const c = deckArt?.find((x) => x.cardId === String(id));
     return c ? { name: c.name, setName: deckSetName, number: c.localId, imageUrl: c.imageUrl } : null;
-  }, [deck, deckSetName, id]);
+  }, [deckArt, deckSetName, id]);
   // MEMOISED, and that is not a nicety.
   //
   // This was an object literal evaluated on every render. The price effect
@@ -112,6 +128,9 @@ export default function CardPage() {
     [fetched, fromDeck],
   );
   const [grader, setGrader] = useState<GraderId>("PSA");
+  /** Set once the person chooses a grade, after which the page never
+   *  switches it for them. */
+  const pickedGrade = useRef(false);
   const [grade, setGrade] = useState<string | null>("10");
   const [interest, setInterest] = useState<Interest>({
     following: 0, holding: 0, views: 0, faces: [],
@@ -143,6 +162,19 @@ export default function CardPage() {
     if (id) cardInterest(String(id)).then((r) => { if (alive) setInterest(r); });
     return () => { alive = false; };
   }, [id]);
+
+  // Our own settled sales for the grade on screen (GM001-28). The feed's
+  // percentages describe the card as one line whatever its grade; these are
+  // for exactly this grader and grade, so where they exist they win.
+  const [windows, setWindows] = useState<SalesWindows | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setWindows(null);
+    if (!id || String(id) === "first") return;
+    salesWindows({ cardId: String(id), grader, grade: grader === "RAW" ? null : grade })
+      .then((w) => { if (alive) setWindows(w); });
+    return () => { alive = false; };
+  }, [id, grader, grade]);
   const [price, setPrice] = useState<CardPrice | null | undefined>(undefined);
   const session = useSession();
 
@@ -231,7 +263,7 @@ export default function CardPage() {
       const setId = cut > 0 ? raw.slice(0, cut) : raw;
       setDetail(setId).then((s) => {
         if (!alive) return;
-        const c = s?.cards.find((x) => x.cardId === raw);
+        const c = s?.cards?.find((x) => x.cardId === raw);
         setMeta(c && s
           ? { name: c.name, setName: s.name, number: c.localId, imageUrl: c.imageUrl }
           : null);
@@ -251,9 +283,23 @@ export default function CardPage() {
       cardId: String(id), name: meta.name, setName: meta.setName,
       number: meta.number, grader: grader === "RAW" ? null : grader,
       grade: grader === "RAW" ? null : grade,
-    }).then((p) => { if (alive) setPrice(p); });
+      setId: setParam ? String(setParam) : null,
+    }).then((p) => {
+      if (!alive) return;
+      setPrice(p);
+      // The page opens on PSA 10 because that is the question for the cards
+      // people chase. For most games we hold no graded figure at all, and a
+      // dash under "PSA 10" above a card that DOES have a price reads as "no
+      // price". Until somebody picks a grade themselves, a card whose only
+      // figure is ungraded opens on Ungraded.
+      const graded = p?.slabPrice || p?.sold || p?.liveAsk?.median != null;
+      if (!pickedGrade.current && grader !== "RAW" && p && !graded && p.rawUsd != null && !p.variantsAmbiguous) {
+        setGrader("RAW");
+        setGrade("NM");
+      }
+    });
     return () => { alive = false; };
-  }, [id, meta?.name, meta?.setName, meta?.number, grader, grade]);
+  }, [id, meta?.name, meta?.setName, meta?.number, grader, grade, setParam]);
 
   const money = (n: number | null | undefined) => fxMoney(n, { fx, from: "USD" });
 
@@ -273,6 +319,30 @@ export default function CardPage() {
     if (grader === "RAW") return price.rawUsd;
     return price.slabPrice?.price ?? price.sold?.price ?? price.liveAsk?.median ?? null;
   }, [price, grader, chosen, unresolved]);
+
+  /** One figure per period, never two. Our own 7 and 30-day change for this
+   *  exact grade when enough sales stand behind it; otherwise the feed's,
+   *  and the line under the strip says which is which. */
+  const moves = useMemo(() => {
+    const own7 = windows?.window7.changePct ?? null;
+    const own30 = windows?.window30.changePct ?? null;
+    const periods = {
+      day: trend?.change24h ?? null,
+      week: own7 ?? trend?.change7d ?? null,
+      month: own30 ?? trend?.change30d ?? null,
+      quarter: trend?.change90d ?? null,
+    };
+    const fromSales = own7 != null || own30 != null;
+    const n = Math.max(
+      own7 != null ? (windows!.window7.count + windows!.window7.previousCount) : 0,
+      own30 != null ? (windows!.window30.count + windows!.window30.previousCount) : 0,
+    );
+    const ownPeriods = [own7 != null ? "7d" : null, own30 != null ? "30d" : null].filter(Boolean).join(" and ");
+    const label = fromSales
+      ? `${ownPeriods} from ${n} sales at this grade${trend ? " · the rest from the price feed" : ""}`
+      : trend ? "From the price feed, for the card as a whole" : null;
+    return { periods, fromSales, label };
+  }, [windows, trend]);
 
   const ladder = useMemo(() => {
     const rows = price?.byGrader?.[grader] ?? null;
@@ -385,7 +455,7 @@ export default function CardPage() {
             <Txt variant="label">All {deck.length}</Txt>
           </Pressable>
           <CardDeck
-            cards={deck}
+            cards={deckArt ?? deck}
             currentId={String(id)}
             onChange={(card) =>
               router.setParams({ id: card.cardId, set: String(setParam) } as never)
@@ -411,7 +481,7 @@ export default function CardPage() {
 
       <Txt variant="display" center style={{ marginTop: space.lg }}>{meta.name}</Txt>
       <Txt variant="body" color={colors.inkMuted} center>
-        {meta.setName} · #{meta.number}
+        {[meta.setName, meta.number ? `#${meta.number}` : null].filter(Boolean).join(" · ")}
       </Txt>
 
       {/* The price, the way a quote is shown: the number large, the change
@@ -485,14 +555,14 @@ export default function CardPage() {
             </View>
           )}
 
-          {trend && !unresolved && (
+          {(trend || moves.fromSales) && !unresolved && (
             <View style={{ alignSelf: "stretch" }}>
-              <PeriodStrip
-                periods={{
-                  day: trend.change24h, week: trend.change7d,
-                  month: trend.change30d, quarter: trend.change90d,
-                }}
-              />
+              <PeriodStrip periods={moves.periods} />
+              {moves.label ? (
+                <Txt variant="bodySmall" color={colors.inkFaint} center style={{ marginTop: 4, fontSize: 12 }}>
+                  {moves.label}
+                </Txt>
+              ) : null}
             </View>
           )}
 
@@ -537,7 +607,7 @@ export default function CardPage() {
         Price It As
       </Txt>
       <View style={{ marginTop: space.sm }}>
-        <GraderChips value={grader} onChange={(g) => { setGrader(g); setGrade(g === "RAW" ? "NM" : "10"); }} />
+        <GraderChips value={grader} onChange={(g) => { pickedGrade.current = true; setGrader(g); setGrade(g === "RAW" ? "NM" : "10"); }} />
       </View>
       <View style={{ marginTop: space.md }}>
         <Picker
@@ -573,8 +643,9 @@ export default function CardPage() {
             {headline == null && (
               <View style={{ marginTop: space.sm }}>
                 <Note icon="info">
-                  No sale on record at this grade. That is not the same as worthless — it
-                  means nobody has sold one recently that we can see.
+                  {price?.unpriceable === "player-in-set"
+                    ? `This is every ${meta.name} card in ${meta.setName || "this set"} at once — base, rookies, parallels and numbered cards — so no single price describes it. The listings below show what each one is asking.`
+                    : "No sale on record at this grade. That is not the same as worthless — it means nobody has sold one recently that we can see."}
                 </Note>
               </View>
             )}

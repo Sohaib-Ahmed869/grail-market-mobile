@@ -31,8 +31,59 @@ const GAMES: Record<string, GameTheme> = {
  *  reads as a fault. */
 const UNKNOWN: GameTheme = { label: "Cards", short: "TCG", tint: "#8A7448", wash: "#F6F2E8" };
 
-export const gameTheme = (id: string | null | undefined): GameTheme =>
-  (id ? GAMES[id] : undefined) ?? UNKNOWN;
+/** Sports, keyed by the slug after `sport:`.
+ *
+ *  Kept apart from GAMES rather than added to it: the home screen offers the
+ *  first eight of GAME_IDS as its game row, and a sport arriving in that row
+ *  would push a trading card game off it without anybody deciding that.
+ *
+ *  Sports carry a glyph where games will carry a logo — a basketball is a
+ *  better mark for basketball than any league's wordmark, and it belongs to
+ *  nobody. */
+const SPORTS: Record<string, GameTheme & { icon: string }> = {
+  basketball: { label: "Basketball", short: "NBA", tint: "#C4622D", wash: "#FAEEE7", icon: "basketball" },
+  baseball:   { label: "Baseball",   short: "MLB", tint: "#B0403A", wash: "#FAECEB", icon: "baseball" },
+  football:   { label: "Football",   short: "NFL", tint: "#5E7A3A", wash: "#EFF3E8", icon: "football" },
+  soccer:     { label: "Soccer",     short: "FUT", tint: "#2F7A55", wash: "#E8F3EE", icon: "soccer" },
+  hockey:     { label: "Hockey",     short: "NHL", tint: "#3B6690", wash: "#EAF0F6", icon: "hockey-puck" },
+  afl:        { label: "AFL",        short: "AFL", tint: "#2D5C8C", wash: "#E9EFF6", icon: "football-australian" },
+  nrl:        { label: "NRL",        short: "NRL", tint: "#3F7A3A", wash: "#EBF3EA", icon: "rugby" },
+  racing:     { label: "Racing",     short: "F1",  tint: "#B23A3A", wash: "#FAEBEB", icon: "flag-checkered" },
+  mma:        { label: "UFC & MMA",  short: "UFC", tint: "#7A3F3F", wash: "#F5EBEB", icon: "mixed-martial-arts" },
+  wrestling:  { label: "Wrestling",  short: "WWE", tint: "#6B4A8A", wash: "#F1ECF6", icon: "trophy" },
+  golf:       { label: "Golf",       short: "PGA", tint: "#3E7A4C", wash: "#EAF3EC", icon: "golf" },
+  tennis:     { label: "Tennis",     short: "ATP", tint: "#8A8A2A", wash: "#F4F4E6", icon: "tennis" },
+  boxing:     { label: "Boxing",     short: "BOX", tint: "#A33B3B", wash: "#FAEBEB", icon: "boxing-glove" },
+  cricket:    { label: "Cricket",    short: "CRI", tint: "#4F7A3A", wash: "#EDF3E8", icon: "cricket" },
+};
+
+/** `sport:basketball` -> `basketball`. Card Hedge's categories arrive as
+ *  `ch:Basketball` and are the same sport under a bought catalogue, so they
+ *  resolve to the same theme. */
+export const sportOf = (id: string | null | undefined): string | null => {
+  const m = /^(?:sport|ch):(.+)$/i.exec(id ?? "");
+  if (!m) return null;
+  const slug = m[1]!.toLowerCase().split(":")[0]!;
+  return SPORTS[slug] ? slug : null;
+};
+
+/** The glyph for a sport, or null for anything that is not one. */
+export const sportIcon = (id: string | null | undefined): string | null => {
+  const slug = sportOf(id);
+  return slug ? SPORTS[slug]!.icon : null;
+};
+
+/** `lang:pokemon:fr` and `pokemonjp` wear their base game's colour — a
+ *  Japanese Pokémon card is still Pokémon. */
+const baseOf = (id: string) =>
+  id === "pokemonjp" ? "pokemon" : (/^lang:([^:]+):/.exec(id)?.[1] ?? id);
+
+export const gameTheme = (raw: string | null | undefined): GameTheme => {
+  if (!raw) return UNKNOWN;
+  const id = baseOf(raw);
+  const sport = sportOf(id);
+  return GAMES[id] ?? (sport ? SPORTS[sport] : undefined) ?? UNKNOWN;
+};
 
 /** The order they are offered in, which is the order they were added to the
  *  catalogue rather than anything editorial. */

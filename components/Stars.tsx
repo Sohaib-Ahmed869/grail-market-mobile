@@ -35,7 +35,7 @@ export function Stars({
           <Feather
             name="star"
             size={size}
-            color={filled ? colors.accent : colors.line}
+            color={filled ? colors.accentText : colors.line}
             style={filled ? s.filled : undefined}
           />
         );
@@ -59,7 +59,7 @@ const s = StyleSheet.create({
   // Feather's star is an outline; filling it needs the glyph doubled up, so
   // a shadow of the same colour does the job at these sizes.
   filled: {
-    textShadowColor: colors.accent,
+    textShadowColor: colors.accentText,
     textShadowRadius: 3,
     textShadowOffset: { width: 0, height: 0 },
   },

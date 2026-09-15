@@ -1,140 +1,141 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  FlatList, Image, Linking, Modal, Pressable, ScrollView, StyleSheet, TextInput, View,
+  FlatList, Linking, Pressable, ScrollView, StyleSheet, TextInput, View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Feather } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { SvgUri } from "react-native-svg";
-import { CardArt, Shimmer } from "../../components/CardArt";
+import { CardArt } from "../../components/CardArt";
 import { PageWash } from "../../components/PageWash";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
+import { ActiveBar, FilterGroup, FilterSheet, RadioRow } from "../../components/FilterSheet";
+import {
+  FollowPlus, GameTile, GameTileBone, Segmented, editionName, gameName, useQuickFollow,
+} from "../../components/CatalogueTiles";
+import { money, useFx } from "../../lib/fx";
 import { searchCards, type CardHit } from "../../lib/cards";
 import { lookup, looksLikeCode, type Lookup } from "../../lib/lookup";
-import {
-  allSets, browseGames, marketPulse, type BrowseGame, type Pulse, type SetSummary,
-} from "../../lib/cardmarket";
+import { browseGames, type BrowseGame } from "../../lib/cardmarket";
 import { useNavScroll } from "../../lib/navbar";
 import { useTabBarClearance } from "../../components/TabBar";
-import { gameTheme, type GameTheme } from "../../lib/games";
+import { gameTheme, sportOf, type GameTheme } from "../../lib/games";
 import { colors, radius, shadow, space, type } from "../../theme";
 
-const GAME_LABEL: Record<string, string> = {
-  pokemon: "Pokémon", onepiece: "One Piece", mtg: "Magic",
-  yugioh: "Yu-Gi-Oh!", lorcana: "Lorcana", digimon: "Digimon",
-};
-
-type Sort = "relevance" | "name";
-type SetSort = "newest" | "oldest" | "az" | "biggest";
-
-const SET_SORTS: { id: SetSort; label: string }[] = [
-  { id: "newest", label: "Newest" },
-  { id: "oldest", label: "Oldest" },
-  { id: "az", label: "A to Z" },
-  { id: "biggest", label: "Most cards" },
+type Cat = "all" | "tcg" | "sports" | "entertainment";
+const CATS: { id: Cat; label: string; title: string }[] = [
+  { id: "all", label: "All", title: "Everything we list" },
+  { id: "tcg", label: "TCG", title: "Trading card games" },
+  { id: "sports", label: "Sports", title: "Sports cards" },
+  { id: "entertainment", label: "Licensed", title: "Licensed & entertainment" },
 ];
+
+/** A game's category, with sports read off the id as well as the server's
+ *  field — an API build older than the sports catalogue sends no category
+ *  for a `ch:` game, and that must still land under Sports. */
+/** Language editions are not games on this screen. Japanese Pokémon is
+ *  Pokémon: you open Pokémon and choose the language there, the way a shop
+ *  shelves a game once and asks which language you want. */
+const catOf = (g: BrowseGame): Cat | "language" =>
+  sportOf(g.id) ? "sports"
+  : g.baseGame || g.languageName || g.category === "japanese" || g.category === "language" ? "language"
+  : ((g.category as Cat | undefined) ?? "tcg");
+
+type GridRow =
+  | { kind: "head"; key: string; title: string; sub: string }
+  | { kind: "row"; key: string; games: BrowseGame[] };
+
+type GameSort = "popular" | "az";
+type Sort = "relevance" | "name" | "dear" | "cheap";
+
+const SORT_LABEL: Record<Sort, string> = {
+  relevance: "Best match", name: "A to Z", dear: "Highest price", cheap: "Lowest price",
+};
 
 /** What was searched for lately. Module-level, so it survives leaving the
  *  tab and coming back; it does not survive a restart, and that is fine for
  *  a list whose whole job is "the thing I typed a minute ago". */
 let RECENT: string[] = [];
 
-/** Search.
+/** The Catalogue.
  *
- *  Typing runs the query, but not on every keystroke — a request per character
- *  is three wasted round trips for every useful one, and on a phone that is
- *  battery as well as bandwidth. It waits until the typing pauses.
+ *  Two levels, the way every collector app people already use is built: the
+ *  first screen is every game and sport we list, as a grid; a tile opens that
+ *  game's own page with its sets and its cards side by side. This screen used
+ *  to try to be both levels at once — the games collapsing into a rail over
+ *  a set grid — and read as neither.
  *
- *  Results are also raced: a slow reply for "char" must not overwrite a fast
- *  one for "charizard". Each query carries a sequence number and anything
- *  stale is dropped.
+ *  "Moving now" is gone from here on purpose. It is on the dashboard, and
+ *  above the grid it pushed the one thing this screen is for below the fold.
  *
- *  With an empty box the screen is a place to browse, not a blank: what is
- *  moving now as a rail of art, the games as covers, and the chosen game's
- *  sets as a grid. Pictures first, because a card is a picture — a list of
- *  names is what a spreadsheet would show. */
+ *  Typing runs the query once the typing pauses, and each query carries a
+ *  sequence number so a slow reply for "char" can never overwrite a fast one
+ *  for "charizard".
+ */
 export default function Search() {
   const navScroll = useNavScroll();
   const clearance = useTabBarClearance();
+  const fx = useFx();
+  const quick = useQuickFollow();
   const router = useRouter();
-  // The dashboard's game row opens this screen already pointed at a game.
-  const { game: wanted } = useLocalSearchParams<{ game?: string }>();
+  // `?game=` is how the dashboard's game row opens a game, and `?filters=1`
+  // opens the sheet — a screen you can only reach by tapping is a screen you
+  // cannot link to from a notification.
+  const { game: wanted, filters: openFilters } =
+    useLocalSearchParams<{ game?: string; filters?: string }>();
+
   const [q, setQ] = useState("");
   const [hits, setHits] = useState<CardHit[]>([]);
   const [busy, setBusy] = useState(false);
   const [searched, setSearched] = useState(false);
-  const seq = useRef(0);
-  const input = useRef<TextInput>(null);
-
   const [cert, setCert] = useState<Extract<Lookup, { kind: "cert" }> | null>(null);
-  const [, setNote] = useState<string | null>(null);
+  const seq = useRef(0);
 
-  // ---- browsing -------------------------------------------------------------
   const [games, setGames] = useState<BrowseGame[] | null>(null);
-  const [game, setGame] = useState<BrowseGame | null>(null);
-  const [sets, setSets] = useState<SetSummary[] | null>(null);
-  const [pulse, setPulse] = useState<Pulse[] | null>(null);
+  const [cat, setCat] = useState<Cat>("all");
+  const [gameSort, setGameSort] = useState<GameSort>("popular");
 
-  useEffect(() => {
-    let alive = true;
-    browseGames().then((g) => {
-      if (!alive) return;
-      setGames(g);
-      setGame((cur) => cur ?? g.find((x) => x.id === wanted) ?? g[0] ?? null);
-    });
-    marketPulse().then((p) => { if (alive) setPulse(p); });
-    return () => { alive = false; };
-  }, []);
-
-  // Arriving with a game named, or arriving again with a different one.
-  useEffect(() => {
-    if (!wanted || !games) return;
-    const g = games.find((x) => x.id === wanted);
-    if (g) setGame(g);
-  }, [wanted, games]);
-  useEffect(() => {
-    if (!game) { setSets(null); return; }
-    let alive = true;
-    setSets(null);
-    allSets(game.id).then((r) => { if (alive) setSets(r); });
-    return () => { alive = false; };
-  }, [game?.id]);
-
-  // ---- filters over results ---------------------------------------------------
   const [sheet, setSheet] = useState(false);
+  const [open, setOpen] = useState<string | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null);
   const [rarityFilter, setRarityFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<Sort>("relevance");
-  const [setSort_, setSetSort] = useState<SetSort>("newest");
 
   const browsing = q.trim().length < 2;
 
-  // The sheet governs two different lists, so it has to count and reset the
-  // one on screen. Counting all of them together is how the badge came to
-  // say "1 filter" over a browse list that no filter in the sheet touched:
-  // the game chips were setting a results filter while the sets below came
-  // from `game`, which nothing in the sheet changed.
-  const filtersOn = browsing
-    ? (setSort_ !== "newest" ? 1 : 0)
-    : (gameFilter ? 1 : 0) + (rarityFilter ? 1 : 0) + (sort !== "relevance" ? 1 : 0);
-  const resetFilters = () => {
-    if (browsing) { setSetSort("newest"); return; }
-    setGameFilter(null); setRarityFilter(null); setSort("relevance");
-  };
+  useEffect(() => {
+    let alive = true;
+    browseGames().then((g) => { if (alive) setGames(g); });
+    return () => { alive = false; };
+  }, []);
+
+  useEffect(() => {
+    if (openFilters === "1") setSheet(true);
+  }, [openFilters]);
+
+  const openGame = (g: { id: string; name: string }) =>
+    router.push({ pathname: "/game/[id]", params: { id: g.id, name: editionName(g) } } as never);
+
+  // Arriving with a game named hands straight on to that game's page, then
+  // forgets the param so coming back to this tab lands on the grid rather
+  // than bouncing forward again.
+  useEffect(() => {
+    if (!wanted) return;
+    const g = games?.find((x) => x.id === wanted);
+    router.setParams({ game: undefined } as never);
+    router.push({ pathname: "/game/[id]", params: g ? { id: g.id, name: editionName(g) } : { id: String(wanted) } } as never);
+  }, [wanted]);
 
   useEffect(() => {
     const t = q.trim();
-    if (t.length < 2) { setHits([]); setSearched(false); setCert(null); setNote(null); return; }
+    if (t.length < 2) { setHits([]); setSearched(false); setCert(null); return; }
     const mine = ++seq.current;
     setBusy(true);
     const timer = setTimeout(async () => {
-      const r = looksLikeCode(t) ? await viaLookup(t) : { hits: await searchCards(t), cert: null, note: null };
+      const r = looksLikeCode(t) ? await viaLookup(t) : { hits: await searchCards(t), cert: null };
       if (mine !== seq.current) return;   // a newer query has already answered
       setHits(r.hits);
       setCert(r.cert);
-      setNote(r.note);
       setBusy(false);
       setSearched(true);
       if (r.hits.length || r.cert) RECENT = [t, ...RECENT.filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 6);
@@ -142,8 +143,39 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [q]);
 
-  // The games and rarities present in THESE results, for the chips. A filter
-  // that offers Lorcana over a list with no Lorcana in it is a dead control.
+  // ---- the grid ----------------------------------------------------------------
+  const counts = useMemo(() => {
+    const m: Record<Cat | "language", number> = { all: 0, tcg: 0, sports: 0, entertainment: 0, language: 0 };
+    for (const g of games ?? []) { const c = catOf(g); m[c] += 1; if (c !== "language") m.all += 1; }
+    return m;
+  }, [games]);
+
+  const shownGames = useMemo(() => {
+    const list = (games ?? []).filter((g) => cat === "all" ? catOf(g) !== "language" : catOf(g) === cat);
+    // "Popular" is the server's order, which is written by hand with the
+    // games people come for first. A to Z is for the long tail.
+    return gameSort === "az" ? [...list].sort((a, b) => gameName(a).localeCompare(gameName(b))) : list;
+  }, [games, cat, gameSort]);
+
+  const gridRows = useMemo<GridRow[]>(() => {
+    const rows: GridRow[] = [];
+    const block = (key: string, title: string, sub: string, list: BrowseGame[]) => {
+      if (!list.length) return;
+      rows.push({ kind: "head", key: `h:${key}`, title, sub });
+      for (let i = 0; i < list.length; i += 2) rows.push({ kind: "row", key: `${key}:${i}`, games: list.slice(i, i + 2) });
+    };
+    const catTitle = CATS.find((c) => c.id === cat)!.title;
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const sub = cat === "all"
+      ? `${counts.tcg + counts.entertainment} games · ${counts.sports} sports`
+      : cat === "sports" ? plural(counts.sports, "sport", "sports") : plural(counts[cat], "game", "games");
+    block(cat, catTitle, sub, shownGames);
+    return rows;
+  }, [shownGames, cat, counts]);
+
+  // ---- results -----------------------------------------------------------------
+  // Only what is present in THESE results. A filter offering Lorcana over a
+  // list with no Lorcana in it is a dead control.
   const gamesInHits = useMemo(() => {
     const m = new Map<string, number>();
     for (const h of hits) m.set(h.game, (m.get(h.game) ?? 0) + 1);
@@ -151,44 +183,69 @@ export default function Search() {
   }, [hits]);
   const raritiesInHits = useMemo(() => {
     const m = new Map<string, number>();
-    for (const h of hits) if (h.rarity && h.rarity !== "None") m.set(h.rarity, (m.get(h.rarity) ?? 0) + 1);
-    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
-  }, [hits]);
+    for (const h of hits) {
+      if (gameFilter && h.game !== gameFilter) continue;
+      if (h.rarity && h.rarity !== "None") m.set(h.rarity, (m.get(h.rarity) ?? 0) + 1);
+    }
+    return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12);
+  }, [hits, gameFilter]);
   const shown = useMemo(() => {
     let list = hits;
     if (gameFilter) list = list.filter((h) => h.game === gameFilter);
     if (rarityFilter) list = list.filter((h) => h.rarity === rarityFilter);
     if (sort === "name") list = [...list].sort((a, b) => a.name.localeCompare(b.name) || a.setName.localeCompare(b.setName));
+    else if (sort === "dear" || sort === "cheap") {
+      const dir = sort === "dear" ? -1 : 1;
+      // Unpriced last in BOTH directions: no price is not a cheap price, and a
+      // "lowest first" list led by the cards we know nothing about would call
+      // them the bargains.
+      list = [...list].sort((a, b) => {
+        const x = a.rawUsd ?? null, y = b.rawUsd ?? null;
+        if (x == null && y == null) return 0;
+        if (x == null) return 1;
+        if (y == null) return -1;
+        return (x - y) * dir;
+      });
+    }
     return list;
   }, [hits, gameFilter, rarityFilter, sort]);
 
-  // The catalogue answers newest first, so that order is the one we leave
-  // alone rather than re-derive: half these catalogues publish no release
-  // date, and sorting by a field that is null everywhere would silently
-  // shuffle the list into the order the array happened to be in.
-  const shownSets = useMemo(() => {
-    const list = sets ?? [];
-    if (setSort_ === "newest") return list;
-    const copy = [...list];
-    if (setSort_ === "az") copy.sort((a, b) => a.name.localeCompare(b.name));
-    else if (setSort_ === "biggest") copy.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
-    else copy.reverse();
-    return copy;
-  }, [sets, setSort_]);
+  // The sheet counts and resets the list that is on screen, never the other
+  // one — a badge saying "1 filter" over a grid nothing in the sheet touched
+  // is how this screen came to lie about itself before.
+  const filtersOn = browsing
+    ? (cat !== "all" ? 1 : 0) + (gameSort !== "popular" ? 1 : 0)
+    : (gameFilter ? 1 : 0) + (rarityFilter ? 1 : 0) + (sort !== "relevance" ? 1 : 0);
+  const reset = () => {
+    if (browsing) { setCat("all"); setGameSort("popular"); return; }
+    setGameFilter(null); setRarityFilter(null); setSort("relevance");
+  };
+  const toggle = (k: string) => setOpen(open === k ? null : k);
 
-  const openCard = (id: string) => router.push(`/card/${encodeURIComponent(id)}` as any);
+  const labelOf = (id: string) => {
+    const g = games?.find((x) => x.id === id);
+    return g ? gameName(g) : gameTheme(id).label;
+  };
+
+  const openCard = (h: CardHit) =>
+    // A sports entry only resolves inside its set — it has no id of its own
+    // anywhere else — so the set travels with it. A trading card opens alone,
+    // as it always did.
+    router.push({
+      pathname: "/card/[id]",
+      params: sportOf(h.game) ? { id: h.cardId, set: h.setId } : { id: h.cardId },
+    } as never);
 
   const head = (
     <View style={s.head}>
-      <Txt variant="display">Search</Txt>
+      <Txt variant="display">Catalogue</Txt>
       <View style={s.fieldRow}>
         <View style={s.field}>
           <Feather name="search" size={17} color={colors.inkFaint} />
           <TextInput
-            ref={input}
             value={q}
             onChangeText={setQ}
-            placeholder="Card, set code or cert number"
+            placeholder="Cards, players, sets or cert number"
             placeholderTextColor={colors.inkFaint}
             autoCorrect={false}
             autoCapitalize="none"
@@ -203,17 +260,29 @@ export default function Search() {
         </View>
         <Pressable
           onPress={() => setSheet(true)}
-          style={({ pressed }) => [s.filterBtn, filtersOn > 0 && s.filterBtnOn, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [s.filterBtn, filtersOn > 0 && s.filterBtnOn, pressed && { opacity: 0.85 }]}
           accessibilityLabel="Filters"
         >
           <Feather name="sliders" size={18} color={filtersOn > 0 ? colors.onPrimary : colors.ink} />
-          {filtersOn > 0 && (
-            <View style={s.filterCount}><Txt style={s.filterCountTxt}>{filtersOn}</Txt></View>
-          )}
+          {filtersOn > 0 && <View style={s.badge}><Txt style={s.badgeTxt}>{filtersOn}</Txt></View>}
         </Pressable>
       </View>
+
+      {RECENT.length > 0 && browsing && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.recent}
+          style={{ marginHorizontal: -space.xl }} keyboardShouldPersistTaps="handled">
+          <Feather name="clock" size={13} color={colors.inkFaint} style={{ alignSelf: "center" }} />
+          {RECENT.map((r) => (
+            <Pressable key={r} onPress={() => setQ(r)} style={({ pressed }) => [s.recentChip, pressed && { opacity: 0.7 }]}>
+              <Txt variant="bodySmall" color={colors.inkMuted}>{r}</Txt>
+            </Pressable>
+          ))}
+        </ScrollView>
+      )}
     </View>
   );
+
+  const catTitle = CATS.find((c) => c.id === cat)!;
 
   return (
     <SafeAreaView style={s.root} edges={["top"]}>
@@ -226,359 +295,200 @@ export default function Search() {
         </>
       ) : browsing ? (
         <FlatList
-          key="browse"
+          key="games"
           {...navScroll}
-          data={shownSets}
-          keyExtractor={(x, i) => `${x.setId}:${i}`}
-          numColumns={2}
-          columnWrapperStyle={s.setRow}
-          contentContainerStyle={[s.browse, { paddingBottom: clearance }]}
+          data={games == null ? [] : gridRows}
+          keyExtractor={(r) => r.key}
+          contentContainerStyle={{ paddingBottom: clearance }}
           keyboardShouldPersistTaps="handled"
+          initialNumToRender={12}
           ListHeaderComponent={
             <View>
               {head}
-
-              {RECENT.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.recent}
-                  keyboardShouldPersistTaps="handled">
-                  <Feather name="clock" size={13} color={colors.inkFaint} style={{ alignSelf: "center" }} />
-                  {RECENT.map((r) => (
-                    <Pressable key={r} onPress={() => setQ(r)} style={({ pressed }) => [s.recentChip, pressed && { opacity: 0.7 }]}>
-                      <Txt variant="bodySmall" color={colors.inkMuted}>{r}</Txt>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-
-              {/* ---- moving now ------------------------------------------- */}
-              {pulse && pulse.length > 0 && (
-                <>
-                  <SectionHead title="Moving now" sub="Biggest moves this week" action={{ label: "See all", onPress: () => router.push("/movers") }} />
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail}>
-                    {pulse.slice(0, 8).map((p) => {
-                      const pct = p.change7d ?? 0;
-                      const up = pct >= 0;
-                      return (
-                        <Pressable
-                          key={p.cardId ?? p.label}
-                          onPress={() => p.cardId ? openCard(p.cardId) : router.push({ pathname: "/market", params: { q: p.label } })}
-                          style={({ pressed }) => [s.trend, pressed && { transform: [{ scale: 0.98 }] }]}
-                        >
-                          <CardArt uri={p.imageUrl} iconSize={22} />
-                          <LinearGradient
-                            colors={["rgba(11,22,34,0)", "rgba(11,22,34,0.85)"]}
-                            locations={[0.45, 1]}
-                            style={StyleSheet.absoluteFill}
-                            pointerEvents="none"
-                          />
-                          <View style={s.trendFoot}>
-                            <Txt variant="label" color={colors.onDark} numberOfLines={1}>{p.label}</Txt>
-                            <Txt variant="bodySmall" color={colors.onDarkMuted} numberOfLines={1} style={{ fontSize: 12 }}>
-                              {p.setName ?? GAME_LABEL[p.game ?? ""] ?? ""}
-                            </Txt>
-                          </View>
-                          <View style={[s.trendPct, { backgroundColor: up ? "#2ECC8A" : "#F26B5E" }]}>
-                            <Txt style={s.trendPctTxt}>{up ? "+" : "−"}{Math.abs(pct).toFixed(0)}%</Txt>
-                          </View>
-                        </Pressable>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              )}
-
-              {/* ---- the games, as covers ---------------------------------- */}
-              <SectionHead title="Browse by game" />
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.rail}
-                keyboardShouldPersistTaps="handled">
-                {(games ?? []).map((g) => <GameCover key={g.id} game={g} on={game?.id === g.id} onPress={() => setGame(g)} />)}
-                {games == null && [0, 1, 2, 3].map((i) => <View key={i} style={[s.cover, { overflow: "hidden" }]}><Shimmer /></View>)}
-              </ScrollView>
-
-              {game && (
-                <SectionHead
-                  title={`${GAME_LABEL[game.id] ?? game.name} sets`}
-                  sub={sets == null
-                    ? "Loading"
-                    : `${sets.length} sets · ${SET_SORTS.find((x) => x.id === setSort_)!.label.toLowerCase()}`}
-                />
-              )}
+              <View style={s.pad}>
+                <View style={{ marginTop: space.lg }}>
+                  <Segmented<Cat> options={CATS} value={cat} onChange={setCat} />
+                </View>
+                {games == null && (
+                  <View style={s.sectionHead}>
+                    <Txt variant="h2">{catTitle.title}</Txt>
+                    <Txt variant="bodySmall" color={colors.inkFaint}>Loading</Txt>
+                  </View>
+                )}
+              </View>
             </View>
           }
           ListEmptyComponent={
-            sets == null
-              ? (
-                <View style={[s.setRow, { paddingHorizontal: space.xl }]}>
-                  {[0, 1].map((i) => <View key={i} style={s.setTile}><View style={[s.setWell, { overflow: "hidden" }]}><Shimmer /></View></View>)}
-                </View>
-              )
-              : (
-                <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: space.xl }}>
-                  Sets couldn&rsquo;t be loaded. Search by name instead.
-                </Txt>
-              )
+            games == null ? (
+              <View style={{ gap: space.md }}>
+                {[0, 1, 2].map((i) => <View key={i} style={s.gridRow}><View style={{ flex: 1 }}><GameTileBone /></View><View style={{ flex: 1 }}><GameTileBone /></View></View>)}
+              </View>
+            ) : cat === "sports" ? (
+              <Empty icon="activity" title="Sports is still loading in"
+                body="The sports catalogue hasn't answered yet. Pull back in a moment — or search a player's name above." />
+            ) : (
+              <Empty icon="wifi-off" title="Couldn't load the catalogue" body="Search by card name above while it comes back." />
+            )
           }
-          renderItem={({ item, index }) => (
-            <SetTile
-              set={item}
-              fresh={setSort_ === "newest" && index < 2}
-              onPress={() => router.push(`/set/${encodeURIComponent(item.setId)}` as any)}
-            />
-          )}
+          renderItem={({ item }) =>
+            item.kind === "head" ? (
+              <View style={[s.pad, s.sectionHead]}>
+                <Txt variant="h2">{item.title}</Txt>
+                <Txt variant="bodySmall" color={colors.inkFaint}>{item.sub}</Txt>
+              </View>
+            ) : (
+              <View style={s.gridRow}>
+                {/* Each in its own flex cell: a tile sizes itself by aspect
+                    ratio, and an aspect-ratio box that is also the flex item
+                    takes its width from its content instead of the row. */}
+                {item.games.map((g) => <View key={g.id} style={{ flex: 1 }}><GameTile game={g} onPress={() => openGame(g)} /></View>)}
+                {item.games.length === 1 && <View style={{ flex: 1 }} />}
+              </View>
+            )}
         />
       ) : (
         <FlatList
           key="cards"
           {...navScroll}
           data={shown}
-          keyExtractor={(c) => c.cardId}
+          keyExtractor={(c, i) => `${c.cardId}:${i}`}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={[s.list, { paddingBottom: clearance }]}
+          contentContainerStyle={{ paddingBottom: clearance }}
           ListHeaderComponent={
             <View>
               {head}
-              {hits.length > 0 && (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}
-                  keyboardShouldPersistTaps="handled">
-                  <Chip label={`All · ${hits.length}`} on={!gameFilter} onPress={() => setGameFilter(null)} />
-                  {gamesInHits.map(([g, n]) => (
-                    <Chip key={g} label={`${GAME_LABEL[g] ?? g} · ${n}`} on={gameFilter === g}
-                      onPress={() => setGameFilter(gameFilter === g ? null : g)} />
-                  ))}
-                </ScrollView>
-              )}
               {searched && !busy && hits.length > 0 && (
-                <Txt variant="bodySmall" color={colors.inkFaint} style={s.count}>
-                  {shown.length === hits.length ? `${hits.length} cards` : `${shown.length} of ${hits.length} cards`}
-                  {rarityFilter ? ` · ${rarityFilter}` : ""}{sort === "name" ? " · A to Z" : ""}
-                </Txt>
+                <View style={s.pad}>
+                  <ActiveBar
+                    count={shown.length === hits.length ? `${hits.length} results` : `${shown.length} of ${hits.length}`}
+                    pills={[
+                      gameFilter && { label: labelOf(gameFilter), clear: () => setGameFilter(null) },
+                      rarityFilter && { label: rarityFilter, clear: () => setRarityFilter(null) },
+                      sort !== "relevance" && { label: SORT_LABEL[sort], clear: () => setSort("relevance") },
+                    ]}
+                    onOpen={() => { setOpen("game"); setSheet(true); }}
+                  />
+                </View>
               )}
             </View>
           }
           ListEmptyComponent={
-            busy ? (
-              <Loader fill />
-            ) : searched ? (
-              <View style={s.empty}>
-                <View style={s.emptyIcon}><Feather name="search" size={22} color={colors.inkFaint} /></View>
-                <Txt variant="h3" center style={{ marginTop: space.md }}>
-                  {hits.length ? "Nothing under that filter" : "No match"}
-                </Txt>
-                <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: 4 }}>
-                  {hits.length ? "Clear a filter to see the rest." : "Try the printed code on the card, or scan it instead."}
-                </Txt>
-              </View>
+            busy ? <Loader fill /> : searched ? (
+              <Empty icon="search"
+                title={hits.length ? "Nothing under that filter" : "No match"}
+                body={hits.length ? "Clear a filter to see the rest." : "Try the number printed on the card, or scan it instead."} />
             ) : null
           }
           renderItem={({ item }) => (
-            <Pressable
-              onPress={() => openCard(item.cardId)}
-              style={({ pressed }) => [s.hit, pressed && { backgroundColor: colors.surfaceSunk }]}
-            >
+            <Pressable onPress={() => openCard(item)}
+              style={({ pressed }) => [s.hit, pressed && { backgroundColor: colors.surfaceSunk }]}>
               <View style={s.hitArt}><CardArt uri={item.imageUrl} iconSize={16} /></View>
               <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
                 <Txt variant="h3" numberOfLines={1}>{item.name}</Txt>
                 <Txt variant="bodySmall" color={colors.inkMuted} numberOfLines={1}>
-                  {item.setName} · #{item.localId}
+                  {[item.setName, item.localId ? `#${item.localId}` : null].filter(Boolean).join(" · ")}
                 </Txt>
                 <View style={s.hitTags}>
-                  <Tag theme={gameTheme(item.game)}>{gameTheme(item.game).label}</Tag>
+                  <Tag theme={gameTheme(item.game)}>{labelOf(item.game)}</Tag>
                   {item.rarity && item.rarity !== "None" ? <Tag gold>{item.rarity}</Tag> : null}
                 </View>
               </View>
-              <Feather name="chevron-right" size={18} color={colors.inkFaint} />
+              {/* The ungraded price, when the catalogue publishes one for this
+                  exact card, and the "+" beside it — follow without opening. */}
+              <View style={s.hitEnd}>
+                {item.rawUsd != null
+                  ? <Txt style={s.hitPrice}>{money(item.rawUsd, { fx, from: "USD" })}</Txt>
+                  : null}
+                {item.cardId !== "market" && !sportOf(item.game) && (
+                  <FollowPlus on={quick.isFollowed(item.cardId)}
+                    onPress={() => quick.toggle({
+                      cardId: item.cardId, name: item.name, setName: item.setName,
+                      number: item.localId || null, imageUrl: item.imageUrl,
+                    })} />
+                )}
+              </View>
             </Pressable>
           )}
         />
       )}
 
-      {/* ---- the filter sheet ------------------------------------------------ */}
-      <Modal visible={sheet} transparent animationType="slide" onRequestClose={() => setSheet(false)}>
-        <Pressable style={s.backdrop} onPress={() => setSheet(false)} />
-        <View style={s.sheet}>
-          <View style={s.handle} />
-          <View style={s.sheetHead}>
-            <Txt variant="h2">Filters</Txt>
-            {filtersOn > 0 && (
-              <Pressable onPress={resetFilters} hitSlop={8}>
-                <Txt variant="label" color={colors.inkMuted}>Reset</Txt>
-              </Pressable>
-            )}
-          </View>
-
-          {/* Browsing, the game chips ARE the browse — they move the list of
-              sets underneath. Searching, they narrow the results. Same row,
-              two jobs, because in both cases "game" means the one thing on
-              screen the person is looking at. */}
-          <Txt variant="overline" color={colors.inkFaint} style={s.sheetLabel}>Game</Txt>
-          <View style={s.wrap}>
-            {!browsing && <Chip label="Any" on={!gameFilter} onPress={() => setGameFilter(null)} />}
-            {(games ?? []).map((g) => (
-              <Chip
-                key={g.id}
-                label={GAME_LABEL[g.id] ?? g.name}
-                on={browsing ? game?.id === g.id : gameFilter === g.id}
-                onPress={() => browsing
-                  ? setGame(g)
-                  : setGameFilter(gameFilter === g.id ? null : g.id)}
-              />
-            ))}
-          </View>
-
-          {!browsing && raritiesInHits.length > 0 && (
-            <>
-              <Txt variant="overline" color={colors.inkFaint} style={s.sheetLabel}>Rarity</Txt>
-              <View style={s.wrap}>
-                <Chip label="Any" on={!rarityFilter} onPress={() => setRarityFilter(null)} />
-                {raritiesInHits.map(([r, n]) => (
-                  <Chip key={r} label={`${r} · ${n}`} on={rarityFilter === r}
-                    onPress={() => setRarityFilter(rarityFilter === r ? null : r)} />
-                ))}
-              </View>
-            </>
-          )}
-
-          <Txt variant="overline" color={colors.inkFaint} style={s.sheetLabel}>
-            {browsing ? "Order sets by" : "Sort"}
-          </Txt>
-          <View style={s.wrap}>
-            {browsing
-              ? SET_SORTS.map((x) => (
-                  <Chip key={x.id} label={x.label} on={setSort_ === x.id} onPress={() => setSetSort(x.id)} />
-                ))
-              : (
+      <FilterSheet
+        visible={sheet}
+        onClose={() => setSheet(false)}
+        onReset={reset}
+        canReset={filtersOn > 0}
+        applyLabel={browsing
+          ? `Show ${shownGames.length} ${shownGames.length === 1 ? "game" : "games"}`
+          : `Show ${shown.length} ${shown.length === 1 ? "result" : "results"}`}
+      >
+        {browsing ? (
+          <>
+            <FilterGroup title="Category" value={CATS.find((c) => c.id === cat)!.title}
+              open={open === "category" || open == null} onToggle={() => setOpen(open === "category" || open == null ? "none" : "category")}>
+              {CATS.map((c) => (
+                <RadioRow key={c.id} label={c.id === "all" ? "All categories" : c.title} on={cat === c.id}
+                  onPress={() => setCat(c.id)} count={games ? counts[c.id] : undefined} />
+              ))}
+            </FilterGroup>
+            <FilterGroup title="Sort by" value={gameSort === "popular" ? "Most popular" : "A to Z"}
+              open={open === "sort"} onToggle={() => toggle("sort")}>
+              <RadioRow label="Most popular" on={gameSort === "popular"} onPress={() => setGameSort("popular")} />
+              <RadioRow label="A to Z" on={gameSort === "az"} onPress={() => setGameSort("az")} />
+            </FilterGroup>
+          </>
+        ) : (
+          <>
+            <FilterGroup title="Sort by" value={SORT_LABEL[sort]}
+              open={open === "sort" || open == null} onToggle={() => setOpen(open === "sort" || open == null ? "none" : "sort")}>
+              <RadioRow label="Best match" on={sort === "relevance"} onPress={() => setSort("relevance")} />
+              <RadioRow label="A to Z" on={sort === "name"} onPress={() => setSort("name")} />
+              {hits.some((h) => h.rawUsd != null) && (
                 <>
-                  <Chip label="Best match" on={sort === "relevance"} onPress={() => setSort("relevance")} />
-                  <Chip label="A to Z" on={sort === "name"} onPress={() => setSort("name")} />
+                  <RadioRow label="Highest price" on={sort === "dear"} onPress={() => setSort("dear")} />
+                  <RadioRow label="Lowest price" on={sort === "cheap"} onPress={() => setSort("cheap")} />
                 </>
               )}
-          </View>
-
-          <Pressable onPress={() => setSheet(false)} style={({ pressed }) => [s.apply, pressed && { opacity: 0.9 }]}>
-            <Txt variant="button" color={colors.onPrimary}>
-              {browsing
-                ? `Show ${shownSets.length} set${shownSets.length === 1 ? "" : "s"}`
-                : `Show ${shown.length} card${shown.length === 1 ? "" : "s"}`}
-            </Txt>
-          </Pressable>
-        </View>
-      </Modal>
+            </FilterGroup>
+            {gamesInHits.length > 1 && (
+              <FilterGroup title="Game" value={gameFilter ? labelOf(gameFilter) : "Any game"}
+                open={open === "game"} onToggle={() => toggle("game")}>
+                <RadioRow label="Any game" on={!gameFilter} onPress={() => { setGameFilter(null); setRarityFilter(null); }} count={hits.length} />
+                {gamesInHits.map(([g, n]) => (
+                  <RadioRow key={g} label={labelOf(g)} on={gameFilter === g} count={n}
+                    onPress={() => { setGameFilter(g); setRarityFilter(null); }} />
+                ))}
+              </FilterGroup>
+            )}
+            {raritiesInHits.length > 0 && (
+              <FilterGroup title="Rarity" value={rarityFilter ?? "Any rarity"}
+                open={open === "rarity"} onToggle={() => toggle("rarity")}>
+                <RadioRow label="Any rarity" on={!rarityFilter} onPress={() => setRarityFilter(null)} />
+                {raritiesInHits.map(([r, n]) => (
+                  <RadioRow key={r} label={r} on={rarityFilter === r} count={n} onPress={() => setRarityFilter(r)} />
+                ))}
+              </FilterGroup>
+            )}
+          </>
+        )}
+      </FilterSheet>
     </SafeAreaView>
   );
 }
 
-function SectionHead({ title, sub, action }: { title: string; sub?: string; action?: { label: string; onPress: () => void } }) {
+function Empty({ icon, title, body }: { icon: string; title: string; body: string }) {
   return (
-    <View style={s.sectionHead}>
-      <View style={{ flex: 1 }}>
-        <Txt variant="h2">{title}</Txt>
-        {sub ? <Txt variant="bodySmall" color={colors.inkFaint}>{sub}</Txt> : null}
-      </View>
-      {action && (
-        <Pressable onPress={action.onPress} hitSlop={8} style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
-          <Txt variant="label">{action.label}</Txt>
-          <Feather name="chevron-right" size={14} color={colors.ink} />
-        </Pressable>
-      )}
+    <View style={s.empty}>
+      <View style={s.emptyIcon}><Feather name={icon as never} size={22} color={colors.inkFaint} /></View>
+      <Txt variant="h3" center style={{ marginTop: space.md }}>{title}</Txt>
+      <Txt variant="bodySmall" color={colors.inkMuted} center style={{ marginTop: 4 }}>{body}</Txt>
     </View>
-  );
-}
-
-/** A game as a cover: its art filling a small poster, its name on it, and a
- *  gold ring when it is the one open below. Pokemon and Yu-Gi-Oh publish a
- *  set logo rather than a card, and a logo is shown as a logo — small, on
- *  navy — because a logo stretched to fill a poster looks like a mistake. */
-function GameCover({ game, on, onPress }: { game: BrowseGame; on: boolean; onPress: () => void }) {
-  const logo = Boolean(game.preview && /\/logo\.(png|webp)$/i.test(game.preview) || /sets\//.test(game.preview ?? ""));
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.coverWrap, pressed && { transform: [{ scale: 0.97 }] }]}>
-      <View style={[s.cover, on && s.coverOn, on && { borderColor: gameTheme(game.id).tint }]}>
-        <LinearGradient colors={["#2C3D4B", colors.dark]} style={StyleSheet.absoluteFill} />
-        {game.preview ? (
-          logo
-            ? <Image source={{ uri: game.preview }} style={s.coverLogo} resizeMode="contain" />
-            : <Image source={{ uri: game.preview }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-        ) : null}
-        <LinearGradient
-          colors={["rgba(11,22,34,0)", "rgba(11,22,34,0.9)"]}
-          locations={[0.4, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View style={s.coverFoot}>
-          <Txt variant="label" color={colors.onDark} numberOfLines={1}>{GAME_LABEL[game.id] ?? game.name}</Txt>
-          {game.sets ? <Txt style={s.coverSets}>{game.sets} sets</Txt> : null}
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-/** A set as a tile: the logo on a soft well, the name and the count under
- *  it, and a gold "New" on the two newest. White on the wash, lifted by a
- *  shadow and never by a border. */
-function SetTile({ set, fresh, onPress }: { set: SetSummary; fresh: boolean; onPress: () => void }) {
-  const facts = [
-    set.total > 0 ? `${set.total} cards` : null,
-    set.releasedAt ? set.releasedAt.slice(0, 4) : null,
-  ].filter(Boolean).join(" · ");
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.setTile, pressed && { transform: [{ scale: 0.98 }] }]}>
-      <View style={s.setWell}>
-        <LinearGradient colors={["#EEF1F5", "#FFFFFF"]} style={StyleSheet.absoluteFill} />
-        <SetLogo uri={set.logo ?? set.symbol} name={set.name} />
-        {fresh && <View style={s.fresh}><Txt style={s.freshTxt}>New</Txt></View>}
-      </View>
-      {/* Two lines, and the box is that tall whether or not it needs both.
-          Set names run long — "Extra Booster: One Piece Heroines Edition" —
-          and one line turned half this grid into an ellipsis. A fixed height
-          is what keeps the two columns level when one name wraps and the
-          one beside it does not. */}
-      <Txt variant="h3" numberOfLines={2} style={s.setName}>{set.name}</Txt>
-      {facts ? <Txt variant="bodySmall" color={colors.inkFaint} numberOfLines={1}>{facts}</Txt> : null}
-    </Pressable>
-  );
-}
-
-function SetLogo({ uri, name }: { uri: string | null; name: string }) {
-  const [failed, setFailed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const svg = Boolean(uri && /\.svg(\?|$)/i.test(uri));
-  if (!uri || failed) {
-    return <Txt variant="h2" color={colors.inkMuted}>{monogram(name)}</Txt>;
-  }
-  if (svg) return <SvgUri uri={uri} width="64%" height="64%" onError={() => setFailed(true)} />;
-  return (
-    <>
-      {!loaded && <Shimmer />}
-      <Image
-        source={{ uri }} style={s.setLogo} resizeMode="contain" key={uri}
-        onLoadEnd={() => setLoaded(true)}
-        onError={() => { setFailed(true); setLoaded(true); }}
-      />
-    </>
-  );
-}
-
-const monogram = (name: string) =>
-  name.split(/[\s:&-]+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("");
-
-function Chip({ label, on, onPress }: { label: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={({ pressed }) => [s.chip, on && s.chipOn, pressed && !on && { opacity: 0.7 }]}
-      accessibilityState={{ selected: on }}>
-      <Txt variant="label" color={on ? colors.onPrimary : colors.ink}>{label}</Txt>
-    </Pressable>
   );
 }
 
 function Tag({ children, gold, theme }: { children: string; gold?: boolean; theme?: GameTheme }) {
   return (
     <View style={[s.tag, gold && s.tagGold, theme && { backgroundColor: theme.wash }]}>
-      <Txt
-        style={[s.tagTxt, gold && { color: "#8A6D3B" }, theme && { color: theme.tint }]}
-        numberOfLines={1}
-      >
+      <Txt style={[s.tagTxt, gold && { color: "#8A6D3B" }, theme && { color: theme.tint }]} numberOfLines={1}>
         {children}
       </Txt>
     </View>
@@ -588,6 +498,7 @@ function Tag({ children, gold, theme }: { children: string; gold?: boolean; them
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.washBottom },
   head: { paddingHorizontal: space.xl, paddingTop: space.sm },
+  pad: { paddingHorizontal: space.xl },
   fieldRow: { flexDirection: "row", gap: space.sm, marginTop: space.lg },
   field: {
     flex: 1, flexDirection: "row", alignItems: "center", gap: space.md,
@@ -600,87 +511,31 @@ const s = StyleSheet.create({
     backgroundColor: colors.surface, ...shadow.card,
   },
   filterBtnOn: { backgroundColor: colors.ink },
-  filterCount: {
+  badge: {
     position: "absolute", top: -4, right: -4, minWidth: 18, height: 18, borderRadius: 9,
     backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", paddingHorizontal: 4,
   },
-  filterCountTxt: { ...type.overline, fontSize: 11, color: colors.dark },
+  badgeTxt: { ...type.overline, fontSize: 11, color: colors.dark },
 
   recent: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: space.xl, marginTop: space.md },
   recentChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radius.pill, backgroundColor: colors.field },
 
-  browse: {},
-  sectionHead: {
-    flexDirection: "row", alignItems: "flex-end", gap: space.md,
-    paddingHorizontal: space.xl, marginTop: space.xxl, marginBottom: space.md,
-  },
-  rail: { flexDirection: "row", gap: space.md, paddingHorizontal: space.xl },
+  sectionHead: { marginTop: space.xl, marginBottom: space.md },
+  gridRow: { flexDirection: "row", gap: space.md, paddingHorizontal: space.xl, marginBottom: space.md },
 
-  trend: {
-    width: 138, height: 190, borderRadius: radius.lg, overflow: "hidden",
-    backgroundColor: colors.surfaceSunk, ...shadow.card,
-  },
-  trendFoot: { position: "absolute", left: 10, right: 10, bottom: 10 },
-  trendPct: { position: "absolute", top: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3, borderRadius: radius.pill },
-  trendPctTxt: { ...type.overline, fontSize: 11, color: colors.dark, fontVariant: ["tabular-nums"] },
-
-  coverWrap: {},
-  cover: {
-    width: 104, height: 128, borderRadius: radius.md, overflow: "hidden",
-    backgroundColor: colors.dark, ...shadow.card,
-  },
-  coverOn: { borderWidth: 2.5, borderColor: colors.accent },
-  coverLogo: { position: "absolute", left: 10, right: 10, top: 18, height: 52 },
-  coverFoot: { position: "absolute", left: 10, right: 10, bottom: 9 },
-  coverSets: { ...type.overline, fontSize: 11, color: colors.onDarkMuted },
-
-  setRow: { gap: space.md, paddingHorizontal: space.xl, marginBottom: space.lg },
-  setTile: { flex: 1 },
-  setWell: {
-    aspectRatio: 1.45, borderRadius: radius.md, overflow: "hidden",
-    alignItems: "center", justifyContent: "center", padding: space.md,
-    backgroundColor: colors.surface, ...shadow.card,
-  },
-  setLogo: { width: "100%", height: "100%" },
-  setName: { marginTop: space.sm, minHeight: 42 },
-  fresh: {
-    position: "absolute", top: 8, left: 8, paddingHorizontal: 7, paddingVertical: 3,
-    borderRadius: radius.pill, backgroundColor: colors.accent,
-  },
-  freshTxt: { ...type.overline, fontSize: 10.5, color: colors.dark },
-
-  list: {},
-  chips: { flexDirection: "row", gap: 6, paddingHorizontal: space.xl, marginTop: space.md },
-  chip: {
-    paddingHorizontal: 13, paddingVertical: 8, borderRadius: radius.pill, backgroundColor: colors.field,
-  },
-  chipOn: { backgroundColor: colors.ink },
-  count: { paddingHorizontal: space.xl, marginTop: space.md },
   hit: {
     flexDirection: "row", alignItems: "center", gap: space.md,
     paddingHorizontal: space.xl, paddingVertical: space.md,
   },
   hitArt: { width: 56, height: 78, borderRadius: 7, overflow: "hidden", backgroundColor: colors.surfaceSunk, ...shadow.card },
   hitTags: { flexDirection: "row", gap: 5, marginTop: 3 },
+  hitEnd: { alignItems: "flex-end", justifyContent: "center", gap: 6, minWidth: 44 },
+  hitPrice: { ...type.button, fontSize: 14.5, color: colors.ink, fontVariant: ["tabular-nums"] },
   tag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5, backgroundColor: colors.field },
   tagGold: { backgroundColor: colors.accentWash },
   tagTxt: { ...type.overline, fontSize: 10.5, color: colors.inkMuted },
-  empty: { alignItems: "center", marginTop: space.xxxl, paddingHorizontal: space.xl },
+  empty: { alignItems: "center", marginTop: space.xxl, paddingHorizontal: space.xl },
   emptyIcon: { width: 52, height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.field },
-
-  backdrop: { flex: 1, backgroundColor: "rgba(11,22,34,0.45)" },
-  sheet: {
-    backgroundColor: colors.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: space.xl, paddingBottom: space.xxxl, paddingTop: space.sm,
-  },
-  handle: { alignSelf: "center", width: 40, height: 5, borderRadius: 3, backgroundColor: colors.lineStrong, marginBottom: space.md },
-  sheetHead: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  sheetLabel: { marginTop: space.xl, marginBottom: space.sm },
-  wrap: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  apply: {
-    height: 52, borderRadius: radius.md, backgroundColor: colors.ink,
-    alignItems: "center", justifyContent: "center", marginTop: space.xxl,
-  },
 
   certWrap: { paddingHorizontal: space.xl, paddingTop: space.xl },
   certLink: {

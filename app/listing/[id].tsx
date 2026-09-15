@@ -14,6 +14,7 @@ import { GraderBadge } from "../../components/GraderChips";
 import { VerifiedShield } from "../../components/VerifiedBadge";
 import { gradeLabel, variantLabel } from "../../lib/grading";
 import { getListing, makeOffer, num, type Listing } from "../../lib/market";
+import { offerPushAfterAction } from "../../lib/push";
 import { useSession } from "../../lib/session";
 import { useToast } from "../../components/Toast";
 import { openThread } from "../../lib/messages";
@@ -213,7 +214,10 @@ export default function ListingDetail() {
           {l.photo_verified && (
             <View style={[s.badge, { backgroundColor: colors.upWash }]}>
               <Feather name="camera" size={10} color={colors.up} />
-              <Txt variant="overline" color={colors.up} style={s.badgeTxt}>Photo verified · 10 angles</Txt>
+              {/* What was checked is that all ten angles were supplied — not
+                  the card. "Verified" next to a card reads as a claim that
+                  it is genuine, which nobody here can make (GM001-59). */}
+              <Txt variant="overline" color={colors.up} style={s.badgeTxt}>All 10 angles photographed</Txt>
             </View>
           )}
           <GraderBadge grader={l.grader ?? "RAW"} grade={l.grade} />
@@ -259,7 +263,7 @@ export default function ListingDetail() {
 
         {owner && (
           <View style={s.yours}>
-            <Icon name="verified" size={15} color={colors.accent} filled />
+            <Icon name="verified" size={15} color={colors.accentText} filled />
             <Txt variant="bodySmall" color={colors.inkMuted} style={{ flex: 1 }}>
               This is your listing.{" "}
               {typeof (l as { views?: number }).views === "number"
@@ -404,7 +408,7 @@ function OfferSheet({
     const r = await makeOffer(listingId, n, note.trim() || undefined);
     setBusy(false);
     if (r.error) toast(r.message ?? "That offer could not be sent.", { tone: "bad" });
-    else setSent(true);
+    else { setSent(true); void offerPushAfterAction(toast); }
   };
 
   return (
@@ -415,7 +419,7 @@ function OfferSheet({
           <>
             <View style={s.grab} />
             <View style={s.joinIcon}>
-              <Feather name="shield" size={22} color={colors.accent} />
+              <Feather name="shield" size={22} color={colors.accentText} />
             </View>
             <Txt variant="h1" center style={{ marginTop: space.md }}>
               Offers come from verified members

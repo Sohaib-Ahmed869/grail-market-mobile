@@ -10,6 +10,11 @@ export type Identification = {
   name?: string; setName?: string; localId?: string; rarity?: string;
   game?: string; language?: string; cardId?: string; printing?: string;
   imageUrl?: string | null; matchScore?: number; ocrName?: string;
+  /** false: the card is named but nothing on it proved WHICH printing, so no
+   *  set, number or price is asserted. Absent on exact-code matches. */
+  printingConfirmed?: boolean | null;
+  /** "printing-not-read" or "name-not-on-card" */
+  unconfirmedReason?: string | null;
 };
 
 export type ScanResult = {
@@ -26,6 +31,7 @@ export type ScanResult = {
     // Both are shown: a match is a claim, and a claim should carry its
     // evidence next to the photograph the person actually took.
     imageUrl?: string | null; matchScore?: number; ocrName?: string;
+    printingConfirmed?: boolean | null; unconfirmedReason?: string | null;
   } | null;
   rejection?: { reason?: string; hint?: string } | null;
   valuation?: {

@@ -77,7 +77,7 @@ export default function AccessLevels() {
               </View>
               <Txt variant="h2" style={s.title}>{l.name}</Txt>
               {here && (
-                <Txt variant="overline" color={colors.accent}>You are here</Txt>
+                <Txt variant="overline" color={colors.accentText}>You are here</Txt>
               )}
             </View>
             <Txt variant="bodySmall" color={colors.inkFaint} style={s.requires}>{l.requires}</Txt>

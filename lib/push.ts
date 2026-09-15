@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { forgetPush, registerPush } from "./watchlist";
 
 // Asking for permission to interrupt someone.
@@ -22,12 +23,26 @@ import { forgetPush, registerPush } from "./watchlist";
 type NotificationsModule = typeof import("expo-notifications");
 
 function load(): { N: NotificationsModule; isDevice: boolean } | null {
+  // Same shape as `lib/paste.ts`, and for the same reason.
+  //
+  // `expo-notifications` resolves a dozen native modules at IMPORT time —
+  // ExpoPushTokenManager, ExpoNotificationsEmitter and the rest each run
+  // `requireNativeModule(...)` at module scope. On a binary built before the
+  // dependency was added that throws while the module is still evaluating,
+  // early enough that the catch below never sees it, and the screen dies with
+  // "Cannot find native module 'ExpoPushTokenManager'". It took /alerts down
+  // and, because the error screen persists across navigation, every screen
+  // opened after it.
+  //
+  // `requireOptionalNativeModule` asks the same question and answers null
+  // instead of throwing, so the JS wrapper is only imported once its native
+  // half is known to be present.
+  if (!requireOptionalNativeModule("ExpoPushTokenManager")) return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const N = require("expo-notifications") as NotificationsModule;
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const Device = require("expo-device") as typeof import("expo-device");
-    return { N, isDevice: Boolean(Device.isDevice) };
+    const Device = requireOptionalNativeModule<{ isDevice?: boolean }>("ExpoDevice");
+    return { N, isDevice: Boolean(Device?.isDevice) };
   } catch {
     return null;
   }
@@ -140,3 +155,77 @@ export const pushPossible = () => {
   const mod = load();
   return Boolean(mod && mod.isDevice);
 };
+
+// ---- opening what was tapped --------------------------------------------------
+
+/** Tapping a notification opens the thing it is about.
+ *
+ *  The backend has always sent a route with each push (`data.href`, set by
+ *  `notify()`), and nothing here read it: a tap on "New offer on your
+ *  Charizard" opened the app on whatever screen it was last left on, and the
+ *  person had to find the offer themselves.
+ *
+ *  Two ways a tap arrives. With the app running, the response listener fires.
+ *  With the app closed, the tap is what LAUNCHED it, and that response is
+ *  collected once at boot — which is the case that matters most, because a
+ *  push is usually read on a locked phone. Each response is handled once, by
+ *  its identifier, so a warm start cannot replay the cold-start tap.
+ *
+ *  Only in-app routes are followed. A push that carried a full URL would
+ *  otherwise be a way to open anything from a notification. */
+export function listenForTaps(open: (href: string) => void): () => void {
+  const mod = load();
+  if (!mod) return () => {};
+  const { N } = mod;
+  const seen = new Set<string>();
+  const follow = (r: { notification: { request: { identifier: string; content: { data?: Record<string, unknown> } } } } | null) => {
+    if (!r) return;
+    const id = r.notification.request.identifier;
+    if (seen.has(id)) return;
+    seen.add(id);
+    const href = r.notification.request.content.data?.href;
+    if (typeof href === "string" && href.startsWith("/") && !href.startsWith("//")) open(href);
+  };
+  let sub: { remove: () => void } | null = null;
+  try {
+    sub = N.addNotificationResponseReceivedListener(follow);
+    N.getLastNotificationResponseAsync().then(follow).catch(() => {});
+  } catch {
+    // A build without the native half: no taps to follow.
+  }
+  return () => sub?.remove();
+}
+
+// ---- asking at the moment it is useful ----------------------------------------
+
+let offeredThisRun = false;
+const OFFERED_KEY = "push-offered";
+
+/** Offer notifications once, right after somebody does something that will
+ *  have a reply — an offer sent, a counter, an accepted deal.
+ *
+ *  That is the moment the value is obvious ("tell me when they answer") and
+ *  the ask is not a stranger's. It is offered once per install and never
+ *  again, whether it was taken or not: asking twice is nagging, and iOS only
+ *  shows its own dialog once anyway. Somebody who already has push on, or
+ *  who has refused at the OS level, is never asked. */
+export async function offerPushAfterAction(
+  toast: (text: string, opts?: { tone?: "good" | "bad" | "info"; action?: { label: string; onPress: () => void } }) => void,
+): Promise<void> {
+  if (offeredThisRun) return;
+  if ((await pushStatus()) !== "undetermined") return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const SecureStore = require("expo-secure-store") as typeof import("expo-secure-store");
+    if (await SecureStore.getItemAsync(OFFERED_KEY)) return;
+    await SecureStore.setItemAsync(OFFERED_KEY, "1");
+  } catch {
+    // No keychain (web): fall back to once per run.
+  }
+  offeredThisRun = true;
+  toast("Want to know the moment they reply?", {
+    tone: "info",
+    action: { label: "Turn on alerts", onPress: () => { void enablePush(); } },
+  });
+}
+

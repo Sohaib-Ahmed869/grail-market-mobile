@@ -63,7 +63,16 @@ export async function myTickets(): Promise<TicketSummary[]> {
 
 export async function ticket(id: string): Promise<TicketDetail | null> {
   try {
-    return await get<TicketDetail>(`/support/${encodeURIComponent(id)}`);
+    const r = await get<Partial<TicketDetail> & { error?: string }>(
+      `/support/${encodeURIComponent(id)}`,
+    );
+    // Same shape as `offersFor`: a ticket id that resolves to nothing answers
+    // 200 with an error object and no `messages` key, while the type promises
+    // an array — and `app/support/[id].tsx` maps over it unguarded. Returning
+    // null here gives that screen its not-found state instead of a render
+    // error. `myTickets` above already normalises this way.
+    if (!r || r.error || !r.ticket || !Array.isArray(r.messages)) return null;
+    return r as TicketDetail;
   } catch {
     return null;
   }
