@@ -13,6 +13,8 @@ import { gradeLabel } from "../../lib/grading";
 import { colors, radius, space, type } from "../../theme";
 import { aud } from "../../lib/fx";
 import { listingGuidance, type ListingGuidance, type NoListingGuidance } from "../../lib/cardmarket";
+import { suburbProblem } from "../../lib/suburb";
+import { useViewerPlace } from "../../lib/location";
 
 const money = (n: number) => aud(n);
 
@@ -93,10 +95,19 @@ export default function SellPrice() {
   const pick = (id: string) => { touched.current = true; setStrategy(id); };
   const [delivery, setDelivery] = useState<string[]>(["pickup"]);
   const [suburb, setSuburb] = useState(draft?.suburb ?? "");
+  // Offered from the device, never taken silently. The seller confirms it and
+  // can type something else — people list cards while away from home, and the
+  // suburb buyers should see is where the card will be handed over.
+  const { state: here, ask } = useViewerPlace();
 
   const chosen = options.find((o) => o.id === strategy);
   const price = strategy === "own" ? Number(own.replace(/[^\d.]/g, "")) : chosen?.price ?? 0;
-  const ready = price > 0 && delivery.length > 0;
+  // A suburb is required now, not optional. The card shop finder takes the
+  // seller's side of the meet-up from it, so a listing without one breaks the
+  // safety step the whole no-escrow model leans on — and a buyer browsing has
+  // no distance to judge it by. The backend refuses it either way.
+  const suburbFault = suburbProblem(suburb);
+  const ready = price > 0 && delivery.length > 0 && !suburbFault;
 
   const toggle = (d: string) =>
     setDelivery((cur) => (cur.includes(d) ? cur.filter((x) => x !== d) : [...cur, d]));
@@ -234,9 +245,27 @@ export default function SellPrice() {
         <Txt variant="label" color={colors.inkMuted}>Suburb shown to buyers</Txt>
         <TextInput
           value={suburb} onChangeText={setSuburb}
-          placeholder="Bondi Junction, NSW 2022"
+          placeholder="Bondi Junction"
           placeholderTextColor={colors.inkFaint} style={s.suburb}
         />
+        {/* The suburb only — buyers see how far away the card is, never where
+            the seller lives. Offered from the device rather than typed, and
+            the seller can overwrite it: someone selling a card is often not
+            standing at home when they list it. */}
+        {here.status === "ready" && here.place.label && here.place.label !== suburb.trim() ? (
+          <Pressable onPress={() => setSuburb(here.place.label!)}>
+            <Txt variant="bodySmall" color={colors.accentText}>
+              Use {here.place.label}
+            </Txt>
+          </Pressable>
+        ) : here.status === "undetermined" ? (
+          <Pressable onPress={ask}>
+            <Txt variant="bodySmall" color={colors.accentText}>Use my current area</Txt>
+          </Pressable>
+        ) : null}
+        <Txt variant="bodySmall" color={suburbFault ? colors.down : colors.inkFaint}>
+          {suburbFault ?? "Your suburb, not your street address."}
+        </Txt>
       </View>
 
       <View style={{ marginTop: space.lg }}>

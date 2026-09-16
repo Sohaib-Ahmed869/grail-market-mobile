@@ -130,7 +130,10 @@ export default function SellPreview() {
             <View style={{ flex: 1 }}>
               <Txt variant="h3">{session?.name ?? "You"}</Txt>
               <Txt variant="bodySmall" color={colors.inkMuted}>
-                {d.suburb ?? "Location not set"} · new member
+                {/* No "Location not set" fallback: a suburb is required before
+                    this screen is reachable, and presenting its absence as an
+                    ordinary state is what let listings go up without one. */}
+                {d.suburb ?? "Suburb missing — go back and add it"} · new member
               </Txt>
             </View>
             <View style={s.sellerVerified}>

@@ -11,6 +11,7 @@ import { SkeletonCard } from "../components/Skeleton";
 import { Txt } from "../components/Text";
 import { GraderBadge } from "../components/GraderChips";
 import { browse, num, type Listing } from "../lib/market";
+import { useViewerPlace } from "../lib/location";
 import { VARIANTS } from "../lib/grading";
 import { colors, radius, space, type } from "../theme";
 import { aud } from "../lib/fx";
@@ -56,6 +57,10 @@ const LANGUAGES = [
 const SORTS = [
   { id: "featured", label: "Featured" },
   { id: "newest", label: "Newest" },
+  // Selling here is local: no shipping by default and the meet-up is the
+  // transaction, so how far away a card is belongs beside its price. The API
+  // has served this all along; only the main browse never offered it.
+  { id: "nearest", label: "Nearest" },
   { id: "price_asc", label: "Price ↑" },
   { id: "price_desc", label: "Price ↓" },
 ];
@@ -91,6 +96,12 @@ export default function Market() {
    *  filters cannot be appended to the new list. */
   const generation = useRef(0);
 
+  // The viewer's point, sent so the server can measure distances. It is
+  // rounded to about a kilometre before it leaves the device and is never
+  // stored anywhere — see lib/location.ts and the backend's nearby.ts.
+  const { state: here, ask } = useViewerPlace();
+  const point = here.status === "ready" ? here.place : null;
+
   const query = useCallback(() => ({
     game: game || undefined,
     grader: grader ?? undefined,
@@ -102,8 +113,14 @@ export default function Market() {
     grade: grade ?? undefined,
     language: language ?? undefined,
     min: band?.min, max: band?.max,
-    sort,
-  }), [game, grader, raw, sort, q, setName, cardNumber, variant, grade, band, language]);
+    // Sent on every sort, not just "nearest": a buyer wants to see how far a
+    // card is while sorting by price too. Without a point the server simply
+    // returns no distance rather than a wrong one.
+    lat: point?.lat, lon: point?.lon,
+    // Asking to sort by distance without a location would silently fall back
+    // to the default order, which reads as the sort being broken.
+    sort: sort === "nearest" && !point ? "featured" : sort,
+  }), [game, grader, raw, sort, q, setName, cardNumber, variant, grade, band, language, point]);
 
   const load = useCallback(async (opts?: { keepRows?: boolean }) => {
     const mine = ++generation.current;
@@ -347,8 +364,14 @@ export default function Market() {
                   ? `${under ? "under" : "over"} market ${money(market)}`
                   : "no market value yet"}
               </Txt>
+              {/* Distance sits with the age because both answer the same
+                  question: is this one worth pursuing. Absent when the viewer
+                  shared no location or the suburb has not been placed yet —
+                  that reads as "we don't know", never as "right here". */}
               <Txt variant="overline" color={colors.inkFaint} style={{ marginTop: 2 }}>
-                Listed {age(item.live_at)}
+                {item.distance_km != null
+                  ? `${item.distance_km === 0 ? "Under 1 km" : `${item.distance_km} km`} away · listed ${age(item.live_at)}`
+                  : `Listed ${age(item.live_at)}`}
               </Txt>
             </Pressable>
           );
