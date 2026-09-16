@@ -212,6 +212,9 @@ export type SetDetail = SetSummary & {
      *  unpriced card would be calling them worthless. */
     rawUsd: number | null;
     rarity: string | null;
+    /** Sports only: the cheapest single copy of this player in this set on
+     *  sale now, when the server already knows it. A listing, not a value. */
+    askFrom?: { price: number; currency: string; count?: number | null } | null;
   }[];
 };
 

@@ -36,7 +36,7 @@ export function Segmented<T extends string>({
         return (
           <Pressable key={o.id} onPress={() => onChange(o.id)} style={[s.seg, on && s.segOn]}
             accessibilityRole="tab" accessibilityState={{ selected: on }}>
-            <Txt variant="label" color={on ? colors.onPrimary : colors.inkMuted} numberOfLines={1}
+            <Txt variant="label" color={on ? "#1C2733" : "#56606A"} numberOfLines={1}
               adjustsFontSizeToFit minimumFontScale={0.85} style={{ fontSize: options.length > 4 ? 13 : 13.5 }}>{o.label}</Txt>
           </Pressable>
         );
@@ -280,15 +280,19 @@ const compact = (n: number) =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}m` : n >= 10_000 ? `${Math.round(n / 1000)}k` : n.toLocaleString();
 
 const s = StyleSheet.create({
+  // The Pearl track: frosted, with the chosen option raised in white.
   track: {
-    flexDirection: "row", padding: 4, gap: 4,
-    borderRadius: radius.pill, backgroundColor: colors.field,
+    flexDirection: "row", padding: 4, gap: 4, borderRadius: 18,
+    borderWidth: 1, borderColor: "#879BA3", backgroundColor: "rgba(174,190,192,0.45)",
   },
   seg: {
-    flex: 1, height: 38, borderRadius: radius.pill, alignItems: "center", justifyContent: "center",
+    flex: 1, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center",
     paddingHorizontal: 2,
   },
-  segOn: { backgroundColor: colors.ink },
+  segOn: {
+    backgroundColor: "#F4F7F5",
+    shadowColor: "#263D4C", shadowOpacity: 0.17, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 3,
+  },
 
   game: {
     flex: 1, aspectRatio: 1.45, borderRadius: radius.lg,

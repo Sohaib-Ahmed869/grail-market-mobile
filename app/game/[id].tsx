@@ -8,9 +8,8 @@ import { BackButton } from "../../components/BackButton";
 import { Loader } from "../../components/Loader";
 import { Txt } from "../../components/Text";
 import { ActiveBar, FilterGroup, FilterSheet, RadioRow } from "../../components/FilterSheet";
-import {
-  CardCell, ProductTile, Segmented, SetTile, SetTileBone, editionName, useQuickFollow,
-} from "../../components/CatalogueTiles";
+import { ProductTile, Segmented, editionName, useQuickFollow } from "../../components/CatalogueTiles";
+import { PanelBone, PriceTile, CHECKING_LISTINGS_WHY, NOTHING_LISTED_WHY, SetSummaryPanel, toneFor } from "../../components/Pearl";
 import {
   allSets, browseGames, sealedPage, setDetail,
   type BrowseGame, type SealedGroup, type SealedProduct, type SetDetail, type SetSummary,
@@ -296,9 +295,9 @@ export default function GameScreen() {
   // Sports players mostly arrive without a picture; ask for the ones that
   // scroll into view. A ref, because FlatList refuses a viewability callback
   // that changes identity between renders.
-  const { art, want } = useSportsArt();
+  const { art, asks, want } = useSportsArt();
   const onViewable = useRef(({ viewableItems }: { viewableItems: { item: { kind: string; cards?: { cardId: string; imageUrl: string | null }[] } }[] }) => {
-    want(viewableItems.flatMap((v) => (v.item.cards ?? []).filter((c) => !c.imageUrl).map((c) => c.cardId)));
+    want(viewableItems.flatMap((v) => (v.item.cards ?? []).map((c) => c.cardId)));
   }).current;
 
   const loadedCards = useMemo(() => groups.flatMap((g) => g.cards), [groups]);
@@ -316,7 +315,7 @@ export default function GameScreen() {
   const cardRows = useMemo<Row[]>(() => {
     const rows: Row[] = [];
     const chunk = (key: string, set: SetSummary | null, list: (Card | CardHit)[]) => {
-      for (let i = 0; i < list.length; i += 3) rows.push({ kind: "row", key: `${key}:${i}`, set, cards: list.slice(i, i + 3) });
+      for (let i = 0; i < list.length; i += 2) rows.push({ kind: "row", key: `${key}:${i}`, set, cards: list.slice(i, i + 2) });
     };
     if (hits) { chunk("hits", null, hits); return rows; }
     for (const g of groups) {
@@ -342,7 +341,8 @@ export default function GameScreen() {
   };
   const toggle = (k: string) => setOpen(open === k ? null : k);
 
-  const openSet = (setId: string) => router.push(`/set/${encodeURIComponent(setId)}` as never);
+  const openSet = (setId: string) =>
+    router.push({ pathname: "/set/[setId]", params: { setId, game: id, gameName: name } } as never);
   const openCard = (cardId: string, setId?: string | null) =>
     router.push({ pathname: "/card/[id]", params: setId ? { id: cardId, set: setId } : { id: cardId } } as never);
 
@@ -499,8 +499,6 @@ export default function GameScreen() {
           key="sets"
           data={shownSets}
           keyExtractor={(x, i) => `${x.setId}:${i}`}
-          numColumns={2}
-          columnWrapperStyle={s.gridRow}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: insets.bottom + space.xxl }}
           ListHeaderComponent={head}
@@ -508,8 +506,8 @@ export default function GameScreen() {
           windowSize={7}
           ListEmptyComponent={
             sets == null ? (
-              <View style={[s.gridRow, { paddingHorizontal: space.xl }]}>
-                <SetTileBone /><SetTileBone />
+              <View style={{ paddingHorizontal: space.xl, gap: 12 }}>
+                <PanelBone /><PanelBone />
               </View>
             ) : (
               <Empty
@@ -519,12 +517,15 @@ export default function GameScreen() {
             )
           }
           renderItem={({ item, index }) => (
-            <SetTile
-              set={item}
-              fresh={setSort === "newest" && !q && !year && index < 2 && !sport}
-              tint={gameTheme(id).tint}
-              onPress={() => openSet(item.setId)}
-            />
+            <View style={{ paddingHorizontal: space.xl, marginBottom: 12 }}>
+              <SetSummaryPanel
+                set={item}
+                gameId={id}
+                eyebrow={`${(name || "").toUpperCase()}${setSort === "newest" && !q && !year && index < 2 && !sport ? " · NEW" : ""}`}
+                tone={toneFor(id)}
+                onPress={() => openSet(item.setId)}
+              />
+            </View>
           )}
         />
       ) : (
@@ -567,19 +568,24 @@ export default function GameScreen() {
               <View style={s.cardRow}>
                 {item.cards.map((c) => {
                   const hit = "setName" in c;
+                  const ask = (!hit ? (c as Card).askFrom : null) ?? asks[c.cardId] ?? null;
+                  const askKnown = (!hit && (c as Card).askFrom != null) || c.cardId in asks;
                   return (
-                    <CardCell
+                    <PriceTile
                       key={c.cardId}
                       name={c.name}
                       number={c.localId || null}
                       imageUrl={c.imageUrl ?? art[c.cardId] ?? null}
-                      rawUsd={hit ? ((c as CardHit).rawUsd ?? null) : (c as Card).rawUsd}
+                      usd={sport ? ask?.price ?? null : hit ? ((c as CardHit).rawUsd ?? null) : (c as Card).rawUsd}
+                      currency={sport ? ask?.currency ?? "USD" : "USD"}
+                      note={sport && ask?.count ? `${ask.count.toLocaleString()} listed on eBay` : null}
                       fx={fx}
+                      alt={item.cards.indexOf(c) === 1}
+                      label={sport ? "LISTED FROM" : "RAW · UNGRADED"}
+                      priceWhy={sport ? (askKnown ? NOTHING_LISTED_WHY : CHECKING_LISTINGS_WHY) : undefined}
                       onPress={() => openCard(c.cardId, hit ? (c as CardHit).setId : item.set?.setId)}
-                      // Not on sports rows: a player-in-set has no single price
-                      // for an alert to watch move.
-                      followed={sport ? undefined : quick.isFollowed(c.cardId)}
-                      onFollow={sport ? undefined : () => quick.toggle({
+                      followed={quick.isFollowed(c.cardId)}
+                      onFollow={() => quick.toggle({
                         cardId: c.cardId, name: c.name,
                         setName: hit ? (c as CardHit).setName : item.set?.name,
                         number: c.localId || null, imageUrl: c.imageUrl ?? art[c.cardId] ?? null,
@@ -588,7 +594,7 @@ export default function GameScreen() {
                   );
                 })}
                 {/* Keep the last row's cards the same width as a full row. */}
-                {Array.from({ length: 3 - item.cards.length }, (_, i) => <View key={i} style={{ flex: 1 }} />)}
+                {Array.from({ length: 2 - item.cards.length }, (_, i) => <View key={i} style={{ flex: 1 }} />)}
               </View>
             )
           }

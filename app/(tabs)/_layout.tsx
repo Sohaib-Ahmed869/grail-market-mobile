@@ -28,7 +28,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="home" options={{ title: "Home" }} />
       <Tabs.Screen name="community" options={{ title: "Community" }} />
       <Tabs.Screen name="scan" options={{ title: "Scan" }} />
-      <Tabs.Screen name="search" options={{ title: "Catalogue" }} />
+      <Tabs.Screen name="search" options={{ title: "Browse" }} />
       <Tabs.Screen name="portfolio" options={{ title: "Collection" }} />
       {/* Reachable, not a tab. Watching is one tap from Home and from the
           Collection header; profile is the avatar in the home header, which is
